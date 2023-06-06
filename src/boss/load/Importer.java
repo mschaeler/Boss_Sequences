@@ -7,7 +7,7 @@ import java.util.Arrays;
 import plus.data.*;
 
 public class Importer {
-	static final String path_prefix = "C:\\Users\\b1074672\\Nextcloud\\PLUS\\code\\BibleData";//TODO Remove upon final merge into one project
+	static final String path_prefix = "./";//TODO Remove upon final merge into one project
 	
 	public static final String AT_PATH = null;
 	public static final String JA_PATH = null;
@@ -16,23 +16,23 @@ public class Importer {
 	public static final String Vg_PATH = null;
 	public static final String VL_PATH = null;
 	//German versions below
-	public static final String LUTHER_PATH 		= path_prefix+".\\data\\de\\luther.txt";
-	public static final String ELBERFELDER_PATH = path_prefix+".\\data\\de\\elberfelder.txt";
-	public static final String NE_PATH 			= path_prefix+".\\data\\de\\ne.txt";
-	public static final String SCHLACHTER_PATH 	= path_prefix+".\\data\\de\\schlachter.txt";
-	public static final String VOLXBIBEL_PATH 	= path_prefix+".\\data\\de\\volxbibel.txt";
+	public static final String LUTHER_PATH 		= path_prefix+"data/de/luther.txt";
+	public static final String ELBERFELDER_PATH = path_prefix+"data/de/elberfelder.txt";
+	public static final String NE_PATH 			= path_prefix+"data/de/ne.txt";
+	public static final String SCHLACHTER_PATH 	= path_prefix+"data/de/schlachter.txt";
+	public static final String VOLXBIBEL_PATH 	= path_prefix+"data/de/volxbibel.txt";
 	//English versions below
-	public static final String ESV_PATH 		= path_prefix+".\\data\\en\\esv.txt";
-	public static final String KING_JAMES_PATH 	= path_prefix+".\\data\\en\\king_james_bible.txt";
+	public static final String ESV_PATH 		= path_prefix+"data/en/esv.txt";
+	public static final String KING_JAMES_PATH 	= path_prefix+"data/en/king_james_bible.txt";
 	
 	public static final String INPUT_ENCODING  = "UTF8";
-	public static final String FIELD_SEPERATOR = " ";//looks like s space, but it is not...
+	public static final String FIELD_SEPERATOR = "ï¿½";//looks like s space, but it is not...
 	
 	/**
 	 * Expected file structure:
-	 * Schlachter 2000 Esther Copyright © 2000 Genfer Bibelgesellschaft
+	 * Schlachter 2000 Esther Copyright ï¿½ 2000 Genfer Bibelgesellschaft
 	 *--1
-     *1 Und es geschah in den Tagen des Ahasveros[1] — desselben Ahasveros, der von Indien bis Äthiopien über 127 Provinzen regierte —,
+     *1ï¿½Und es geschah in den Tagen des Ahasveros[1] ï¿½ desselben Ahasveros, der von Indien bis ï¿½thiopien ï¿½ber 127 Provinzen regierte ï¿½,
 	 * @param path
 	 * @return
 	 */
