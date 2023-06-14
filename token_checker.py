@@ -33,7 +33,8 @@ def load_tsv_file(filename):
 
 
 def compare_vectors(en_token, de_token, en_data, de_data):
-    en_token_vector = en_data[en_token][2]
+    # en_token_vector = en_data[en_token][2]
+    en_token_vector = de_data[en_token][2]
     de_token_vector = de_data[de_token][2]
     cosine = np.dot(en_token_vector,de_token_vector)/(norm(en_token_vector)*norm(de_token_vector))
     print("Cosine Similarity:", cosine)
@@ -46,7 +47,7 @@ def translate():
     print(new_word)
 
 if __name__ == "__main__":
-    # en_data = load_tsv_file(EN_DATA_FILE)
-    # de_data = load_tsv_file(DE_DATA_FILE)
-    # compare_vectors("ethiopia", "kusch", en_data, de_data)
-    translate()
+    en_data = load_tsv_file(EN_DATA_FILE)
+    de_data = load_tsv_file(DE_DATA_FILE)
+    compare_vectors("zeiten", "tagen", en_data, de_data)
+    # translate()
