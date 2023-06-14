@@ -137,16 +137,20 @@ def jaccard_similarity(list1, list2):
 def plot_heatmap():
     S = "in those days when king Ahasuerus sat on his royal throne in Susa, the citadel"
     T = "That in those days, when the king Ahasuerus sat on the throne of his kingdom, which was in Shushan the palace"
-    W_S = get_windows(S, 3)
+    k = 3
+    theta = 0.3
+    W_S = get_windows(S, k)
     W_S = [" ".join(s) for s in W_S]
-    W_T = get_windows(T, 3)
+    W_T = get_windows(T, k)
     W_T = [" ".join(t) for t in W_T]
 
     A = np.zeros((len(W_S), len(W_T)))
 
     for i in range(len(W_S)):
         for j in range(len(W_T)):
-            A[i][j] = jaccard_similarity(W_S[i], W_T[j])
+            sim = jaccard_similarity(W_S[i], W_T[j])
+            if (sim >= theta):
+                A[i][j] = sim
             
     
     print(A)
