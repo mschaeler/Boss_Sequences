@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/root/Boss_Sequences/baseline/src"
+    "cmake.sourceDirectory": "/root/Boss_Sequences/baseline/src",
+    "C_Cpp.errorSquiggles": "disabled"
 }

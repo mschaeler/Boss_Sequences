@@ -37,7 +37,7 @@
 #include <omp.h>
 #include <regex>
 #include "thread_pool.hpp"
-#include "modules/timing.h"
+#include "../modules/timing.h"
 #include "hungarian-algorithm-cpp-master/Hungarian.h"
 
 // #include "hungarian-algorithm-cpp-master/Hungarian.h"

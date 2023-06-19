@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 def get_windows(s, k):
     s = s.split(" ")
+    s = [s1.strip() for s1 in s]
     return [s[i:i+k] for i in range(len(s) - (k - 1))]
 
 
@@ -163,7 +164,7 @@ def plot_heatmap():
     texts = annotate_heatmap(im, valfmt="{x:.1f}")
     fig.tight_layout()
     # plt.show()
-    plt.savefig("jaccard_heatmap.pdf")
+    plt.savefig("jaccard_heatmap.png")
     plt.cla()
     plt.clf()
 
