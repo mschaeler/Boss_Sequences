@@ -1,4 +1,4 @@
-/*
+/**
 
     Implement the baseline:
     - read the data from the txt file 
@@ -38,14 +38,26 @@
 #include <regex>
 #include "thread_pool.hpp"
 #include "../modules/timing.h"
-#include "hungarian-algorithm-cpp-master/Hungarian.h"
+#include "hungarian-algorithm-cpp/Hungarian.h"
 
-// #include "hungarian-algorithm-cpp-master/Hungarian.h"
-// #include "absl/flags/parse.h"
-// #include "absl/flags/usage.h"
-// #include "ortools/algorithms/hungarian.h"
-// #include "absl/container/flat_hash_map.h"
-// #include "modules/timing.h"
-// #include <sys/wait.h>
-// #include <oneapi/tbb.h>
+std::mutex gmtx;
+using namespace std;
+// using idx_t = faiss::Index::index_t;
 
+
+
+/**
+ * Main Function
+*/
+int main(int argc, char const *argv[]) {
+  // arguments: text1_location, text2_location, window_width, threshold, result_folder
+  string text1_location = argv[1];
+  string text2_location = argv[2];
+  int k = stoi(argv[3]);
+  double theta = stod(argv[4]);
+  string result_folder = argv[5];
+  
+  
+  
+  return 0;
+}

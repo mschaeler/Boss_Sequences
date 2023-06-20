@@ -1,7 +1,8 @@
 import os 
 import numpy as np
 from numpy.linalg import norm
-import goslate
+import sqlite3
+from sqlite3 import Error
 
 EN_DATA_FILE = "./data/en/matches.en.min.tsv"
 DE_DATA_FILE = "./data/de/matches.de.min.tsv"
@@ -25,7 +26,7 @@ def load_tsv_file(filename):
         syn_token = l[1]
         syn_score = float(l[2])
         vector = np.array([float(v) for v in l[3:]])
-        data[syn_token] = [token, syn_score, vector / norm(vector)]
+        data[syn_token] = [token, syn_score, vector]
     
     # print(data["ahasuerus"])
     return data
@@ -40,14 +41,36 @@ def compare_vectors(en_token, de_token, en_data, de_data):
     print("Cosine Similarity:", cosine)
 
 
+def data_to_db(data):
+    endb = "/root/vectors.sqlite3"
+    conn = None
+    try:
+        conn = sqlite3.connect(endb)
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS de_vectors(word varchar(100), vec blob, idx int)
+        ''')
+        i = 0
+        for k, v in data.items():
+            word = k
+            vector = v[2]
+            c.execute("INSERT INTO de_vectors(word, vec, idx) VALUES(?,?,?)", (word, sqlite3.Binary(vector), i))
+            conn.commit()
+            i += 1
 
-def translate():
-    gs = goslate.Goslate()
-    new_word = gs.translate('provinzen', 'en')
-    print(new_word)
+        conn.commit()
+    except Error as e:
+        print(e)
+    
+    finally:
+        if conn:
+            conn.close()
+
+
 
 if __name__ == "__main__":
-    en_data = load_tsv_file(EN_DATA_FILE)
+    # en_data = load_tsv_file(EN_DATA_FILE)
     de_data = load_tsv_file(DE_DATA_FILE)
-    compare_vectors("zeiten", "tagen", en_data, de_data)
+    # compare_vectors("zeiten", "tagen", en_data, de_data)
     # translate()
+    data_to_db(de_data)
