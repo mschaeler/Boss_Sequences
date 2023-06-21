@@ -46,6 +46,25 @@ namespace fs = std::filesystem;
 // using idx_t = faiss::Index::index_t;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
 
+vector<set<int>> slidingWindows(set<int> tokens, int k) {
+	vector<set<int>> windows;
+	if (tokens.empty() || k<= 0 || k > tokens.size()) {
+		return windows;
+	}
+
+	auto it = tokens.begin();
+	set<int> currentWindow(it, next(it, k));
+	windows.push_back(currentWindow);
+
+	while (next(it, k) != tokens.end()) {
+		currentWindow.erase(*it);
+		currentWindow.insert(*next(it, k));
+		windows.push_back(currentWindow);
+		++it;
+	}
+	return windows;
+}
+
 /**
  * Environment
 */
@@ -63,10 +82,12 @@ class Environment {
 		std::unordered_map<string, int> set2int;
 		int text1_average_cardinality = 0;
 		int text2_average_cardinality = 0;
+		int k;
 		
 	public:
-		Environment(string text1location, string text2location, int size) {
+		Environment(string text1location, string text2location, int windowWidth) {
 			cout << "creating environment with lakes: " << text1location << ", " << text2location << endl;
+			int k = windowWidth;
 			vector<string> text1_files;
 			vector<string> text2_files;
 			int id = 0;
@@ -103,6 +124,7 @@ class Environment {
 								sets[sid].insert(id);
 								std::set<int> nset = {sid};
 								invertedIndex.push_back(nset);
+								id += 1;
 							} else {
 								sets[sid].insert(word2int[line]);
 								invertedIndex[word2int[line]].insert(sid);
@@ -121,7 +143,6 @@ class Environment {
 				set2int[f] = sid;
 				int2set[sid] = f;
 				text2sets.insert(sid);
-				string line;
 				ifstream infile(f);
 				if (infile.is_open()) {
 					string line;
@@ -136,6 +157,7 @@ class Environment {
 								sets[sid].insert(id);
 								std::set<int> nset = {sid};
 								invertedIndex.push_back(nset);
+								id += 1;
 							} else {
 								sets[sid].insert(word2int[line]);
 								invertedIndex[word2int[line]].insert(sid);
@@ -152,6 +174,14 @@ class Environment {
 
 		std::unordered_map<int, set<int>> getSets() {
 			return sets;
+		}
+
+		std::unordered_map<int, vector<set<int>>> computeSlidingWindows() {
+			std::unordered_map<int, vector<set<int>>> windows;
+			for (auto i = sets.begin(); i != sets.end(); i++) {
+				windows[i->first] = slidingWindows(i->second, k);
+			}
+			return windows;
 		}
 
 		std::unordered_set<int> getWordSet() {
@@ -192,6 +222,14 @@ class Environment {
 
 		string getSetName(int i) {
 			return int2set[i];
+		}
+
+		set<int> getText1SetIds() {
+			return text1sets;
+		}
+
+		set<int> getText2SetIds() {
+			return text2sets;
 		}
 };
 
@@ -447,18 +485,107 @@ class Database {
 		}
 };
 
+
+class AMatrix {
+	private:
+		int width;
+		int height;
+		double* data; // double* matrix 1-D representation of a matrix: matrix[i + j*width] = matrix[i][j].. matrix[width*height]... delete [] matrix;
+		vector<set<int>> set1Windows;
+		vector<set<int>> set2Windows;
+		unordered_map<size_t, double> validEdges;
+		double theta;
+	
+	public:
+		AMatrix(vector<set<int>> Ws, vector<set<int>> Wt, unordered_map<size_t, double> validedges, double threshold) {
+			width = Ws.size();
+			height = Wt.size();
+			set1Windows = Ws;
+			set2Windows = Wt;
+			validEdges = validedges;
+			theta = threshold;
+			data = new double[width * height];
+		}
+
+		void computeAlignment() {
+
+		}
+
+		double getMatrixValue(int row, int col) {
+			return data[row + col * width];
+		}
+
+		void setMatrixValue(int row, int col, double value) {
+			data[row + col * width] = value;
+		}
+
+};
+
+
+void baseline(Environment *env, Database *db, int k, double theta) {
+
+	std::unordered_map<int, set<int>> sets = env->getSets(); // all sets stored as key: set integer id, value: set data (int token integer ids)
+	std::unordered_set<int> wordSet = env->getWordSet(); // all unique tokens in copora
+	vector<set<int>> invertedIndex = env->getInvertedIndex(); // inverted index that returns all sets containing given token
+	vector<int> dictionary = db->get_dictionary(); // vectors database instance
+	set<int> text1Sets = env->getText1SetIds();
+	set<int> text2Sets = env->getText2SetIds();
+	std::mutex gmtx_internal;
+
+	double numberOfGraphMatchingComputed = 0;
+	
+	std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
+	std::unordered_map<int, vector<set<int>>> kWidthWindows = env->computeSlidingWindows(); // setID --> sliding windows
+
+	// @todo: populate valid edges, by computing the pairwise cosine similarity between all tokens of the environment
+	std::unordered_map<size_t, double> validedges;
+
+	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
+	for (int set1Id : text1Sets) {
+		vector<set<int>> set1Windows = kWidthWindows[set1Id];
+		for (int set2Id : text2Sets) {
+			vector<set<int>> set2Windows = kWidthWindows[set2Id];
+			// compute the alignment matrix if not computed previously
+			if (results.find(key(set1Id, set2Id)) == results.end()) {
+				AMatrix *A = new AMatrix(set1Windows, set2Windows, validedges, theta);
+				A->computeAlignment();
+				results[key(set1Id, set2Id)] = A;
+			}
+		}
+		
+	}
+}
+
 /**
- * Main Function
+ * Main Function : Entry Point
 */
 int main(int argc, char const *argv[]) {
-  // arguments: text1_location, text2_location, window_width, threshold, result_folder
-  string text1_location = argv[1];
-  string text2_location = argv[2];
-  int k = stoi(argv[3]);
-  double theta = stod(argv[4]);
-  string result_folder = argv[5];
-  
-  
-  
-  return 0;
+
+  	// arguments: text1_location, text2_location, window_width, threshold, result_folder, database location
+	string text1_location = argv[1];
+	string text2_location = argv[2];
+	int k = stoi(argv[3]);
+	double theta = stod(argv[4]);
+	string result_folder = argv[5];
+	string database_path = argv[6];	
+
+	double envtime = 0.0;
+	double invertedIndexSize = 0;
+	std::chrono::time_point<std::chrono::high_resolution_clock> envstart, envend;
+	std::chrono::duration<double> envlapsed;
+	envstart = std::chrono::high_resolution_clock::now();
+	Environment *env = new Environment(text1_location, text2_location, k);
+	envend = std::chrono::high_resolution_clock::now();
+	envlapsed = envend - envstart;
+	envtime = envlapsed.count();
+
+	vector<set<int>> invertedIndex = env->getInvertedIndex();
+	for (set<int> f : invertedIndex) {
+		invertedIndexSize += f.size();
+	}
+	invertedIndexSize += invertedIndex.size();
+	cout << "Inverted Index Size: " << invertedIndexSize << endl;
+	Database *db = new Database(database_path, env);
+	cout << "Words: " << env->getWordSet().size() << endl;
+	return 0;
 }
