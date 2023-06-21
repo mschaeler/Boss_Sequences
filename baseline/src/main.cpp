@@ -5,6 +5,11 @@
     - read the vectors for each token
     - solve the sliding window bipartite graph matching 
       to compute the alignment matrix 
+
+	@todo:
+		- implement the Faiss Index for efficient search
+		- update the valid edges
+		- implement the AMatrix->computeAlignment()
 */
 
 #include <iostream>
