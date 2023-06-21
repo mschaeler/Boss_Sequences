@@ -42,6 +42,7 @@
 
 std::mutex gmtx;
 using namespace std;
+namespace fs = std::filesystem;
 // using idx_t = faiss::Index::index_t;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
 
@@ -49,8 +50,150 @@ inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // 
  * Environment
 */
 
-class Environment {};
+class Environment {
+	private:
+		std::unordered_map<int, set<int>> sets;
+		set<int> text1sets;
+		set<int> text2sets;
+		std::unordered_set<int> wordSet;
+		vector<set<int>> invertedIndex;
+		std::unordered_map<int, string> int2word;
+		std::unordered_map<string, int> word2int;
+		std::unordered_map<int, string> int2set;
+		std::unordered_map<string, int> set2int;
+		int text1_average_cardinality = 0;
+		int text2_average_cardinality = 0;
+		
+	public:
+		Environment(string text1location, string text2location, int size) {
+			cout << "creating environment with lakes: " << text1location << ", " << text2location << endl;
+			vector<string> text1_files;
+			vector<string> text2_files;
+			int id = 0;
+			int tokens = 0;
+			int sid = 0;
+			for (const auto &entry: fs::directory_iterator(text1location)) {
+				text1_files.push_back(entry.path());
+			}
 
+			for (const auto &entry: fs::directory_iterator(text2location)) {
+				text2_files.push_back(entry.path());
+			}
+
+			cout << text1_files.size() << " text1_files listed" << endl;
+			cout << text2_files.size() << " text2_files listed" << endl;
+
+			for (size_t i = 0; i < text1_files.size(); ++i) {
+				string f = text1_files[i];
+				set2int[f] = sid;
+				int2set[sid] = f;
+				text1sets.insert(sid);
+				string line;
+				ifstream infile(f);
+				if (infile.is_open()) {
+					string line;
+					while (getline(infile, line)) {
+						tokens += 1;
+						line.erase(line.find_last_not_of(" \n\r\t")+1);
+						if (line.size() > 0) {
+							if (word2int.find(line) == word2int.end()) {
+								word2int[line] = id;
+								wordSet.insert(id);
+								int2word[id] = line;
+								sets[sid].insert(id);
+								std::set<int> nset = {sid};
+								invertedIndex.push_back(nset);
+							} else {
+								sets[sid].insert(word2int[line]);
+								invertedIndex[word2int[line]].insert(sid);
+							}
+						}
+					}
+				}
+				sid += 1;
+			}
+			int text1_tokens = tokens;
+			int text1_sets = sets.size();
+			text1_average_cardinality = text1_tokens / text1_sets;
+
+			for (size_t i = 0; i < text2_files.size(); ++i) {
+				string f = text1_files[i];
+				set2int[f] = sid;
+				int2set[sid] = f;
+				text2sets.insert(sid);
+				string line;
+				ifstream infile(f);
+				if (infile.is_open()) {
+					string line;
+					while (getline(infile, line)) {
+						tokens += 1;
+						line.erase(line.find_last_not_of(" \n\r\t")+1);
+						if (line.size() > 0) {
+							if (word2int.find(line) == word2int.end()) {
+								word2int[line] = id;
+								wordSet.insert(id);
+								int2word[id] = line;
+								sets[sid].insert(id);
+								std::set<int> nset = {sid};
+								invertedIndex.push_back(nset);
+							} else {
+								sets[sid].insert(word2int[line]);
+								invertedIndex[word2int[line]].insert(sid);
+							}
+						}
+					}
+				}
+				sid += 1;
+			}
+
+			text2_average_cardinality = (tokens - text1_tokens) / (sets.size() - text1_sets);
+
+		}
+
+		std::unordered_map<int, set<int>> getSets() {
+			return sets;
+		}
+
+		std::unordered_set<int> getWordSet() {
+			return wordSet;
+		}
+
+		vector<set<int>> getInvertedIndex() {
+			return invertedIndex;
+		}
+
+		int getText1Avg() {
+			return text1_average_cardinality;
+		}
+
+		int getText2Avg() {
+			return text2_average_cardinality;
+		}
+
+		int toInt(string t) {
+			if (word2int.find(t) == word2int.end()) {
+				return -1;
+			} else {
+				return word2int[t];
+			}
+		}
+
+		string toWord(int i) {
+			return int2word[i];
+		}
+
+		int getSetId(string s) {
+			if (set2int.find(s) == set2int.end()) {
+				return -1;
+			} else {
+				return set2int[s];
+			}
+		}
+
+		string getSetName(int i) {
+			return int2set[i];
+		}
+};
 
 
 /**
@@ -242,9 +385,9 @@ class Database {
 			string token = env->toWord(tokenid);
 			int rc;
 			stringstream ss;
-			ss << "SELECT vec FROM wv WHERE word=\"" << token << "\";";
+			ss << "SELECT vec FROM en_vectors WHERE word=\"" << token << "\";";
 			string query = ss.str();
-			string querybase = "SELECT vec FROM wv WHERE word=?;";
+			string querybase = "SELECT vec FROM en_vectors WHERE word=?;";
 			sqlite3_stmt *stmt = NULL;
 			rc = sqlite3_prepare(db, querybase.c_str(), -1, &stmt, NULL);
 			rc = sqlite3_bind_text(stmt, 1, token.c_str(), -1, SQLITE_TRANSIENT);
@@ -270,7 +413,7 @@ class Database {
 			vector<vector<float>> result;
 			int rc;
 			stringstream ss;
-			ss << "SELECT word, vec FROM wv;";
+			ss << "SELECT word, vec FROM en_vectors;";
 			string query = ss.str();
 			sqlite3_stmt *stmt = NULL;
 			rc = sqlite3_prepare(db, query.c_str(), -1, &stmt, NULL);
