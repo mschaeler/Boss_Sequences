@@ -38,7 +38,7 @@
 #include <regex>
 #include "thread_pool.hpp"
 #include "../modules/timing.h"
-// #include "./hungarian-algorithm-cpp/Hungarian.h"
+#include "./hungarian-algorithm-cpp-master/Hungarian.h"
 
 std::mutex gmtx;
 using namespace std;
