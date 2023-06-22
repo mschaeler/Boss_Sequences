@@ -1,6 +1,6 @@
-And
-Parshandatha
 and
-Dalphon
+parshandatha
 and
-Aspatha
+dalphon
+and
+aspatha

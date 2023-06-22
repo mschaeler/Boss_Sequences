@@ -1,4 +1,4 @@
-All
+all
 the
 king
 servants
@@ -58,7 +58,7 @@ he
 may
 live
 but
-I
+i
 have
 not
 been

@@ -1,4 +1,4 @@
-All
+all
 the
 kings
 servants
@@ -53,11 +53,11 @@ that
 he
 may
 live
-But
+but
 as
 for
 me
-I
+i
 have
 not
 been

@@ -1,4 +1,4 @@
-For
+for
 the
 queens
 behavior
@@ -22,11 +22,11 @@ since
 they
 will
 say
-King
-Ahasuerus
+king
+ahasuerus
 commanded
-Queen
-Vashti
+queen
+vashti
 to
 be
 brought

@@ -43,7 +43,7 @@ def write_data(data, outfolder):
             f = file_name.format(k, idx+1)
             with open(os.path.join(outfolder, f), 'w') as out:
                 for word in v1:
-                    out.write('{0}\n'.format(word))
+                    out.write('{0}\n'.format(word.lower()))
             out.close()
 
 
@@ -51,7 +51,7 @@ def write_data(data, outfolder):
 
 
 if __name__ == "__main__":
-    fileloc = "./data/en/esv.txt"
+    fileloc = "./data/en/king_james_bible.txt"
     data = load_data(fileloc)
-    outfolder ="./data/en/esv/"
+    outfolder ="./data/en/king_james_bible/"
     write_data(data, outfolder)

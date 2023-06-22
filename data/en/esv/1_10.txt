@@ -1,4 +1,4 @@
-On
+on
 the
 seventh
 day
@@ -14,15 +14,15 @@ with
 wine
 he
 commanded
-Mehuman
-Biztha
-Harbona
-Bigtha
+mehuman
+biztha
+harbona
+bigtha
 and
-Abagtha
-Zethar
+abagtha
+zethar
 and
-Carkas
+carkas
 the
 seven
 eunuchs
@@ -32,5 +32,5 @@ in
 the
 presence
 of
-King
-Ahasuerus
+king
+ahasuerus

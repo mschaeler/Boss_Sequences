@@ -1,4 +1,4 @@
-Then
+then
 the
 kings
 scribes
@@ -19,7 +19,7 @@ according
 to
 all
 that
-Haman
+haman
 commanded
 was
 written
@@ -57,15 +57,15 @@ in
 its
 own
 language
-It
+it
 was
 written
 in
 the
 name
 of
-King
-Ahasuerus
+king
+ahasuerus
 and
 sealed
 with

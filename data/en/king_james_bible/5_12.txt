@@ -1,8 +1,8 @@
-Haman
+haman
 said
 moreover
-Yea
-Esther
+yea
+esther
 the
 queen
 did
@@ -27,7 +27,7 @@ and
 to
 morrow
 am
-I
+i
 invited
 unto
 her

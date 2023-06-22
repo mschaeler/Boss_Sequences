@@ -6,8 +6,8 @@ all
 the
 provinces
 of
-King
-Ahasuerus
+king
+ahasuerus
 on
 the
 thirteenth
@@ -21,4 +21,4 @@ is
 the
 month
 of
-Adar
+adar

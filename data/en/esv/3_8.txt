@@ -1,10 +1,10 @@
-Then
-Haman
+then
+haman
 said
 to
-King
-Ahasuerus
-There
+king
+ahasuerus
+there
 is
 a
 certain
@@ -23,7 +23,7 @@ provinces
 of
 your
 kingdom
-Their
+their
 laws
 are
 different

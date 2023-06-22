@@ -426,6 +426,7 @@ class Database {
 		vector<float> get_normalized_vector(int tokenid){
 			vector<float> result;
 			string token = env->toWord(tokenid);
+			cout << token << endl;
 			int rc;
 			stringstream ss;
 			ss << "SELECT vec FROM en_vectors WHERE word=\"" << token << "\";";
@@ -611,7 +612,7 @@ class AMatrix {
 };
 
 
-void baseline(Environment *env, Database *db, int k, double theta) {
+void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, double theta) {
 
 	std::unordered_map<int, set<int>> sets = env->getSets(); // all sets stored as key: set integer id, value: set data (int token integer ids)
 	std::unordered_set<int> wordSet = env->getWordSet(); // all unique tokens in copora
@@ -628,6 +629,22 @@ void baseline(Environment *env, Database *db, int k, double theta) {
 
 	// @todo: populate valid edges, by computing the pairwise cosine similarity between all tokens of the environment
 	std::unordered_map<size_t, double> validedges;
+	// for all tokens between the two texts, do a faiss similarity search and cache the edges
+	int nq = 0;
+	vector<float> vxq;
+	for (auto it = wordSet.begin(); it != wordSet.end(); it++) {
+		int tq = *it;
+		if (std::find(dictionary.begin(), dictionary.end(), tq) == dictionary.end()) {
+			validedges[key(tq, tq)] = 1.0;
+		} else {
+			vector<float> vec = db->get_normalized_vector(tq);
+			if (vec.size() == 0) {
+				cerr << "Vector should not be empty" << endl;
+			}
+			vxq.insert(vxq.end(), vec.begin(), vec.end());
+			nq += 1;
+		}
+	}
 
 	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
 	for (int set1Id : text1Sets) {
@@ -660,13 +677,17 @@ int main(int argc, char const *argv[]) {
 
 	double envtime = 0.0;
 	double invertedIndexSize = 0;
-	std::chrono::time_point<std::chrono::high_resolution_clock> envstart, envend;
-	std::chrono::duration<double> envlapsed;
+	double faiss_time = 0.0;
+
+	std::chrono::time_point<std::chrono::high_resolution_clock> envstart, envend, faiss_start, faiss_end;
+	std::chrono::duration<double> envlapsed, faiss_elapsed;
 	envstart = std::chrono::high_resolution_clock::now();
 	Environment *env = new Environment(text1_location, text2_location, k);
 	envend = std::chrono::high_resolution_clock::now();
 	envlapsed = envend - envstart;
 	envtime = envlapsed.count();
+
+	
 
 	vector<set<int>> invertedIndex = env->getInvertedIndex();
 	for (set<int> f : invertedIndex) {
@@ -676,5 +697,14 @@ int main(int argc, char const *argv[]) {
 	cout << "Inverted Index Size: " << invertedIndexSize << endl;
 	Database *db = new Database(database_path, env);
 	cout << "Words: " << env->getWordSet().size() << endl;
+
+
+	faiss_start = std::chrono::high_resolution_clock::now();
+	FaissIndexCPU *faissIndex = new FaissIndexCPU("./", db, env->getWordSet());
+	faiss_end = std::chrono::high_resolution_clock::now();
+	faiss_elapsed = faiss_end - faiss_start;
+	faiss_time = faiss_elapsed.count();
+
+	baseline(env, db, faissIndex, k, theta);
 	return 0;
 }

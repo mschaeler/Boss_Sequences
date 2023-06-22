@@ -1,5 +1,5 @@
-Queen
-Vashti
+queen
+vashti
 also
 gave
 a
@@ -13,5 +13,5 @@ palace
 that
 belonged
 to
-King
-Ahasuerus
+king
+ahasuerus

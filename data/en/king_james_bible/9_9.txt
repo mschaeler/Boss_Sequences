@@ -1,8 +1,8 @@
-And
-Parmashta
 and
-Arisai
+parmashta
 and
-Aridai
+arisai
 and
-Vajezatha
+aridai
+and
+vajezatha

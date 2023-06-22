@@ -1,7 +1,7 @@
 the
 king
 loved
-Esther
+esther
 more
 than
 all
@@ -37,4 +37,4 @@ her
 queen
 instead
 of
-Vashti
+vashti

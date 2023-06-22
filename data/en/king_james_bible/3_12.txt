@@ -1,4 +1,4 @@
-Then
+then
 were
 the
 king
@@ -20,7 +20,7 @@ according
 to
 all
 that
-Haman
+haman
 had
 commanded
 unto
@@ -63,7 +63,7 @@ the
 name
 of
 king
-Ahasuerus
+ahasuerus
 was
 it
 written

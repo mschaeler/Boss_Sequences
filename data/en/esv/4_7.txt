@@ -1,5 +1,5 @@
 and
-Mordecai
+mordecai
 told
 him
 all
@@ -15,7 +15,7 @@ sum
 of
 money
 that
-Haman
+haman
 had
 promised
 to
@@ -29,4 +29,4 @@ the
 destruction
 of
 the
-Jews
+jews

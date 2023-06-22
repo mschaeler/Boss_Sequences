@@ -1,10 +1,10 @@
-Then
+then
 the
 king
 said
 to
-Haman
-Make
+haman
+make
 haste
 and
 take
@@ -22,9 +22,9 @@ do
 even
 so
 to
-Mordecai
+mordecai
 the
-Jew
+jew
 that
 sitteth
 at
