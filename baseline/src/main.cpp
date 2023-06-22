@@ -53,7 +53,7 @@ inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // 
 
 vector<set<int>> slidingWindows(set<int> tokens, int k) {
 	vector<set<int>> windows;
-	if (tokens.empty() || k<= 0 || k > tokens.size()) {
+	if (tokens.empty() || k <= 0 || k > tokens.size()) {
 		return windows;
 	}
 
@@ -87,12 +87,12 @@ class Environment {
 		std::unordered_map<string, int> set2int;
 		int text1_average_cardinality = 0;
 		int text2_average_cardinality = 0;
-		int k;
+		// int k = 0;
 		
 	public:
-		Environment(string text1location, string text2location, int windowWidth) {
+		Environment(string text1location, string text2location) {
 			cout << "creating environment with lakes: " << text1location << ", " << text2location << endl;
-			int k = windowWidth;
+			// int k = windowWidth;
 			vector<string> text1_files;
 			vector<string> text2_files;
 			int id = 0;
@@ -181,10 +181,10 @@ class Environment {
 			return sets;
 		}
 
-		std::unordered_map<int, vector<set<int>>> computeSlidingWindows() {
+		std::unordered_map<int, vector<set<int>>> computeSlidingWindows(int windowWidth) {
 			std::unordered_map<int, vector<set<int>>> windows;
 			for (auto i = sets.begin(); i != sets.end(); i++) {
-				windows[i->first] = slidingWindows(i->second, k);
+				windows[i->first] = slidingWindows(i->second, windowWidth);
 			}
 			return windows;
 		}
@@ -690,15 +690,15 @@ class AMatrix {
 		int width;
 		int height;
 		double* data; // double* matrix 1-D representation of a matrix: matrix[i + j*width] = matrix[i][j].. matrix[width*height]... delete [] matrix;
-		vector<set<int>> set1Windows;
-		vector<set<int>> set2Windows;
+		vector<set<int>> *set1Windows;
+		vector<set<int>> *set2Windows;
 		unordered_map<size_t, double> validEdges;
 		double theta;
 	
 	public:
-		AMatrix(vector<set<int>> Ws, vector<set<int>> Wt, unordered_map<size_t, double> validedges, double threshold) {
-			width = Ws.size();
-			height = Wt.size();
+		AMatrix(vector<set<int>>* Ws, vector<set<int>>* Wt, unordered_map<size_t, double> validedges, double threshold) {
+			width = Ws->size();
+			height = Wt->size();
 			set1Windows = Ws;
 			set2Windows = Wt;
 			validEdges = validedges;
@@ -707,12 +707,16 @@ class AMatrix {
 		}
 
 		void computeAlignment() {
-			for (int i = 0; i < set1Windows.size(); i++) {
-				for (int j = 0; j < set2Windows.size(); j++) {
-					set<int> set1_tokens = set1Windows[i];
-					set<int> set2_tokens = set2Windows[j];
+			for (int i = 0; i < set1Windows->size(); ++i) {
+				for (int j = 0; j < set2Windows->size(); ++j) {
+					set<int> set1_tokens = set1Windows->at(i);
+					set<int> set2_tokens = set2Windows->at(j);
+
 					ValidMatrix *m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
-					data[i + j*width] = m->solveQ(set1_tokens.size());
+					cout << "here" << endl;
+					double sim = m->solveQ(set1_tokens.size());
+					cout << sim << endl;
+					data[i + j*width] = sim;
 				}
 			}
 		}
@@ -741,7 +745,7 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 	double numberOfGraphMatchingComputed = 0;
 	
 	std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
-	std::unordered_map<int, vector<set<int>>> kWidthWindows = env->computeSlidingWindows(); // setID --> sliding windows
+	std::unordered_map<int, vector<set<int>>> kWidthWindows = env->computeSlidingWindows(k); // setID --> sliding windows
 
 	// @todo: populate valid edges, by computing the pairwise cosine similarity between all tokens of the environment
 	std::unordered_map<size_t, double> validedges;
@@ -789,7 +793,7 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 			vector<set<int>> set2Windows = kWidthWindows[set2Id];
 			// compute the alignment matrix if not computed previously
 			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				AMatrix *A = new AMatrix(set1Windows, set2Windows, validedges, theta);
+				AMatrix *A = new AMatrix(&set1Windows, &set2Windows, validedges, theta);
 				A->computeAlignment();
 				results[key(set1Id, set2Id)] = A;
 			}
@@ -807,6 +811,7 @@ int main(int argc, char const *argv[]) {
 	string text1_location = argv[1];
 	string text2_location = argv[2];
 	int k = stoi(argv[3]);
+	cout << "Window Width: " << k << endl;
 	double theta = stod(argv[4]);
 	string result_folder = argv[5];
 	string database_path = argv[6];	
@@ -818,7 +823,7 @@ int main(int argc, char const *argv[]) {
 	std::chrono::time_point<std::chrono::high_resolution_clock> envstart, envend, faiss_start, faiss_end;
 	std::chrono::duration<double> envlapsed, faiss_elapsed;
 	envstart = std::chrono::high_resolution_clock::now();
-	Environment *env = new Environment(text1_location, text2_location, k);
+	Environment *env = new Environment(text1_location, text2_location);
 	envend = std::chrono::high_resolution_clock::now();
 	envlapsed = envend - envstart;
 	envtime = envlapsed.count();
