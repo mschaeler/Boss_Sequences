@@ -426,7 +426,7 @@ class Database {
 		vector<float> get_normalized_vector(int tokenid){
 			vector<float> result;
 			string token = env->toWord(tokenid);
-			cout << token << endl;
+			// cout << token << endl;
 			int rc;
 			stringstream ss;
 			ss << "SELECT vec FROM en_vectors WHERE word=\"" << token << "\";";
@@ -634,6 +634,7 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 	vector<float> vxq;
 	for (auto it = wordSet.begin(); it != wordSet.end(); it++) {
 		int tq = *it;
+		// handle out of dictionary words
 		if (std::find(dictionary.begin(), dictionary.end(), tq) == dictionary.end()) {
 			validedges[key(tq, tq)] = 1.0;
 		} else {
@@ -645,6 +646,25 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 			nq += 1;
 		}
 	}
+	// get the k nearest neighbours for each word, here set k = nq. 
+	// @todo: change to range search with radius = theta
+	tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, nq);
+	vector<idx_t> I = std::get<0>(rt);
+	vector<float> D = std::get<1>(rt);
+	int cur = 0;
+	for (vector<idx_t>::iterator it = I.begin(); it != I.end(); it++) {
+		int tq_cur = I[cur - (cur % nq)];
+		int tq = dictionary[tq_cur];
+		int word = dictionary[*it];
+		float fsim = D[cur];
+		double sim = static_cast<double>(fsim);
+		if (sim >= 0.1) {
+			validedges[key(tq, word)] = sim;
+		}
+		cur += 1;
+	}
+
+	cout << validedges.size() << endl;
 
 	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
 	for (int set1Id : text1Sets) {
