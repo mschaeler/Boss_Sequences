@@ -576,6 +576,115 @@ class FaissIndexCPU {
 
 };
 
+/**
+* BIPARTITE GRAPH MATRIX
+*/
+class ValidMatrix {
+	private:
+		vector<vector<double>> M; // the matrix
+		vector<vector<pair<int, int>>> M_tokens; // the matrix of tokens
+		vector<int> non_exact_token_indices;
+		vector<int> assignment_internal;
+		int matching;
+		int realsize;
+	public:
+		// building a valid matrix with query set and target set and valid edges valid edges stand 
+        // for edges popped from the monotonically decreasing priority queue by edge weights 
+        // (cosine similarity) by leveraging valid edges, we save computing resources by do not 
+        // have to re-calculate cosine similarity for edges retrieved from the Faiss index (which is expensive)
+		ValidMatrix(set<int> query_set, set<int> target_set, std::unordered_map<size_t, double> validedge) {
+			int i = 0;
+			set<int> query_set_pruned;
+			set<int> target_set_pruned;
+			matching = min(query_set.size(), target_set.size());
+			for(set<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
+				vector<double> temp;
+				int qword = *itq;
+				for(set<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
+					int tword = *itt;
+					if (validedge.find(key(qword, tword)) != validedge.end()) {
+						query_set_pruned.insert(qword);
+						target_set_pruned.insert(tword);
+					} else {
+						if (qword == tword) {
+							query_set_pruned.insert(qword);
+							target_set_pruned.insert(tword);
+						}
+					}// bucket upperbound not considering this
+				}
+			}
+			realsize = query_set_pruned.size() * target_set_pruned.size();
+			// vector<int> query_tokens;
+			for(set<int>::iterator itq = query_set_pruned.begin(); itq != query_set_pruned.end(); ++itq) {
+				vector<double> temp;
+				vector<pair<int, int>> temp_tokens;
+				int qword = *itq;
+				for(set<int>::iterator itt = target_set_pruned.begin(); itt != target_set_pruned.end(); ++itt) {
+					int tword = *itt;
+					if (validedge.find(key(qword, tword)) != validedge.end()) {
+						temp.push_back(0.0 - validedge[key(qword, tword)]);
+						// temp.push_back(validedge[key(qword, tword)]);
+					} else {
+						if (qword == tword) {
+							temp.push_back(-1.0);
+							// temp.push_back(1.0);
+						} else {
+							temp.push_back(0.0);
+						}
+					}
+					temp_tokens.push_back(make_pair(qword, tword));
+				}
+				M.push_back(temp);
+				M_tokens.push_back(temp_tokens);
+			}
+		}
+
+		const vector<vector<double>> reveal() {
+			return M;
+		}
+		int getrealsize() {
+			return realsize;
+		}
+
+		// solve matching with |Query| cardinality as base
+		// double solveQ(int q, std::set<pair<double, int>, cmp_increasing> *L_, std::mutex *mtx, double *etm, bool isEarly = true){
+		// 	HungarianAlgorithm HungAlgo;
+		// 	vector<int> assignment;
+		// 	double cost = HungAlgo.Solve(M, assignment, non_exact_token_indices, q, L_, mtx, etm, isEarly);
+		// 	double overlap = 0.0;
+		// 	assignment_internal = assignment;
+		// 	if (matching == 0) {
+		// 		return 0.0;
+		// 	}
+		// 	return -cost/q;
+		// }
+
+		double solveQ(int q) {
+			HungarianAlgorithm HungAlgo;
+			vector<int> assignment;
+			double cost = HungAlgo.Solve(M, assignment);
+			if (matching == 0) {
+				return 0.0;
+			}
+			return -cost/q;
+		}
+
+		// vector<pair<pair<int, int>, double>> get_non_exact_tokens() {
+		// 	vector<pair<pair<int, int>, double>> non_exact_tokens;
+		// 	int nRows = M.size();
+		// 	int nCols = M[0].size();
+		// 	for (int i = 0; i < nRows; i++) {
+		// 		if (std::find(non_exact_token_indices.begin(), non_exact_token_indices.end(), i) != non_exact_token_indices.end()) {
+		// 			int j = assignment_internal[i];
+		// 			double asim = -M[i][j];
+		// 			pair<int, int> qt_pair = M_tokens[i][j];
+		// 			non_exact_tokens.push_back(make_pair(qt_pair, asim));
+		// 		}
+		// 	}
+		// 	return non_exact_tokens;
+		// }
+};
+
 class AMatrix {
 	private:
 		int width;
@@ -598,7 +707,14 @@ class AMatrix {
 		}
 
 		void computeAlignment() {
-
+			for (int i = 0; i < set1Windows.size(); i++) {
+				for (int j = 0; j < set2Windows.size(); j++) {
+					set<int> set1_tokens = set1Windows[i];
+					set<int> set2_tokens = set2Windows[j];
+					ValidMatrix *m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
+					data[i + j*width] = m->solveQ(set1_tokens.size());
+				}
+			}
 		}
 
 		double getMatrixValue(int row, int col) {
@@ -658,7 +774,7 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 		int word = dictionary[*it];
 		float fsim = D[cur];
 		double sim = static_cast<double>(fsim);
-		if (sim >= 0.1) {
+		if (sim > 0.0) {
 			validedges[key(tq, word)] = sim;
 		}
 		cur += 1;
