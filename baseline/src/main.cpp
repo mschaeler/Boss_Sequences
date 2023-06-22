@@ -7,7 +7,7 @@
       to compute the alignment matrix 
 
 	@todo:
-		- implement the Faiss Index for efficient search
+		- implement the Faiss Index for efficient search [done]
 		- update the valid edges
 		- implement the AMatrix->computeAlignment()
 */
@@ -34,9 +34,9 @@
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
+#include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/utils/distances.h>
-#include <faiss/index_io.h>
 #include <thread>
 #include <future>
 #include <omp.h>
@@ -48,7 +48,7 @@
 std::mutex gmtx;
 using namespace std;
 namespace fs = std::filesystem;
-// using idx_t = faiss::Index::index_t;
+using idx_t = faiss::Index::idx_t;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
 
 vector<set<int>> slidingWindows(set<int> tokens, int k) {
@@ -490,6 +490,90 @@ class Database {
 		}
 };
 
+/**
+ * CPU Faiss Index Wrapper
+*/
+class FaissIndexCPU {
+	private:
+		faiss::IndexFlatL2 *index;
+		std::unordered_map<int, vector<float>> normalized;
+		vector<int> dictionary;
+	
+	public:
+		FaissIndexCPU(string path, Database *db, std::unordered_set<int> validSet) {
+			string indexPath = path + "faiss.index";
+			int d = 300;
+
+			vector<vector<float>> vectors = db->get_valid_vectors(validSet);
+			dictionary = db->get_dictionary();
+
+			index = new faiss::IndexFlatL2(d);
+
+			int nb = vectors.size();
+			float *xb = new float[d * nb];
+			for (int i = 0; i < nb; i++) {
+				for (int j = 0; j < d; j++) {
+					xb[d * i + j] = vectors[i][j];
+				}
+			}
+
+			faiss::fvec_renorm_L2(d, nb, xb);
+
+			for (int i = 0; i < nb; i++) {
+				vector<float> vec;
+				for (int j = 0; j < d; j++) {
+					vec.push_back(xb[d * i + j]);
+				}
+			}
+
+			cout << "Normalized vector storage check" << endl;
+			index->add(nb, xb);
+		}
+
+		std::tuple<vector<idx_t>, vector<float>> kNNSearch(int nq, vector<float> vxq, int k) {
+			int d = 300;
+			float* xq = vxq.data();
+
+			// search xq
+			idx_t *I = new idx_t[k * nq];
+			float *D = new float[k * nq];
+
+			index->search(nq, xq, k, D, I);
+
+			vector<idx_t> vI(I, I + k * nq);
+			vector<float> vD(D, D + k * nq);
+
+			delete [] I;
+			delete [] D;
+			return {vI, vD};
+		}
+
+		std::tuple<vector<vector<idx_t>>, vector<vector<float>>> rangeSearch(int nq, vector<float> vxq, float radius) {
+			int d = 300;
+			float* xq = vxq.data();
+
+			faiss::RangeSearchResult* result = new faiss::RangeSearchResult(nq);
+			
+			index->range_search(nq, xq, radius, result);
+
+			vector<vector<idx_t>> vI(nq);
+			vector<vector<float>> vD(nq);
+
+			for (int i = 0; i < nq; i++) {
+				size_t start = result->lims[i];
+				size_t end = result->lims[i+1];
+				size_t count = end - start;
+
+				for (size_t j = 0; j < count; j++) {
+					vI[i].push_back(result->labels[start + j]);
+					vD[i].push_back(result->distances[start + j]);
+				}
+			}
+
+			return {vI, vD};
+		}
+
+};
 
 class AMatrix {
 	private:
