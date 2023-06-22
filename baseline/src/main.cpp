@@ -8,7 +8,7 @@
 
 	@todo:
 		- implement the Faiss Index for efficient search [done]
-		- update the valid edges
+		- update the valid edges [done]
 		- implement the AMatrix->computeAlignment()
 */
 
