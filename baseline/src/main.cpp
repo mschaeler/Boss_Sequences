@@ -256,7 +256,7 @@ class Database {
 			for (size_t i = 0; i < dimension * 4; i = i+4) {
 				float f;
 				unsigned char b[] = {data[i], data[i+1], data[i+2], data[i+3]};
-				memcpy(&f, &b, sizeof(f));
+				memcpy(&f, b, sizeof(f));
 				// cout << f << endl;
 				result.push_back(f);
 			}
@@ -441,15 +441,17 @@ class Database {
 			} else {
 				while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
 					unsigned char *bytes = (unsigned char*)sqlite3_column_blob(stmt, 0);
-					result = bytes_to_wv(bytes, 300);
+					int size = sqlite3_column_bytes(stmt, 0);
+					result = bytes_to_wv(bytes, size / sizeof(float));
 				}
 			}
 			
 			float* r = new float[300];
 			r = result.data();
-			faiss::fvec_renorm_L2(300, 1, r);
+			// faiss::fvec_renorm_L2(300, 1, r);
 			vector<float> vr(r, r + 300);
 			return vr;
+			return result;
 		}
 
 		// get vectors of words in valid set
@@ -492,23 +494,99 @@ class Database {
 };
 
 /**
+ * Data loader to read vectors from a tsv file
+*/
+class DataLoader {
+	private:
+		Environment *env;
+		std::unordered_map<int, vector<float>> vectors;
+		vector<int> dictionary;
+
+
+		std::vector<string> splitString(const string& line, char del) {
+			std::vector<string> result;
+			stringstream ss(line);
+			string item;
+
+			while (getline(ss, item, del)) {
+				result.push_back(item);
+			}
+			return result;
+		}
+	public:
+		DataLoader(string location, Environment *e){
+			// read TSV file
+			env = e;
+			ifstream file(location);
+			if (file.is_open()) {
+				string line;
+				while (getline(file, line)) {
+					vector<string> values = splitString(line, '\t');
+					// token, lem_token, score between token & lem_token, vector values
+					int token_id = env->toInt(values[1]);
+					if (token_id != -1) {
+						vector<float> embedding;
+						for (int i = 3; i < values.size(); i++) {
+							embedding.push_back(stof(values[i]));
+						}
+						float* r = new float[300];
+						r = embedding.data();
+						faiss::fvec_renorm_L2(300, 1, r);
+						vector<float> vr(r, r + 300);
+						vectors[token_id] = vr;
+						dictionary.push_back(token_id);
+					}
+					// cout << "Token Id: " << token_id << endl;
+					// cout << "Embedding Size: " << embedding.size() << endl;
+				}
+			}
+		}
+
+		vector<float> get_vector(int id){
+			return vectors[id];
+		}
+
+		set<int> getWords(){
+			set<int> keys;
+			for (auto kv : vectors) {
+				keys.insert(kv.first);
+			}
+			return keys;
+		}
+
+		vector<vector<float>> getAllVectors() {
+			vector<vector<float>> result;
+			for (auto kv : vectors) {
+				result.push_back(kv.second);
+			}
+			return result;
+		}
+
+		vector<int> getDictionary() {
+			return dictionary;
+		}
+};
+
+/**
  * CPU Faiss Index Wrapper
 */
 class FaissIndexCPU {
 	private:
-		faiss::IndexFlatL2 *index;
+		faiss::IndexFlatIP *index;
 		std::unordered_map<int, vector<float>> normalized;
 		vector<int> dictionary;
 	
 	public:
-		FaissIndexCPU(string path, Database *db, std::unordered_set<int> validSet) {
+		FaissIndexCPU(string path, DataLoader *dl, std::unordered_set<int> validSet) {
 			string indexPath = path + "faiss.index";
 			int d = 300;
 
-			vector<vector<float>> vectors = db->get_valid_vectors(validSet);
-			dictionary = db->get_dictionary();
+			// vector<vector<float>> vectors = db->get_valid_vectors(validSet);
+			vector<vector<float>> vectors = dl->getAllVectors();
+			cout << "Vector Size: " << vectors[0].size() << endl;
+			// dictionary = db->get_dictionary();
 
-			index = new faiss::IndexFlatL2(d);
+			index = new faiss::IndexFlatIP(d);
 
 			int nb = vectors.size();
 			float *xb = new float[d * nb];
@@ -516,24 +594,30 @@ class FaissIndexCPU {
 				for (int j = 0; j < d; j++) {
 					xb[d * i + j] = vectors[i][j];
 				}
+				xb[d * i] += i / 1000.;
 			}
 
 			faiss::fvec_renorm_L2(d, nb, xb);
 
-			for (int i = 0; i < nb; i++) {
-				vector<float> vec;
-				for (int j = 0; j < d; j++) {
-					vec.push_back(xb[d * i + j]);
-				}
-			}
+			// for (int i = 0; i < nb; i++) {
+			// 	vector<float> vec;
+			// 	for (int j = 0; j < d; j++) {
+			// 		vec.push_back(xb[d * i + j]);
+			// 	}
+			// }
 
 			cout << "Normalized vector storage check" << endl;
 			index->add(nb, xb);
+			cout << "Index Trained: " << index->is_trained << endl;
+			cout << "Ntotal: " << index->ntotal << endl;
 		}
 
 		std::tuple<vector<idx_t>, vector<float>> kNNSearch(int nq, vector<float> vxq, int k) {
 			int d = 300;
 			float* xq = vxq.data();
+			for (int i = 0; i < nq; i++) {
+				xq[d * i] += i / 1000.;
+			}
 
 			// search xq
 			idx_t *I = new idx_t[k * nq];
@@ -575,6 +659,8 @@ class FaissIndexCPU {
 		}
 
 };
+
+
 
 /**
 * BIPARTITE GRAPH MATRIX
@@ -694,6 +780,7 @@ class AMatrix {
 		vector<set<int>> *set2Windows;
 		unordered_map<size_t, double> validEdges;
 		double theta;
+		int zero_entries = 0;
 	
 	public:
 		AMatrix(vector<set<int>>* Ws, vector<set<int>>* Wt, unordered_map<size_t, double> validedges, double threshold) {
@@ -713,10 +800,15 @@ class AMatrix {
 					set<int> set2_tokens = set2Windows->at(j);
 
 					ValidMatrix *m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
-					cout << "here" << endl;
+					// cout << "here" << endl;
 					double sim = m->solveQ(set1_tokens.size());
-					cout << sim << endl;
-					data[i + j*width] = sim;
+					// cout << sim << endl;
+					if (sim >= theta) {
+						data[i + j*width] = sim;
+					} else {
+						data[i + j*width] = 0.0;
+						zero_entries += 1;
+					}
 				}
 			}
 		}
@@ -729,20 +821,28 @@ class AMatrix {
 			data[row + col * width] = value;
 		}
 
+		int get_matrix_size() {
+			return width * height;
+		}
+
+		int zeroCells() {
+			return zero_entries;
+		}
 };
 
 
-void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, double theta) {
+void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k, double theta) {
 
 	std::unordered_map<int, set<int>> sets = env->getSets(); // all sets stored as key: set integer id, value: set data (int token integer ids)
 	std::unordered_set<int> wordSet = env->getWordSet(); // all unique tokens in copora
 	vector<set<int>> invertedIndex = env->getInvertedIndex(); // inverted index that returns all sets containing given token
-	vector<int> dictionary = db->get_dictionary(); // vectors database instance
+	vector<int> dictionary = dl->getDictionary(); // vectors database instance
 	set<int> text1Sets = env->getText1SetIds();
 	set<int> text2Sets = env->getText2SetIds();
 	std::mutex gmtx_internal;
 
-	double numberOfGraphMatchingComputed = 0;
+	int numberOfGraphMatchingComputed = 0;
+	int numberOfZeroEntries = 0;
 	
 	std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
 	std::unordered_map<int, vector<set<int>>> kWidthWindows = env->computeSlidingWindows(k); // setID --> sliding windows
@@ -751,14 +851,17 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 	std::unordered_map<size_t, double> validedges;
 	// for all tokens between the two texts, do a faiss similarity search and cache the edges
 	int nq = 0;
+	int i = 0;
 	vector<float> vxq;
 	for (auto it = wordSet.begin(); it != wordSet.end(); it++) {
 		int tq = *it;
 		// handle out of dictionary words
 		if (std::find(dictionary.begin(), dictionary.end(), tq) == dictionary.end()) {
+			i += 1;
 			validedges[key(tq, tq)] = 1.0;
 		} else {
-			vector<float> vec = db->get_normalized_vector(tq);
+			// vector<float> vec = db->get_normalized_vector(tq);
+			vector<float> vec = dl->get_vector(tq);
 			if (vec.size() == 0) {
 				cerr << "Vector should not be empty" << endl;
 			}
@@ -766,25 +869,31 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 			nq += 1;
 		}
 	}
+
+	cout << "Out of dictionary words: " << i << endl;
 	// get the k nearest neighbours for each word, here set k = nq. 
 	// @todo: change to range search with radius = theta
 	tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, nq);
 	vector<idx_t> I = std::get<0>(rt);
 	vector<float> D = std::get<1>(rt);
+	cout << "size of I: " << I.size() << endl;
 	int cur = 0;
 	for (vector<idx_t>::iterator it = I.begin(); it != I.end(); it++) {
 		int tq_cur = I[cur - (cur % nq)];
 		int tq = dictionary[tq_cur];
 		int word = dictionary[*it];
 		float fsim = D[cur];
+		// cout << "fsim: " << fsim << endl;
 		double sim = static_cast<double>(fsim);
+		// cout << "sim: " << sim << endl;
 		if (sim > 0.0) {
+			// cout << "here" << endl;
 			validedges[key(tq, word)] = sim;
 		}
 		cur += 1;
 	}
 
-	cout << validedges.size() << endl;
+	cout << "Size of valid edges: " << validedges.size() << endl;
 
 	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
 	for (int set1Id : text1Sets) {
@@ -796,10 +905,15 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 				AMatrix *A = new AMatrix(&set1Windows, &set2Windows, validedges, theta);
 				A->computeAlignment();
 				results[key(set1Id, set2Id)] = A;
+				numberOfGraphMatchingComputed += A->get_matrix_size();
+				numberOfZeroEntries += A->zeroCells();
 			}
 		}
 		
 	}
+
+	cout << "Number of Graph Matching Computed: " << numberOfGraphMatchingComputed << endl;
+	cout << "Number of Zero Entries Cells: " << numberOfZeroEntries << endl;
 }
 
 /**
@@ -807,21 +921,24 @@ void baseline(Environment *env, Database *db, FaissIndexCPU *faissIndex, int k, 
 */
 int main(int argc, char const *argv[]) {
 
-  	// arguments: text1_location, text2_location, window_width, threshold, result_folder, database location
+  	// arguments: text1_location, text2_location, window_width, threshold, result_folder, database location, data_file location
 	string text1_location = argv[1];
 	string text2_location = argv[2];
 	int k = stoi(argv[3]);
-	cout << "Window Width: " << k << endl;
+	// cout << "Window Width: " << k << endl;
 	double theta = stod(argv[4]);
 	string result_folder = argv[5];
-	string database_path = argv[6];	
+	string database_path = argv[6];
+	string data_file = argv[7];	
 
 	double envtime = 0.0;
 	double invertedIndexSize = 0;
 	double faiss_time = 0.0;
+	double dataloader_time = 0.0;
+	double algo_time = 0.0;
 
-	std::chrono::time_point<std::chrono::high_resolution_clock> envstart, envend, faiss_start, faiss_end;
-	std::chrono::duration<double> envlapsed, faiss_elapsed;
+	std::chrono::time_point<std::chrono::high_resolution_clock> envstart, envend, faiss_start, faiss_end, dl_start, dl_end, algo_start, algo_end;
+	std::chrono::duration<double> envlapsed, faiss_elapsed, dl_elapsed, algo_elapsed;
 	envstart = std::chrono::high_resolution_clock::now();
 	Environment *env = new Environment(text1_location, text2_location);
 	envend = std::chrono::high_resolution_clock::now();
@@ -836,16 +953,29 @@ int main(int argc, char const *argv[]) {
 	}
 	invertedIndexSize += invertedIndex.size();
 	cout << "Inverted Index Size: " << invertedIndexSize << endl;
-	Database *db = new Database(database_path, env);
+	// Database *db = new Database(database_path, env);
 	cout << "Words: " << env->getWordSet().size() << endl;
 
+	dl_start = std::chrono::high_resolution_clock::now();
+	DataLoader *loader = new DataLoader(data_file, env);
+	dl_end = std::chrono::high_resolution_clock::now();
+	dl_elapsed = dl_end - dl_start;
+	dataloader_time = dl_elapsed.count();
+	// vector<float> test_vector = loader->get_vector(20);
+	// cout << "Words: " << loader->getWords().size() << endl;
+	// cout << "Test Vector Size: " << test_vector.size() << endl;
 
 	faiss_start = std::chrono::high_resolution_clock::now();
-	FaissIndexCPU *faissIndex = new FaissIndexCPU("./", db, env->getWordSet());
+	FaissIndexCPU *faissIndex = new FaissIndexCPU("./", loader, env->getWordSet());
 	faiss_end = std::chrono::high_resolution_clock::now();
 	faiss_elapsed = faiss_end - faiss_start;
 	faiss_time = faiss_elapsed.count();
 
-	baseline(env, db, faissIndex, k, theta);
+	algo_start = std::chrono::high_resolution_clock::now();
+	baseline(env, loader, faissIndex, k, theta);
+	algo_end = std::chrono::high_resolution_clock::now();
+	algo_elapsed = algo_end - algo_start;
+	algo_time = algo_elapsed.count();
+
 	return 0;
 }
