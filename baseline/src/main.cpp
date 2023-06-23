@@ -748,10 +748,10 @@ class ValidMatrix {
 		double solveQ(int q) {
 			HungarianAlgorithm HungAlgo;
 			vector<int> assignment;
-			double cost = HungAlgo.Solve(M, assignment);
 			if (matching == 0) {
 				return 0.0;
 			}
+			double cost = HungAlgo.Solve(M, assignment);
 			return -cost/q;
 		}
 
