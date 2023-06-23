@@ -896,6 +896,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	cout << "Size of valid edges: " << validedges.size() << endl;
 
 	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
+	int counter = 1;
 	for (int set1Id : text1Sets) {
 		vector<set<int>> set1Windows = kWidthWindows[set1Id];
 		for (int set2Id : text2Sets) {
@@ -909,7 +910,8 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 				numberOfZeroEntries += A->zeroCells();
 			}
 		}
-		
+		cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+		counter += 1;
 	}
 
 	cout << "Number of Graph Matching Computed: " << numberOfGraphMatchingComputed << endl;
@@ -921,13 +923,13 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 */
 int main(int argc, char const *argv[]) {
 
-  	// arguments: text1_location, text2_location, window_width, threshold, result_folder, database location, data_file location
+  	// arguments: text1_location, text2_location, window_width, threshold, result_file, database location, data_file location
 	string text1_location = argv[1];
 	string text2_location = argv[2];
 	int k = stoi(argv[3]);
 	// cout << "Window Width: " << k << endl;
 	double theta = stod(argv[4]);
-	string result_folder = argv[5];
+	string result_file = argv[5];
 	string database_path = argv[6];
 	string data_file = argv[7];	
 
@@ -976,6 +978,11 @@ int main(int argc, char const *argv[]) {
 	algo_end = std::chrono::high_resolution_clock::now();
 	algo_elapsed = algo_end - algo_start;
 	algo_time = algo_elapsed.count();
+
+	cout << "Env Time: " << envtime << endl;
+	cout << "Dataloader Time: " << dataloader_time << endl;
+	cout << "FaissIndex Time: " << faiss_time << endl;
+	cout << "Algorithm Time: " << algo_time << endl;
 
 	return 0;
 }
