@@ -10,3 +10,4 @@ Ntotal: 188
 Out of dictionary words: 63
 size of I: 35344
 Size of valid edges: 33849
+Done with: 1 / 22
