@@ -10,3 +10,8 @@ Ntotal: 690
 Out of dictionary words: 96
 size of I: 476100
 Size of valid edges: 467143
+Done with: 1 / 167
+Done with: 2 / 167
+Done with: 3 / 167
+Done with: 4 / 167
+Done with: 5 / 167

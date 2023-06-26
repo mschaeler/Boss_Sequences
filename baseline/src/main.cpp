@@ -923,15 +923,15 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 */
 int main(int argc, char const *argv[]) {
 
-  	// arguments: text1_location, text2_location, window_width, threshold, result_file, database location, data_file location
+  	// arguments: text1_location, text2_location, window_width, threshold, result_file, data_file location
 	string text1_location = argv[1];
 	string text2_location = argv[2];
 	int k = stoi(argv[3]);
 	// cout << "Window Width: " << k << endl;
 	double theta = stod(argv[4]);
 	string result_file = argv[5];
-	string database_path = argv[6];
-	string data_file = argv[7];	
+	// string database_path = argv[6];
+	string data_file = argv[6];	
 
 	double envtime = 0.0;
 	double invertedIndexSize = 0;

@@ -1,4 +1,7 @@
 #!/bin/sh
 make
 
-./build/baseline ../data/en/king_james_bible/ ../data/en/esv/ 3 0.7 ../results/ ~/vectors_v2.sqlite3 ./en.tsv > ./results/esv_king_james_k3_0.7.txt
+for i in 1 2 3 4 5 6 7 8 9 10
+do
+    ./build/baseline /root/data/en/king_james_bible/${i}/ /root/data/en/esv/${i}/ 3 0.7 ../results/ ./en.tsv > ./results/esv_king_james_${i}_k3_0.7.txt
+done

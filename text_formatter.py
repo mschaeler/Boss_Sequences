@@ -23,7 +23,7 @@ def load_data(fileloc):
             # print(line)
             # print(sequence)
             sequence = [s.strip() for s in sequence]
-            print(sequence)
+            # print(sequence)
             sequence_id = int(sequence[0])
             formatted_seq = []
             for s in sequence[1:]:
@@ -37,9 +37,13 @@ def load_data(fileloc):
 
 def write_data(data, outfolder):
     os.makedirs(outfolder, exist_ok=True)
-    file_name = '{0}_{1}.txt'
+    print(outfolder)
+    # file_name = '{0}_{1}.txt'
+    file_name = '{0}/{1}.txt'
     for k, v in data.items():
         for idx, v1 in enumerate(v):
+            outfolder_1 = outfolder + '{0}'.format(k)
+            os.makedirs(outfolder_1, exist_ok=True)
             f = file_name.format(k, idx+1)
             with open(os.path.join(outfolder, f), 'w') as out:
                 for word in v1:
@@ -51,7 +55,7 @@ def write_data(data, outfolder):
 
 
 if __name__ == "__main__":
-    fileloc = "./data/en/king_james_bible.txt"
+    fileloc = "./data/en/esv.txt"
     data = load_data(fileloc)
-    outfolder ="./data/en/king_james_bible/"
+    outfolder ="/root/data/en/esv/"
     write_data(data, outfolder)
