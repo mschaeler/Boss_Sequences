@@ -540,6 +540,7 @@ class DataLoader {
 					// cout << "Embedding Size: " << embedding.size() << endl;
 				}
 			}
+			file.close();
 		}
 
 		vector<float> get_vector(int id){

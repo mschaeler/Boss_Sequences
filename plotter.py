@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 
 
+RESULT_FILE_LOC = "./baseline/results/esv_king_james_{0}_k{1}_0.7.txt"
+
 def get_windows(s, k):
     s = s.split(" ")
     s = [s1.strip() for s1 in s]
@@ -171,13 +173,87 @@ def plot_heatmap():
 
 
 
-    
+def get_data(fileloc):
+    file = open(fileloc, 'r')
+    lines = file.readlines()
+    lines = [line.strip() for line in lines]
+    file.close()
+    result_data = {}
+    for line in lines:
+        if line.startswith('Inverted Index Size:'):
+            s = line.split(':')
+            result_data['invertedIndex'] = int(s[1].strip())
+        
+        if line.startswith('Size of valid edges:'):
+            s = line.split(':')
+            result_data['validEdges'] = int(s[1].strip())
+        
+        if line.startswith('Number of Graph Matching Computed:'):
+            s = line.split(':')
+            result_data['alignmentMatrixSize'] = int(s[1].strip())
+
+        if line.startswith('Number of Zero Entries Cells:'):
+            s = line.split(':')
+            result_data['belowThresholdCells'] = int(s[1].strip())
+
+        if line.startswith('Env Time:'):
+            s = line.split(':')
+            result_data['envTime'] = float(s[1].strip())
+
+        if line.startswith('Dataloader Time:'):
+            s = line.split(':')
+            result_data['dataloaderTime'] = float(s[1].strip())
+
+        if line.startswith('FaissIndex Time:'):
+            s = line.split(':')
+            result_data['faissTime'] = float(s[1].strip())
+
+        if line.startswith('Algorithm Time:'):
+            s = line.split(':')
+            result_data['algoTime'] = float(s[1].strip())
+
+    return result_data
 
 
+def plot_results():
+    for k in [3, 5, 7]:
+        algo_time = []
+        alignmentSize = []
+        zeroCells = []
+        for para in range(1, 11):
+            file_name = RESULT_FILE_LOC.format(para, k)
+            data = get_data(file_name)
+            algo_time.append(data['algoTime'])
+            alignmentSize.append(data['alignmentMatrixSize'])
+            zeroCells.append(data['belowThresholdCells'])
+        
+        x = [i for i in range(1, 11)]
+        plt.plot(x, algo_time, '-o')
+        plt.xticks(x)
+        plt.xlabel('Paragraphs')
+        plt.ylabel('Algorithm Time (seconds)')
+        plt.tight_layout()
+        plt.savefig('./baseline/plots/algoTime_k{0}.png'.format(k))
+        plt.cla()
+        plt.clf()
 
-
+        above_threshold = [x - y for x,y in zip(alignmentSize, zeroCells)]
+        ind = np.arange(len(x))
+        width = 0.2
+        plt.bar(ind, zeroCells, width, label='below threshold')
+        plt.bar(ind + width, above_threshold, width, label='above threshold')
+        plt.xlabel('Paragraphs')
+        plt.ylabel('Number of Cells (log scale)')
+        plt.yscale('log')
+        plt.xticks(ind + width /2, x)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('./baseline/plots/alignmentMatrixBreakdown_k{0}.png'.format(k))
+        plt.cla()
+        plt.clf()
 
 
 
 if __name__ == "__main__":
-    plot_heatmap()
+    # plot_heatmap()
+    plot_results()

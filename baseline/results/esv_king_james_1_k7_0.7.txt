@@ -32,9 +32,9 @@ Done with: 19 / 22
 Done with: 20 / 22
 Done with: 21 / 22
 Done with: 22 / 22
-Number of Graph Matching Computed: 252004
-Number of Zero Entries Cells: 250842
-Env Time: 0.00484125
-Dataloader Time: 0.284579
-FaissIndex Time: 0.00202357
-Algorithm Time: 3275.73
+Number of Graph Matching Computed: 171396
+Number of Zero Entries Cells: 169096
+Env Time: 0.0047524
+Dataloader Time: 0.221965
+FaissIndex Time: 0.00267949
+Algorithm Time: 2492.13
