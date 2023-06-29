@@ -1,12 +1,16 @@
 package boss.embedding;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Reader;
 import java.util.ArrayList;
 
 public class MatchesWithEmbeddings extends Match{
-	double[] vector;
+	public double[] vector;
 	
 	public MatchesWithEmbeddings(String s1, String s2, double score, double[] vector) {
 		super(s1, s2, score);
@@ -14,11 +18,24 @@ public class MatchesWithEmbeddings extends Match{
 	}
 
 	public MatchesWithEmbeddings(Match match, double[] vector) {
-		this(match.s1, match.s2, match.score, vector);
+		this(match.string_in_embedding, match.string_in_text, match.score, vector);
 	}
 	
+	public static MatchesWithEmbeddings to_instance(String line) {
+		String[] components = line.split("\t");
+		String s1 = components[0];
+		String s2 = components[1];
+		Double score = Double.parseDouble(components[2]);
+		double[] vector = new double[components.length-3];
+		for(int i=0;i<vector.length;i++) {
+			Double temp = Double.parseDouble(components[i+3]);
+			vector[i] = temp.doubleValue();
+		}
+		return new MatchesWithEmbeddings(s1, s2, score, vector);
+	}
+
 	String toTSV() {
-		String s = s1+"\t"+s2+"\t"+score;
+		String s = string_in_embedding+"\t"+string_in_text+"\t"+score;
 		for(double d : vector) {
 			s+="\t"+d;
 		}
@@ -48,5 +65,36 @@ public class MatchesWithEmbeddings extends Match{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}		
+	}
+	public static ArrayList<MatchesWithEmbeddings> load(String file_path) {
+		// Creates a FileWriter
+	    File file;
+	    ArrayList<MatchesWithEmbeddings> mew = new ArrayList<MatchesWithEmbeddings>(1000);
+		try {
+			file = new File(file_path);
+		    // Creates a BufferedWriter
+		    BufferedReader input = new BufferedReader(new FileReader(file));
+		    String header = input.readLine();
+		    System.out.println(header);
+		    
+			String line;
+			int i = 0;
+		
+	        while ((line = input.readLine()) != null) {
+	        	MatchesWithEmbeddings temp = to_instance(line);
+	        	mew.add(temp);
+	        	if(i%100==0) {
+	        		System.out.println(line);	
+	        	}
+	        	i++;
+	        }
+		    
+		    // Closes the reader
+		    input.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return mew;		
 	}
 }

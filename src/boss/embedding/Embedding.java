@@ -39,7 +39,7 @@ public class Embedding {
 		HashMap<String, ArrayList<Integer>> words = new HashMap<String, ArrayList<Integer>>(matches.length);//(String m.s1, position(s) in matches)
 		ArrayList<Integer> positions;
 		for(int i=0;i<matches.length;i++) {
-			String key = matches[i].s1; 
+			String key = matches[i].string_in_embedding; 
 			if((positions=words.get(key))==null) {
 				//entry does not exist yet
 				ArrayList<Integer> temp = new ArrayList<Integer>();
@@ -91,6 +91,8 @@ public class Embedding {
 	}
 	
 	static boolean materialize = true;
+	public static final String ENGLISH_MINIMAL_EMBEDDINGS = ".\\data\\en\\matches.en.min.tsv";
+	public static final String ENGLISH_EMBEDDINGS = ".\\data\\en\\matches_stopwords.en.min.tsv";
 	public static ArrayList<MatchesWithEmbeddings> get_minimal_embedding_en(){
 		String file 	= ".\\data\\en\\cc.en.300.vec";
 		Embedding e 	= new Embedding(file);
@@ -101,12 +103,12 @@ public class Embedding {
 		String[] all_words = Words.words_en;
 		HashSet<String> words_mapped = new HashSet<String>();
 		for(Match m : matches) {
-			words_mapped.add(m.s2);
+			words_mapped.add(m.string_in_text);
 		}
 		HashSet<String> words_mapped_to_embeddeding = new HashSet<String>();
 		for(MatchesWithEmbeddings m : mew) {
 			if(m!=null)
-				words_mapped_to_embeddeding.add(m.s2);
+				words_mapped_to_embeddeding.add(m.string_in_text);
 		}
 		for(String s : all_words){
 			if(!words_mapped.contains(s)) {
@@ -118,10 +120,11 @@ public class Embedding {
 			}
 		}
 		if(materialize) {
-			MatchesWithEmbeddings.materialize(".\\data\\en\\matches.en.min.tsv", mew);
+			MatchesWithEmbeddings.materialize(ENGLISH_MINIMAL_EMBEDDINGS, mew);
 		}
 		return mew;
 	}
+	static final String GERMAN_MINIMAL_EMBEDDINGS = ".\\data\\de\\matches.de.min.tsv";
 	public static ArrayList<MatchesWithEmbeddings> get_minimal_embedding_de(){
 		String file 	= ".\\data\\de\\cc.de.300.vec";
 		Embedding e 	= new Embedding(file);
@@ -132,12 +135,12 @@ public class Embedding {
 		String[] all_words = Words.words_de;
 		HashSet<String> words_mapped = new HashSet<String>();
 		for(Match m : matches) {
-			words_mapped.add(m.s2);
+			words_mapped.add(m.string_in_text);
 		}
 		HashSet<String> words_mapped_to_embeddeding = new HashSet<String>();
 		for(MatchesWithEmbeddings m : mew) {
 			if(m!=null)
-				words_mapped_to_embeddeding.add(m.s2);
+				words_mapped_to_embeddeding.add(m.string_in_text);
 		}
 		for(String s : all_words){
 			if(!words_mapped.contains(s)) {

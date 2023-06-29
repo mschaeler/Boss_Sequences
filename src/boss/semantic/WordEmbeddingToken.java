@@ -38,8 +38,8 @@ public class WordEmbeddingToken extends SemanticToken{
 		System.err.println("WordEmbeddingToken.distance() needs WordEmbeddingToken");
 		return Double.MAX_VALUE;
 	}
-	public static double cosine_distance(double[] vectorA, double[] vectorB) {//Optional TODO - normalize all vectors to length = 1. Then, computation is much simpler.
-	    double dotProduct = 0.0;
+	public static double cosine_similarity(double[] vectorA, double[] vectorB) {//Optional TODO - normalize all vectors to length = 1. Then, computation is much simpler.
+		double dotProduct = 0.0;
 	    double normA = 0.0;
 	    double normB = 0.0;
 	    for (int i = 0; i < vectorA.length; i++) {
@@ -47,7 +47,10 @@ public class WordEmbeddingToken extends SemanticToken{
 	        normA += Math.pow(vectorA[i], 2);
 	        normB += Math.pow(vectorB[i], 2);
 	    }   
-	    return 1.0d - (dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)));
+	    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+	}
+	public static double cosine_distance(double[] vectorA, double[] vectorB) {//Optional TODO - normalize all vectors to length = 1. Then, computation is much simpler.   
+	    return 1.0d - cosine_similarity(vectorA,vectorB);
 	}
 
 	public String toString(){

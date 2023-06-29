@@ -18,7 +18,7 @@ public class ImportTests {
 		
 		books = ImporterAPI.get_all_german_books();
 		for(Book book : books) {
-			System.out.println(book);
+			//System.out.println(book);
 		}
 		/*
 		books = ImporterAPI.get_all_latin_books();

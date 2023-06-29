@@ -19,7 +19,7 @@ public class BasicTokenizer extends Tokenizer {
 	void tokenize(TokenizedParagraph p) {
 		Tokenizer.remove_non_alphabetic_characters(p);
 		Tokenizer.to_lower_case(p);
-		Tokenizer.remover_stop_words(p);
+		//Tokenizer.remover_stop_words(p);
 	}
 
 	@Override
