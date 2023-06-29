@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import statistics
 
 
 
-RESULT_FILE_LOC = "./baseline/results/esv_king_james_{0}_k{1}_0.7.txt"
+RESULT_FILE_LOC = "./baseline/results/esv_king_james_{0}_k{1}_0.7_sanity_check.txt"
 
 def get_windows(s, k):
     s = s.split(" ")
@@ -220,12 +221,30 @@ def plot_results():
         algo_time = []
         alignmentSize = []
         zeroCells = []
+        faissTime = []
+        envTime = []
+        dataLoaderTime = []
+        invertedIndex = []
+        validEdges = []
         for para in range(1, 11):
             file_name = RESULT_FILE_LOC.format(para, k)
             data = get_data(file_name)
             algo_time.append(data['algoTime'])
             alignmentSize.append(data['alignmentMatrixSize'])
             zeroCells.append(data['belowThresholdCells'])
+            faissTime.append(data['faissTime'])
+            envTime.append(data['envTime'])
+            dataLoaderTime.append(data['dataloaderTime'])
+            invertedIndex.append(data['invertedIndex'])
+            validEdges.append(data['validEdges'])
+
+        print('k = {0}'.format(k))
+        print('Mean Faiss Time: {0} seconds'.format(statistics.mean(faissTime)))
+        print('Mean Environment Time: {0} seconds'.format(statistics.mean(envTime)))
+        print('Mean DataLoader Time: {0} seconds'.format(statistics.mean(dataLoaderTime)))
+        print('Mean Inverted Index Size: {0}'.format(statistics.mean(invertedIndex)))
+        print('Mean Number of Valid Edges: {0}'.format(statistics.mean(validEdges)))
+        print()
         
         x = [i for i in range(1, 11)]
         plt.plot(x, algo_time, '-o')
@@ -234,7 +253,7 @@ def plot_results():
         plt.ylabel('Algorithm Time (seconds)')
         plt.title('Algorithm Time (seconds) k={0}'.format(k))
         plt.tight_layout()
-        plt.savefig('./baseline/plots/algoTime_k{0}.png'.format(k))
+        plt.savefig('./baseline/plots/algoTime_k{0}_sanity_check.png'.format(k))
         plt.cla()
         plt.clf()
 
@@ -250,7 +269,7 @@ def plot_results():
         plt.xticks(ind + width /2, x)
         plt.legend()
         plt.tight_layout()
-        plt.savefig('./baseline/plots/alignmentMatrixBreakdown_k{0}.png'.format(k))
+        plt.savefig('./baseline/plots/alignmentMatrixBreakdown_k{0}_sanity_check.png'.format(k))
         plt.cla()
         plt.clf()
 

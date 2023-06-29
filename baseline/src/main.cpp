@@ -754,6 +754,7 @@ class ValidMatrix {
 			}
 			double cost = HungAlgo.Solve(M, assignment);
 			return -cost/q;
+			// return 1.0;
 		}
 
 		// vector<pair<pair<int, int>, double>> get_non_exact_tokens() {
@@ -802,7 +803,8 @@ class AMatrix {
 
 					ValidMatrix *m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
 					// cout << "here" << endl;
-					double sim = m->solveQ(set1_tokens.size());
+					// double sim = m->solveQ(set1_tokens.size());
+					double sim = 1.0;
 					// cout << sim << endl;
 					if (sim >= theta) {
 						data[i + j*width] = sim;
@@ -846,10 +848,16 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	int numberOfZeroEntries = 0;
 	
 	std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
+	std::chrono::time_point<std::chrono::high_resolution_clock> sliding_window_start, sliding_window_end;
+	std::chrono::duration<double> sliding_window_elapsed;
+	double slidingWindowTime = 0.0;
+	sliding_window_start = std::chrono::high_resolution_clock::now();
 	std::unordered_map<int, vector<set<int>>> kWidthWindows = env->computeSlidingWindows(k); // setID --> sliding windows
-
-	// @todo: populate valid edges, by computing the pairwise cosine similarity between all tokens of the environment
-	std::unordered_map<size_t, double> validedges;
+	sliding_window_end = std::chrono::high_resolution_clock::now();
+	sliding_window_elapsed = sliding_window_end - sliding_window_start;
+	slidingWindowTime = sliding_window_elapsed.count();
+	cout << "Sliding Window Computation time: " << slidingWindowTime << endl;
+ 	std::unordered_map<size_t, double> validedges;
 	// for all tokens between the two texts, do a faiss similarity search and cache the edges
 	int nq = 0;
 	int i = 0;
@@ -874,7 +882,15 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	cout << "Out of dictionary words: " << i << endl;
 	// get the k nearest neighbours for each word, here set k = nq. 
 	// @todo: change to range search with radius = theta
+	std::chrono::time_point<std::chrono::high_resolution_clock> faiss_search_start, faiss_search_end;
+	std::chrono::duration<double> faiss_search_elapsed;
+	double faiss_search_time = 0.0;
+	faiss_search_start = std::chrono::high_resolution_clock::now();
 	tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, nq);
+	faiss_search_end = std::chrono::high_resolution_clock::now();
+	faiss_search_elapsed = faiss_search_end - faiss_search_start;
+	faiss_search_time = faiss_search_elapsed.count();
+	cout << "Faiss Search Time: " << faiss_search_time << endl;
 	vector<idx_t> I = std::get<0>(rt);
 	vector<float> D = std::get<1>(rt);
 	cout << "size of I: " << I.size() << endl;
