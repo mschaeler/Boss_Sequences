@@ -5,7 +5,8 @@ import statistics
 
 
 
-RESULT_FILE_LOC = "./baseline/results/esv_king_james_{0}_k{1}_0.7_sanity_check.txt"
+RESULT_FILE_LOC = "./baseline/results/esv_king_james_{0}_k{1}_0.7.txt"
+RESULT_FILE_LOC_SC = "./baseline/results/esv_king_james_{0}_k{1}_0.7_sanity_check.txt"
 
 def get_windows(s, k):
     s = s.split(" ")
@@ -273,8 +274,42 @@ def plot_results():
         plt.cla()
         plt.clf()
 
+def plot_sc():
+    for k in [3, 5, 7]:
+        at = []
+        atsc = []
+        asize = []
+        for para in range(1, 11):
+            f = RESULT_FILE_LOC.format(para, k)
+            fsc = RESULT_FILE_LOC_SC.format(para, k)
+            data = get_data(f)
+            datasc = get_data(fsc)
+            at.append(data['algoTime'])
+            atsc.append(datasc['algoTime'])
+            asize.append(datasc['alignmentMatrixSize'])
+        
+        x = [i for i in range(1, 11)]
+        ind = np.arange(len(x))
+        width = 0.2
+        plt.plot(ind, at, '--o', label='baseline')
+        plt.plot(ind + width, atsc, '--^', label='sanity_check')
+        plt.xticks(x)
+        plt.legend()
+        plt.xlabel('Paragraphs')
+        plt.ylabel('Algorithm Time (seconds)')
+        plt.title('Algorithm Time (seconds) k={0}'.format(k))
+        plt.tight_layout()
+        plt.savefig('./baseline/plots/algoTime_k{0}_sc_baseline.png'.format(k))
+        plt.cla()
+        plt.clf()
+
+        print("k = {0}".format(k))
+        print("Alignment Matrix Size: \t Max: {0}\tMin: {1}\tMean: {2}".format(max(asize), min(asize), statistics.mean(asize)))
+    
+
 
 
 if __name__ == "__main__":
     # plot_heatmap()
-    plot_results()
+    # plot_results()
+    plot_sc()
