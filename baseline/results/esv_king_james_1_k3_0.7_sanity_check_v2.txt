@@ -7,9 +7,9 @@ Vector Size: 300
 Normalized vector storage check
 Index Trained: 1
 Ntotal: 188
-Sliding Window Computation time: 0.00301876
+Sliding Window Computation time: 0.00210559
 Out of dictionary words: 63
-Faiss Search Time: 0.0361865
+Faiss Search Time: 0.0667938
 size of I: 35344
 Size of valid edges: 33849
 Done with: 1 / 22
@@ -34,9 +34,9 @@ Done with: 19 / 22
 Done with: 20 / 22
 Done with: 21 / 22
 Done with: 22 / 22
-Number of Graph Matching Computed: 171396
-Number of Zero Entries Cells: 0
-Env Time: 0.00476853
-Dataloader Time: 0.28982
-FaissIndex Time: 0.00295969
-Algorithm Time: 2554.59
+Number of Graph Matching Computed: 252004
+Number of Zero Entries Cells: 250842
+Env Time: 0.00492872
+Dataloader Time: 0.357546
+FaissIndex Time: 0.00287146
+Algorithm Time: 3422.97
