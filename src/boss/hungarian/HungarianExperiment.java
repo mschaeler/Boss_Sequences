@@ -92,8 +92,13 @@ public class HungarianExperiment {
 					//Note it is cost matrix with cosine distance. I.e, not similarity. 
 					fill_cost_matrix(current_window_p1,current_window_p2,cost_matrix);
 					//That's the important line
-					final double cost = this.solver.solve(cost_matrix, threshold);
-					alignment_matrix_line[column] = 1 - (cost / k);//Before it was distance. Now it is similarity.
+					double cost = this.solver.solve(cost_matrix, threshold);
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
 				}
 			}
 			stop = System.currentTimeMillis();
@@ -102,7 +107,7 @@ public class HungarianExperiment {
 		}
 		//Print result matrixes
 		for(double[][] alignment_matrix : alignement_matrixes){
-			//out_matrix(alignment_matrix);
+			out_matrix(alignment_matrix);
 			int num_cells = alignment_matrix.length*alignment_matrix[0].length;
 			System.out.println(num_cells);
 		}

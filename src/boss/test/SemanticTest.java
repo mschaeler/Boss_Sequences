@@ -33,7 +33,7 @@ public class SemanticTest {
 		ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
 		ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
 		
-		MAPPING_GRANUALRITY = GRANULARITY_PARAGRAPH_TO_CHAPTER;
+		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		
 		if(MAPPING_GRANUALRITY == GRANULARITY_PARAGRAPH_TO_CHAPTER) {
 			get_tokens_paragraph_to_chapter(tokenized_books.get(0), tokenized_books.get(1), raw_book_1, raw_book_2);
@@ -54,8 +54,8 @@ public class SemanticTest {
 		String file_path = Embedding.ENGLISH_EMBEDDINGS;
 		HashMap<Integer, double[]> embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
 		
-		final int k=4;
-		final double threshold = 0.5;
+		final int k=3;
+		final double threshold = 0.7;
 		ArrayList<int[]> raw_paragraphs_b1   = encode(raw_book_1, token_ids);
 		ArrayList<int[]> raw_paragraphs_b2   = encode(raw_book_2, token_ids);
 		

@@ -2,18 +2,20 @@ package boss.hungarian;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 
 public class StupidSolver extends Solver{
 	int[][] permutations;
 	int dim;
 	
 	StupidSolver(int dim){
-		if(dim!=3 && dim!=4) System.err.println("dim!=3");
+		//if(dim!=3 && dim!=4) System.err.println("dim!=3");
 		this.dim = dim;
-		this.permutations = get_permutations(dim);
+		this.permutations = compute_permutations(dim);
 	}
 	
-	static final int[][] get_permutations(int dim){
+	private static final int[][] get_permutations(int dim){
 		if(dim==3) {
 			int[][] ret = {
 					{0,1,2}
@@ -60,52 +62,47 @@ public class StupidSolver extends Solver{
 		return null;
 	}
 	
-	public static void printAllOrdered(int[] elements) {
-			    Arrays.sort(elements);
-			    boolean hasNext = true;
-
-			    while(hasNext) {
-			        System.out.println(Arrays.toString(elements));
-			        int k = 0, l = 0;
-			        hasNext = false;
-			        for (int i = elements.length - 1; i > 0; i--) {
-			            if (elements[i]>elements[i - 1]) {
-			                k = i - 1;
-			                hasNext = true;
-			                break;
-			            }
-			        }
-
-			        for (int i = elements.length - 1; i > k; i--) {
-			            if (elements[i]>elements[k]) {
-			                l = i;
-			                break;
-			            }
-			        }
-
-			        swap(elements, k, l);
-			        java.util.Collections.reverse(Arrays.asList(elements).subList(k + 1, elements.length));
-			    }
-			}
-	
-	public static void printAllRecursive(int n, int[] elements) { 
+	private static int[][] compute_permutations(int n) {
+		int[] elements = new int[n];
+		for(int i=0;i<n;i++) {elements[i]=i;}
 		ArrayList<int[]> permutations = new ArrayList<int[]>();
+		get_permutations(n,elements,permutations);
+		
+	    Collections.sort(permutations, new Comparator<int[]>() {
+			@Override
+			public int compare(int[] arg0, int[] arg1) {
+				for(int i=0;i<arg0.length;i++) {
+					if(arg0[i]!=arg1[i]) {
+						return Integer.compare(arg0[i],arg1[i]);
+					}
+				}
+				return 0;
+			}
+		});
+	    int[][] result = new int[permutations.size()][];
+	    int i=0;
+	    for(int[] perm : permutations) {
+	    	//System.out.println(Arrays.toString(perm));
+	    	result[i++] = perm;
+	    }
+	    
+		return result;
+	}
+	
+	private static void get_permutations(int n, int[] elements, ArrayList<int[]> permutations) { 	
 	    if(n == 1) {
 	        int[] temp = elements.clone();
 	        permutations.add(temp);
 	    } else {
 	        for(int i = 0; i < n-1; i++) {
-	            printAllRecursive(n - 1, elements);
+	            get_permutations(n - 1, elements, permutations);
 	            if(n % 2 == 0) {
 	                swap(elements, i, n-1);
 	            } else {
 	                swap(elements, 0, n-1);
 	            }
 	        }
-	        printAllRecursive(n - 1, elements);
-	    }
-	    for(int[] perm : permutations) {
-	    	System.out.println(Arrays.toString(perm));
+	        get_permutations(n - 1, elements, permutations);
 	    }
 	}
 	private static void swap(int[] elements, int a, int b) {
@@ -114,7 +111,7 @@ public class StupidSolver extends Solver{
 	    elements[b] = tmp;
 	}
 	
-	int permutation = -1;
+	private int permutation = -1;
 	public int[] get_assignment(){
 		return this.permutations[permutation];
 	}
@@ -130,12 +127,7 @@ public class StupidSolver extends Solver{
 			for(int mapping=0;mapping<dim;mapping++) {
 				int mapped_to = my_permutaiton[mapping];
 				final double mapping_cost = cost_matix[mapping][mapped_to]; 
-				if(mapping_cost<threshold) {
-					cost+= mapping_cost;
-				}else{
-					cost+= HungarianExperiment.MAX_DIST;
-				}
-				
+				cost+=mapping_cost;
 			}
 			if(cost<min_costs){
 				min_costs = cost;
@@ -147,9 +139,8 @@ public class StupidSolver extends Solver{
 	}
 	
 	public static void main(String[] args) {
-		int[] numbers = {0,1,2};
-		//printAllOrdered(numbers);
-		printAllRecursive(3, numbers);
+		int n = 5;
+		compute_permutations(n);
 		
 		double[][] costs= {{8, 5, 9}, {4, 2, 4}, {7, 3, 8}};
 		StupidSolver hs = new StupidSolver(3);
