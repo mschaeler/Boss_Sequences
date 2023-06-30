@@ -543,13 +543,19 @@ class AMatrix {
 
 		void computeAlignment() {
 			for (int i = 0; i < set1Windows->size(); ++i) {
-				for (int j = 0; j < set2Windows->size(); ++j) {
+				int nsize = set2Windows->size();
+				ValidMatrix *m;
+				double sim;
+				int j;
+				#pragma omp parallel default(none) num_threads(4) shared(set1Windows, i, nsize, data) private(j, m, sim)
+        		#pragma omp for schedule(static)
+				for (j = 0; j < nsize; ++j) {
 					set<int> set1_tokens = set1Windows->at(i);
 					set<int> set2_tokens = set2Windows->at(j);
 
-					ValidMatrix *m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
+					m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
 					// cout << "here" << endl;
-					double sim = m->solveQ(set1_tokens.size());
+					sim = m->solveQ(set1_tokens.size());
 					// double sim = 1.0;
 					// cout << sim << endl;
 					if (sim >= theta) {
