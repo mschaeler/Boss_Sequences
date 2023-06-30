@@ -1,0 +1,816 @@
+creating environment with lakes: /root/data/en/king_james_bible/10/, /root/data/en/esv/10/
+3 text1_files listed
+3 text2_files listed
+Line for File: /root/data/en/king_james_bible/10/2.txt and
+Line for File: /root/data/en/king_james_bible/10/2.txt all
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt acts
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt his
+Line for File: /root/data/en/king_james_bible/10/2.txt power
+Line for File: /root/data/en/king_james_bible/10/2.txt and
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt his
+Line for File: /root/data/en/king_james_bible/10/2.txt might
+Line for File: /root/data/en/king_james_bible/10/2.txt and
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt declaration
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt greatness
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt mordecai
+Line for File: /root/data/en/king_james_bible/10/2.txt whereunto
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt king
+Line for File: /root/data/en/king_james_bible/10/2.txt advanced
+Line for File: /root/data/en/king_james_bible/10/2.txt him
+Line for File: /root/data/en/king_james_bible/10/2.txt are
+Line for File: /root/data/en/king_james_bible/10/2.txt they
+Line for File: /root/data/en/king_james_bible/10/2.txt not
+Line for File: /root/data/en/king_james_bible/10/2.txt written
+Line for File: /root/data/en/king_james_bible/10/2.txt in
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt book
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt chronicles
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt the
+Line for File: /root/data/en/king_james_bible/10/2.txt kings
+Line for File: /root/data/en/king_james_bible/10/2.txt of
+Line for File: /root/data/en/king_james_bible/10/2.txt media
+Line for File: /root/data/en/king_james_bible/10/2.txt and
+Line for File: /root/data/en/king_james_bible/10/2.txt persia
+Filename: /root/data/en/king_james_bible/10/2.txt | Number of tokens: 41
+Line for File: /root/data/en/king_james_bible/10/3.txt for
+Line for File: /root/data/en/king_james_bible/10/3.txt mordecai
+Line for File: /root/data/en/king_james_bible/10/3.txt the
+Line for File: /root/data/en/king_james_bible/10/3.txt jew
+Line for File: /root/data/en/king_james_bible/10/3.txt was
+Line for File: /root/data/en/king_james_bible/10/3.txt next
+Line for File: /root/data/en/king_james_bible/10/3.txt unto
+Line for File: /root/data/en/king_james_bible/10/3.txt king
+Line for File: /root/data/en/king_james_bible/10/3.txt ahasuerus
+Line for File: /root/data/en/king_james_bible/10/3.txt and
+Line for File: /root/data/en/king_james_bible/10/3.txt great
+Line for File: /root/data/en/king_james_bible/10/3.txt among
+Line for File: /root/data/en/king_james_bible/10/3.txt the
+Line for File: /root/data/en/king_james_bible/10/3.txt jews
+Line for File: /root/data/en/king_james_bible/10/3.txt and
+Line for File: /root/data/en/king_james_bible/10/3.txt accepted
+Line for File: /root/data/en/king_james_bible/10/3.txt of
+Line for File: /root/data/en/king_james_bible/10/3.txt the
+Line for File: /root/data/en/king_james_bible/10/3.txt multitude
+Line for File: /root/data/en/king_james_bible/10/3.txt of
+Line for File: /root/data/en/king_james_bible/10/3.txt his
+Line for File: /root/data/en/king_james_bible/10/3.txt brethren
+Line for File: /root/data/en/king_james_bible/10/3.txt seeking
+Line for File: /root/data/en/king_james_bible/10/3.txt the
+Line for File: /root/data/en/king_james_bible/10/3.txt wealth
+Line for File: /root/data/en/king_james_bible/10/3.txt of
+Line for File: /root/data/en/king_james_bible/10/3.txt his
+Line for File: /root/data/en/king_james_bible/10/3.txt people
+Line for File: /root/data/en/king_james_bible/10/3.txt and
+Line for File: /root/data/en/king_james_bible/10/3.txt speaking
+Line for File: /root/data/en/king_james_bible/10/3.txt peace
+Line for File: /root/data/en/king_james_bible/10/3.txt to
+Line for File: /root/data/en/king_james_bible/10/3.txt all
+Line for File: /root/data/en/king_james_bible/10/3.txt his
+Line for File: /root/data/en/king_james_bible/10/3.txt seed
+Filename: /root/data/en/king_james_bible/10/3.txt | Number of tokens: 35
+Line for File: /root/data/en/king_james_bible/10/1.txt and
+Line for File: /root/data/en/king_james_bible/10/1.txt the
+Line for File: /root/data/en/king_james_bible/10/1.txt king
+Line for File: /root/data/en/king_james_bible/10/1.txt ahasuerus
+Line for File: /root/data/en/king_james_bible/10/1.txt laid
+Line for File: /root/data/en/king_james_bible/10/1.txt a
+Line for File: /root/data/en/king_james_bible/10/1.txt tribute
+Line for File: /root/data/en/king_james_bible/10/1.txt upon
+Line for File: /root/data/en/king_james_bible/10/1.txt the
+Line for File: /root/data/en/king_james_bible/10/1.txt land
+Line for File: /root/data/en/king_james_bible/10/1.txt and
+Line for File: /root/data/en/king_james_bible/10/1.txt upon
+Line for File: /root/data/en/king_james_bible/10/1.txt the
+Line for File: /root/data/en/king_james_bible/10/1.txt isles
+Line for File: /root/data/en/king_james_bible/10/1.txt of
+Line for File: /root/data/en/king_james_bible/10/1.txt the
+Line for File: /root/data/en/king_james_bible/10/1.txt sea
+Filename: /root/data/en/king_james_bible/10/1.txt | Number of tokens: 17
+Line for File: /root/data/en/esv/10/2.txt and
+Line for File: /root/data/en/esv/10/2.txt all
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt acts
+Line for File: /root/data/en/esv/10/2.txt of
+Line for File: /root/data/en/esv/10/2.txt his
+Line for File: /root/data/en/esv/10/2.txt power
+Line for File: /root/data/en/esv/10/2.txt and
+Line for File: /root/data/en/esv/10/2.txt might
+Line for File: /root/data/en/esv/10/2.txt and
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt full
+Line for File: /root/data/en/esv/10/2.txt account
+Line for File: /root/data/en/esv/10/2.txt of
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt high
+Line for File: /root/data/en/esv/10/2.txt honor
+Line for File: /root/data/en/esv/10/2.txt of
+Line for File: /root/data/en/esv/10/2.txt mordecai
+Line for File: /root/data/en/esv/10/2.txt to
+Line for File: /root/data/en/esv/10/2.txt which
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt king
+Line for File: /root/data/en/esv/10/2.txt advanced
+Line for File: /root/data/en/esv/10/2.txt him
+Line for File: /root/data/en/esv/10/2.txt are
+Line for File: /root/data/en/esv/10/2.txt they
+Line for File: /root/data/en/esv/10/2.txt not
+Line for File: /root/data/en/esv/10/2.txt written
+Line for File: /root/data/en/esv/10/2.txt in
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt book
+Line for File: /root/data/en/esv/10/2.txt of
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt chronicles
+Line for File: /root/data/en/esv/10/2.txt of
+Line for File: /root/data/en/esv/10/2.txt the
+Line for File: /root/data/en/esv/10/2.txt kings
+Line for File: /root/data/en/esv/10/2.txt of
+Line for File: /root/data/en/esv/10/2.txt media
+Line for File: /root/data/en/esv/10/2.txt and
+Line for File: /root/data/en/esv/10/2.txt persia
+Filename: /root/data/en/esv/10/2.txt | Number of tokens: 42
+Line for File: /root/data/en/esv/10/3.txt for
+Line for File: /root/data/en/esv/10/3.txt mordecai
+Line for File: /root/data/en/esv/10/3.txt the
+Line for File: /root/data/en/esv/10/3.txt jew
+Line for File: /root/data/en/esv/10/3.txt was
+Line for File: /root/data/en/esv/10/3.txt second
+Line for File: /root/data/en/esv/10/3.txt in
+Line for File: /root/data/en/esv/10/3.txt rank
+Line for File: /root/data/en/esv/10/3.txt to
+Line for File: /root/data/en/esv/10/3.txt king
+Line for File: /root/data/en/esv/10/3.txt ahasuerus
+Line for File: /root/data/en/esv/10/3.txt and
+Line for File: /root/data/en/esv/10/3.txt he
+Line for File: /root/data/en/esv/10/3.txt was
+Line for File: /root/data/en/esv/10/3.txt great
+Line for File: /root/data/en/esv/10/3.txt among
+Line for File: /root/data/en/esv/10/3.txt the
+Line for File: /root/data/en/esv/10/3.txt jews
+Line for File: /root/data/en/esv/10/3.txt and
+Line for File: /root/data/en/esv/10/3.txt popular
+Line for File: /root/data/en/esv/10/3.txt with
+Line for File: /root/data/en/esv/10/3.txt the
+Line for File: /root/data/en/esv/10/3.txt multitude
+Line for File: /root/data/en/esv/10/3.txt of
+Line for File: /root/data/en/esv/10/3.txt his
+Line for File: /root/data/en/esv/10/3.txt brothers
+Line for File: /root/data/en/esv/10/3.txt for
+Line for File: /root/data/en/esv/10/3.txt he
+Line for File: /root/data/en/esv/10/3.txt sought
+Line for File: /root/data/en/esv/10/3.txt the
+Line for File: /root/data/en/esv/10/3.txt welfare
+Line for File: /root/data/en/esv/10/3.txt of
+Line for File: /root/data/en/esv/10/3.txt his
+Line for File: /root/data/en/esv/10/3.txt people
+Line for File: /root/data/en/esv/10/3.txt and
+Line for File: /root/data/en/esv/10/3.txt spoke
+Line for File: /root/data/en/esv/10/3.txt peace
+Line for File: /root/data/en/esv/10/3.txt to
+Line for File: /root/data/en/esv/10/3.txt all
+Line for File: /root/data/en/esv/10/3.txt his
+Line for File: /root/data/en/esv/10/3.txt people
+Filename: /root/data/en/esv/10/3.txt | Number of tokens: 41
+Line for File: /root/data/en/esv/10/1.txt king
+Line for File: /root/data/en/esv/10/1.txt ahasuerus
+Line for File: /root/data/en/esv/10/1.txt imposed
+Line for File: /root/data/en/esv/10/1.txt tax
+Line for File: /root/data/en/esv/10/1.txt on
+Line for File: /root/data/en/esv/10/1.txt the
+Line for File: /root/data/en/esv/10/1.txt land
+Line for File: /root/data/en/esv/10/1.txt and
+Line for File: /root/data/en/esv/10/1.txt on
+Line for File: /root/data/en/esv/10/1.txt the
+Line for File: /root/data/en/esv/10/1.txt coastlands
+Line for File: /root/data/en/esv/10/1.txt of
+Line for File: /root/data/en/esv/10/1.txt the
+Line for File: /root/data/en/esv/10/1.txt sea
+Filename: /root/data/en/esv/10/1.txt | Number of tokens: 14
+Inverted Index Size: 199
+Words: 69
+Vector Size: 300
+Normalized vector storage check
+Index Trained: 1
+Ntotal: 51
+Sliding Window Computation time: 0.000642373
+Out of dictionary words: 18
+Faiss Search Time: 0.00762345
+size of I: 2601
+Size of valid edges: 2567
+Set 1: /root/data/en/king_james_bible/10/2.txt Set 2: /root/data/en/esv/10/2.txtAMatrix Size: 1560
+Set1 tokens:
+0
+1
+2
+3
+4
+5
+6
+0
+4
+5
+7
+0
+2
+8
+4
+2
+9
+4
+10
+11
+2
+12
+13
+14
+15
+16
+17
+18
+19
+2
+20
+4
+2
+21
+4
+2
+22
+4
+23
+0
+24
+Set2 Tokens
+0
+1
+2
+3
+4
+5
+6
+0
+7
+0
+2
+51
+52
+4
+2
+53
+54
+4
+10
+42
+55
+2
+12
+13
+14
+15
+16
+17
+18
+19
+2
+20
+4
+2
+21
+4
+2
+22
+4
+23
+0
+24
+Set 1: /root/data/en/king_james_bible/10/2.txt Set 2: /root/data/en/esv/10/3.txtAMatrix Size: 1521
+Set1 tokens:
+0
+1
+2
+3
+4
+5
+6
+0
+4
+5
+7
+0
+2
+8
+4
+2
+9
+4
+10
+11
+2
+12
+13
+14
+15
+16
+17
+18
+19
+2
+20
+4
+2
+21
+4
+2
+22
+4
+23
+0
+24
+Set2 Tokens
+25
+10
+2
+26
+27
+56
+19
+57
+42
+12
+30
+0
+58
+27
+31
+32
+2
+33
+0
+59
+60
+2
+35
+4
+5
+61
+25
+58
+62
+2
+63
+4
+5
+39
+0
+64
+41
+42
+1
+5
+39
+Set 1: /root/data/en/king_james_bible/10/2.txt Set 2: /root/data/en/esv/10/1.txtAMatrix Size: 468
+Set1 tokens:
+0
+1
+2
+3
+4
+5
+6
+0
+4
+5
+7
+0
+2
+8
+4
+2
+9
+4
+10
+11
+2
+12
+13
+14
+15
+16
+17
+18
+19
+2
+20
+4
+2
+21
+4
+2
+22
+4
+23
+0
+24
+Set2 Tokens
+12
+30
+65
+66
+67
+2
+48
+0
+67
+2
+68
+4
+2
+50
+Done with: 1 / 3
+Set 1: /root/data/en/king_james_bible/10/3.txt Set 2: /root/data/en/esv/10/2.txtAMatrix Size: 1320
+Set1 tokens:
+25
+10
+2
+26
+27
+28
+29
+12
+30
+0
+31
+32
+2
+33
+0
+34
+4
+2
+35
+4
+5
+36
+37
+2
+38
+4
+5
+39
+0
+40
+41
+42
+1
+5
+43
+Set2 Tokens
+0
+1
+2
+3
+4
+5
+6
+0
+7
+0
+2
+51
+52
+4
+2
+53
+54
+4
+10
+42
+55
+2
+12
+13
+14
+15
+16
+17
+18
+19
+2
+20
+4
+2
+21
+4
+2
+22
+4
+23
+0
+24
+Set 1: /root/data/en/king_james_bible/10/3.txt Set 2: /root/data/en/esv/10/3.txtAMatrix Size: 1287
+Set1 tokens:
+25
+10
+2
+26
+27
+28
+29
+12
+30
+0
+31
+32
+2
+33
+0
+34
+4
+2
+35
+4
+5
+36
+37
+2
+38
+4
+5
+39
+0
+40
+41
+42
+1
+5
+43
+Set2 Tokens
+25
+10
+2
+26
+27
+56
+19
+57
+42
+12
+30
+0
+58
+27
+31
+32
+2
+33
+0
+59
+60
+2
+35
+4
+5
+61
+25
+58
+62
+2
+63
+4
+5
+39
+0
+64
+41
+42
+1
+5
+39
+Set 1: /root/data/en/king_james_bible/10/3.txt Set 2: /root/data/en/esv/10/1.txtAMatrix Size: 396
+Set1 tokens:
+25
+10
+2
+26
+27
+28
+29
+12
+30
+0
+31
+32
+2
+33
+0
+34
+4
+2
+35
+4
+5
+36
+37
+2
+38
+4
+5
+39
+0
+40
+41
+42
+1
+5
+43
+Set2 Tokens
+12
+30
+65
+66
+67
+2
+48
+0
+67
+2
+68
+4
+2
+50
+Done with: 2 / 3
+Set 1: /root/data/en/king_james_bible/10/1.txt Set 2: /root/data/en/esv/10/2.txtAMatrix Size: 600
+Set1 tokens:
+0
+2
+12
+30
+44
+45
+46
+47
+2
+48
+0
+47
+2
+49
+4
+2
+50
+Set2 Tokens
+0
+1
+2
+3
+4
+5
+6
+0
+7
+0
+2
+51
+52
+4
+2
+53
+54
+4
+10
+42
+55
+2
+12
+13
+14
+15
+16
+17
+18
+19
+2
+20
+4
+2
+21
+4
+2
+22
+4
+23
+0
+24
+Set 1: /root/data/en/king_james_bible/10/1.txt Set 2: /root/data/en/esv/10/3.txtAMatrix Size: 585
+Set1 tokens:
+0
+2
+12
+30
+44
+45
+46
+47
+2
+48
+0
+47
+2
+49
+4
+2
+50
+Set2 Tokens
+25
+10
+2
+26
+27
+56
+19
+57
+42
+12
+30
+0
+58
+27
+31
+32
+2
+33
+0
+59
+60
+2
+35
+4
+5
+61
+25
+58
+62
+2
+63
+4
+5
+39
+0
+64
+41
+42
+1
+5
+39
+Set 1: /root/data/en/king_james_bible/10/1.txt Set 2: /root/data/en/esv/10/1.txtAMatrix Size: 180
+Set1 tokens:
+0
+2
+12
+30
+44
+45
+46
+47
+2
+48
+0
+47
+2
+49
+4
+2
+50
+Set2 Tokens
+12
+30
+65
+66
+67
+2
+48
+0
+67
+2
+68
+4
+2
+50
+Done with: 3 / 3
+Number of Graph Matching Computed: 7917
+Number of Zero Entries Cells: 7671
+Env Time: 0.0023342
+Dataloader Time: 0.19648
+FaissIndex Time: 0.00120691
+Algorithm Time: 7.14489

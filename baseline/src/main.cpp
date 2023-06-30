@@ -51,7 +51,7 @@ namespace fs = std::filesystem;
 using idx_t = faiss::Index::idx_t;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
 
-vector<set<int>> slidingWindows(set<int>& tokens, int k) {
+vector<set<int>> slidingWindows(vector<int>& tokens, int k) {
 	vector<set<int>> windows;
 	if (tokens.empty() || k <= 0 || k > tokens.size()) {
 		return windows;
@@ -76,7 +76,7 @@ vector<set<int>> slidingWindows(set<int>& tokens, int k) {
 
 class Environment {
 	private:
-		std::unordered_map<int, set<int>> sets;
+		std::unordered_map<int, vector<int>> sets;
 		set<int> text1sets;
 		set<int> text2sets;
 		std::unordered_set<int> wordSet;
@@ -121,22 +121,26 @@ class Environment {
 					while (getline(infile, line)) {
 						tokens += 1;
 						line.erase(line.find_last_not_of(" \n\r\t")+1);
+						// cout << "Line for File: " << f << " " << line << endl;
 						if (line.size() > 0) {
 							if (word2int.find(line) == word2int.end()) {
 								word2int[line] = id;
 								wordSet.insert(id);
 								int2word[id] = line;
-								sets[sid].insert(id);
+								sets[sid].push_back(id);
 								std::set<int> nset = {sid};
 								invertedIndex.push_back(nset);
 								id += 1;
 							} else {
-								sets[sid].insert(word2int[line]);
+								sets[sid].push_back(word2int[line]);
 								invertedIndex[word2int[line]].insert(sid);
 							}
+						} else {
+							cout << "ERROR if printed" << endl;
 						}
 					}
 				}
+				// cout << "Filename: " << f << " | Number of tokens: " << sets[sid].size() << endl;
 				sid += 1;
 			}
 			int text1_tokens = tokens;
@@ -144,7 +148,7 @@ class Environment {
 			text1_average_cardinality = text1_tokens / text1_sets;
 
 			for (size_t i = 0; i < text2_files.size(); ++i) {
-				string f = text1_files[i];
+				string f = text2_files[i];
 				set2int[f] = sid;
 				int2set[sid] = f;
 				text2sets.insert(sid);
@@ -154,30 +158,35 @@ class Environment {
 					while (getline(infile, line)) {
 						tokens += 1;
 						line.erase(line.find_last_not_of(" \n\r\t")+1);
+						// cout << "Line for File: " << f << " " << line << endl;
 						if (line.size() > 0) {
 							if (word2int.find(line) == word2int.end()) {
 								word2int[line] = id;
 								wordSet.insert(id);
 								int2word[id] = line;
-								sets[sid].insert(id);
+								sets[sid].push_back(id);
 								std::set<int> nset = {sid};
 								invertedIndex.push_back(nset);
 								id += 1;
 							} else {
-								sets[sid].insert(word2int[line]);
+								sets[sid].push_back(word2int[line]);
 								invertedIndex[word2int[line]].insert(sid);
 							}
+						} else {
+							cout << "ERROR if printed 2" << endl;
 						}
 					}
 				}
+				// cout << "Filename: " << f << " | Number of tokens: " << sets[sid].size() << endl;
 				sid += 1;
+				
 			}
 
 			text2_average_cardinality = (tokens - text1_tokens) / (sets.size() - text1_sets);
 
 		}
 
-		std::unordered_map<int, set<int>> getSets() {
+		std::unordered_map<int, vector<int>> getSets() {
 			return sets;
 		}
 
@@ -547,8 +556,8 @@ class AMatrix {
 				ValidMatrix *m;
 				double sim;
 				int j;
-				#pragma omp parallel default(none) num_threads(4) shared(set1Windows, i, nsize, data) private(j, m, sim)
-        		#pragma omp for schedule(static)
+				// #pragma omp parallel default(none) num_threads(4) shared(set1Windows, i, nsize, data) private(j, m, sim)
+        		// #pragma omp for schedule(static)
 				for (j = 0; j < nsize; ++j) {
 					set<int> set1_tokens = set1Windows->at(i);
 					set<int> set2_tokens = set2Windows->at(j);
@@ -588,7 +597,7 @@ class AMatrix {
 
 void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k, double theta) {
 
-	std::unordered_map<int, set<int>> sets = env->getSets(); // all sets stored as key: set integer id, value: set data (int token integer ids)
+	std::unordered_map<int, vector<int>> sets = env->getSets(); // all sets stored as key: set integer id, value: set data (int token integer ids)
 	std::unordered_set<int> wordSet = env->getWordSet(); // all unique tokens in copora
 	vector<set<int>> invertedIndex = env->getInvertedIndex(); // inverted index that returns all sets containing given token
 	vector<int> dictionary = dl->getDictionary(); // vectors database instance
@@ -665,6 +674,10 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	cout << "Size of valid edges: " << validedges.size() << endl;
 
 	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
+	std::chrono::time_point<std::chrono::high_resolution_clock> bs_search_start, bs_search_end;
+	std::chrono::duration<double> bs_search_elapsed;
+	double bs_search_time = 0.0;
+	bs_search_start = std::chrono::high_resolution_clock::now();
 	int counter = 1;
 	for (int set1Id : text1Sets) {
 		vector<set<int>> set1Windows = kWidthWindows[set1Id];
@@ -677,12 +690,26 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 				results[key(set1Id, set2Id)] = A;
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
+				cout << "Set 1: " << env->getSetName(set1Id) << " Set 2: " << env->getSetName(set2Id) << "AMatrix Size: " << A->get_matrix_size() << endl;
+				// vector<int> set1Tokens = sets[set1Id];
+				// vector<int> set2Tokens = sets[set2Id];
+				// cout << "Set1 tokens:" << endl;
+				// for (auto s : set1Tokens) {
+				// 	cout << s << endl;
+				// }
+				// cout << "Set2 Tokens" << endl;
+				// for (auto s : set2Tokens) {
+				// 	cout << s << endl;
+				// }
 			}
 		}
 		cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 		counter += 1;
 	}
-
+	bs_search_end = std::chrono::high_resolution_clock::now();
+	bs_search_elapsed = bs_search_end - bs_search_start;
+	bs_search_time = bs_search_elapsed.count();
+	cout << "Main Loop Time: " << bs_search_time << endl;
 	cout << "Number of Graph Matching Computed: " << numberOfGraphMatchingComputed << endl;
 	cout << "Number of Zero Entries Cells: " << numberOfZeroEntries << endl;
 }
