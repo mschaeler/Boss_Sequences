@@ -39,16 +39,16 @@ def write_data(data, outfolder):
     os.makedirs(outfolder, exist_ok=True)
     print(outfolder)
     # file_name = '{0}_{1}.txt'
-    file_name = '{0}/{1}.txt'
-    # file_name = '{0}.txt'
+    # file_name = '{0}/{1}.txt'
+    file_name = '{0}.txt'
     for k, v in data.items():
         for idx, v1 in enumerate(v):
             # outfolder_1 = outfolder + '{0}_{1}'.format(k, idx)
             outfolder_1 = outfolder + '{0}'.format(k)
             os.makedirs(outfolder_1, exist_ok=True)
-            f = file_name.format(k, idx+1)
-            # f = file_name.format(k)
-            with open(os.path.join(outfolder, f), 'w') as out:
+            # f = file_name.format(k, idx+1)
+            f = file_name.format(k)
+            with open(os.path.join(outfolder_1, f), 'a') as out:
                 for word in v1:
                     out.write('{0}\n'.format(word.lower()))
             out.close()
@@ -60,5 +60,5 @@ def write_data(data, outfolder):
 if __name__ == "__main__":
     fileloc = "./data/en/king_james_bible.txt"
     data = load_data(fileloc)
-    outfolder ="/root/data/en/king_james_bible/"
+    outfolder ="/root/data/en/king_james_bible_chapter/"
     write_data(data, outfolder)

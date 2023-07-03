@@ -20,7 +20,7 @@ CHAPTER_PARAS = {
 
 logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
 logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_sim1_vm.txt'
-
+logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter.txt'
 def start_experiments():
     outfolder = '../results/'
     # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para2chapter.txt'
@@ -38,6 +38,23 @@ def start_experiments():
             completed = subprocess.run(['./build/baseline', text1, text2, "3", "0.7", outfolder, "./en.tsv"], stdout=f)
             print('returncode: ', completed.returncode)
             f.close()
+
+
+def start_experiments_chapter2chapter():
+    outfolder = '../results/'
+    # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para2chapter.txt'
+
+    for i in range(1, 11):
+        chapter = i
+        text1 = '/root/data/en/king_james_bible_chapter/{0}/'.format(chapter) 
+        text2 = '/root/data/en/esv_chapter/{0}/'.format(chapter)
+        # local_logfolder = logfolder_para2chapter.format(chapter, p, chapter, 3)
+        local_logfolder = logfolder_chapter2chapter.format(chapter, 3)
+        f = open(local_logfolder, 'w')
+        completed = subprocess.run(['./build/baseline', text1, text2, "3", "0.7", outfolder, "./en.tsv"], stdout=f)
+        print('returncode: ', completed.returncode)
+        f.close()
+
 
 def get_data(fileloc):
     file = open(fileloc, 'r')
@@ -97,6 +114,21 @@ def print_results():
                 idx += 1
     f.close()
 
+
+def print_results_chapter2chapter():
+    outfile = './chapter2chapter.csv'
+    # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
+    with open(outfile, 'w') as f:
+        f.write('AlgoTime(ms), Result Matrix, Chapter\n')
+        for i in range(1, 11):
+            data = get_data(logfolder_chapter2chapter.format(i, 3))
+            algoTime_ms = data['algoTime'] * 1000
+            matrixSize = data['alignmentMatrixSize']
+            f.write('{0}, {1}, {2}\n'.format(algoTime_ms, matrixSize, i))
+    f.close()
+
 if __name__ == '__main__':
-    start_experiments()
-    print_results()
+    # start_experiments()
+    # print_results()
+    start_experiments_chapter2chapter()
+    print_results_chapter2chapter()
