@@ -1,0 +1,132 @@
+creating environment with lakes: /root/data/en/king_james_bible/7/, /root/data/en/esv/7/
+10 text1_files listed
+10 text2_files listed
+ERROR if printed
+Inverted Index Size: 706
+Words: 188
+Vector Size: 300
+Normalized vector storage check
+Index Trained: 1
+Ntotal: 129
+Sliding Window Computation time: 0.00159015
+Out of dictionary words: 59
+Faiss Search Time: 0.0448382
+size of I: 16641
+Size of valid edges: 16334
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 1505
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 1155
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 490
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 1400
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 1260
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 490
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 1750
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 1015
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 210
+Set 1: /root/data/en/king_james_bible/7/4.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 490
+Done with: 1 / 10
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 1634
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 1254
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 532
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 1520
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 1368
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 532
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 1900
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 1102
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 228
+Set 1: /root/data/en/king_james_bible/7/7.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 532
+Done with: 2 / 10
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 559
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 429
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 182
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 520
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 468
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 182
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 650
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 377
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 78
+Set 1: /root/data/en/king_james_bible/7/10.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 182
+Done with: 3 / 10
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 1677
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 1287
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 546
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 1560
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 1404
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 546
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 1950
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 1131
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 234
+Set 1: /root/data/en/king_james_bible/7/2.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 546
+Done with: 4 / 10
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 1591
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 1221
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 518
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 1480
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 1332
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 518
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 1850
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 1073
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 222
+Set 1: /root/data/en/king_james_bible/7/9.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 518
+Done with: 5 / 10
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 903
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 693
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 294
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 840
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 756
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 294
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 1050
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 609
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 126
+Set 1: /root/data/en/king_james_bible/7/5.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 294
+Done with: 6 / 10
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 2107
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 1617
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 686
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 1960
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 1764
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 686
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 2450
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 1421
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 294
+Set 1: /root/data/en/king_james_bible/7/8.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 686
+Done with: 7 / 10
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 1376
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 1056
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 448
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 1280
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 1152
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 448
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 1600
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 928
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 192
+Set 1: /root/data/en/king_james_bible/7/3.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 448
+Done with: 8 / 10
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 258
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 198
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 84
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 240
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 216
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 84
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 300
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 174
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 36
+Set 1: /root/data/en/king_james_bible/7/1.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 84
+Done with: 9 / 10
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/4.txtAMatrix Size: 645
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/7.txtAMatrix Size: 495
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/10.txtAMatrix Size: 210
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/2.txtAMatrix Size: 600
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/9.txtAMatrix Size: 540
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/5.txtAMatrix Size: 210
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/8.txtAMatrix Size: 750
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/3.txtAMatrix Size: 435
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/1.txtAMatrix Size: 90
+Set 1: /root/data/en/king_james_bible/7/6.txt Set 2: /root/data/en/esv/7/6.txtAMatrix Size: 210
+Done with: 10 / 10
+Main Loop Time: 530.276
+Number of Graph Matching Computed: 79515
+Number of Zero Entries Cells: 79189
+Env Time: 0.00263189
+Dataloader Time: 0.209356
+FaissIndex Time: 0.0015132
+Algorithm Time: 530.35

@@ -690,7 +690,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 				results[key(set1Id, set2Id)] = A;
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
-				cout << "Set 1: " << env->getSetName(set1Id) << " Set 2: " << env->getSetName(set2Id) << "AMatrix Size: " << A->get_matrix_size() << endl;
+				cout << "Set 1: " << env->getSetName(set1Id) << " Set 2: " << env->getSetName(set2Id) << " AMatrix Size: " << A->get_matrix_size() << endl;
 				// vector<int> set1Tokens = sets[set1Id];
 				// vector<int> set2Tokens = sets[set2Id];
 				// cout << "Set1 tokens:" << endl;
