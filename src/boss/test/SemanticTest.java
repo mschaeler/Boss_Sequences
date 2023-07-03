@@ -33,7 +33,8 @@ public class SemanticTest {
 		ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
 		ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
 		
-		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		// MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		MAPPING_GRANUALRITY = GRANULARITY_PARAGRAPH_TO_CHAPTER;
 		
 		if(MAPPING_GRANUALRITY == GRANULARITY_PARAGRAPH_TO_CHAPTER) {
 			get_tokens_paragraph_to_chapter(tokenized_books.get(0), tokenized_books.get(1), raw_book_1, raw_book_2);
