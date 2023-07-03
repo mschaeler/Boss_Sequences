@@ -33,9 +33,9 @@ def start_experiments():
             # text2 = '/root/data/en/esv_chapter/{0}/'.format(chapter)
             text2 = '/root/data/en/esv_para/{0}_{1}/'.format(chapter, p)
             # local_logfolder = logfolder_para2chapter.format(chapter, p, chapter, 3)
-            local_logfolder = logfolder_para2para.format(chapter, p, 3)
+            local_logfolder = logfolder_para2para.format(chapter, p, 5)
             f = open(local_logfolder, 'w')
-            completed = subprocess.run(['./build/baseline', text1, text2, "3", "0.7", outfolder, "./en.tsv"], stdout=f)
+            completed = subprocess.run(['./build/baseline', text1, text2, "5", "0.7", outfolder, "./en.tsv"], stdout=f)
             print('returncode: ', completed.returncode)
             f.close()
 
@@ -49,9 +49,9 @@ def start_experiments_chapter2chapter():
         text1 = '/root/data/en/king_james_bible_chapter/{0}/'.format(chapter) 
         text2 = '/root/data/en/esv_chapter/{0}/'.format(chapter)
         # local_logfolder = logfolder_para2chapter.format(chapter, p, chapter, 3)
-        local_logfolder = logfolder_chapter2chapter.format(chapter, 3)
+        local_logfolder = logfolder_chapter2chapter.format(chapter, 5)
         f = open(local_logfolder, 'w')
-        completed = subprocess.run(['./build/baseline', text1, text2, "3", "0.7", outfolder, "./en.tsv"], stdout=f)
+        completed = subprocess.run(['./build/baseline', text1, text2, "5", "0.7", outfolder, "./en.tsv"], stdout=f)
         print('returncode: ', completed.returncode)
         f.close()
 
@@ -98,7 +98,7 @@ def get_data(fileloc):
     return result_data
 
 def print_results():
-    outfile = './para2para.csv'
+    outfile = './para2para_k5.csv'
     # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
     with open(outfile, 'w') as f:
         f.write('Paragraph, AlgoTime(ms), Result Matrix, Chapter\n')
@@ -107,7 +107,7 @@ def print_results():
             paras = [p for p in range(CHAPTER_PARAS[i])]
             for p in paras:
                 # data = get_data(logfolder_para2chapter.format(i, p, i, 3))
-                data = get_data(logfolder_para2para.format(i, p, 3))
+                data = get_data(logfolder_para2para.format(i, p, 5))
                 algoTime_ms = data['algoTime'] * 1000
                 matrixSize = data['alignmentMatrixSize']
                 f.write('{0}, {1}, {2}, {3}\n'.format(idx, algoTime_ms, matrixSize, i))
@@ -116,12 +116,12 @@ def print_results():
 
 
 def print_results_chapter2chapter():
-    outfile = './chapter2chapter.csv'
+    outfile = './chapter2chapter_k5.csv'
     # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
     with open(outfile, 'w') as f:
         f.write('AlgoTime(ms), Result Matrix, Chapter\n')
         for i in range(1, 11):
-            data = get_data(logfolder_chapter2chapter.format(i, 3))
+            data = get_data(logfolder_chapter2chapter.format(i, 5))
             algoTime_ms = data['algoTime'] * 1000
             matrixSize = data['alignmentMatrixSize']
             f.write('{0}, {1}, {2}\n'.format(algoTime_ms, matrixSize, i))
