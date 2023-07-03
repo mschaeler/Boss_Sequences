@@ -1,0 +1,24 @@
+creating environment with lakes: /root/data/en/king_james_bible_para/2_6/, /root/data/en/esv_chapter/2/
+1 text1_files listed
+1 text2_files listed
+ERROR if printed
+Inverted Index Size: 540
+Words: 256
+Vector Size: 300
+Normalized vector storage check
+Index Trained: 1
+Ntotal: 193
+Sliding Window Computation time: 0.0013628
+Out of dictionary words: 63
+Faiss Search Time: 0.022642
+size of I: 37249
+Size of valid edges: 35498
+Set 1: /root/data/en/king_james_bible_para/2_6/2.txt Set 2: /root/data/en/esv_chapter/2/2.txt AMatrix Size: 28601
+Done with: 1 / 1
+Main Loop Time: 401.763
+Number of Graph Matching Computed: 28601
+Number of Zero Entries Cells: 28566
+Env Time: 0.00200004
+Dataloader Time: 0.339563
+FaissIndex Time: 0.00227497
+Algorithm Time: 401.844

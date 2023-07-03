@@ -256,6 +256,7 @@ class DataLoader {
 		Environment *env;
 		std::unordered_map<int, vector<float>> vectors;
 		vector<int> dictionary;
+		std::unordered_map<size_t, double> cache;
 
 
 		std::vector<string> splitString(const string& line, char del) {
@@ -320,6 +321,33 @@ class DataLoader {
 
 		vector<int> getDictionary() {
 			return dictionary;
+		}
+
+		double calculate_similarity(int token1_ID, int token2_ID) {
+			// if same tokens similarity is 1
+			if (token1_ID == token2_ID) {
+				return 1.0;
+			}
+			// if either token doesn't have a vector then similarity is 0
+			if ((vectors.find(token1_ID) == vectors.end()) || (vectors.find(token2_ID) == vectors.end())) {
+				return 0.0;
+			}
+			// if similarity was calculated before we simply return
+			if (cache.find(key(token1_ID, token2_ID)) != cache.end()) {
+				return cache[key(token1_ID, token2_ID)];
+			}
+			// we calculate the similarity and cache it
+			float dot = 0.0, denom_a = 0.0, denom_b = 0.0;
+			vector<float> A = vectors[token1_ID];
+			vector<float> B = vectors[token2_ID];
+			for(int i = 0; i < A.size(); ++i) {
+				dot += A[i] * B[i];
+				denom_a += A[i] * A[i];
+				denom_b += B[i] * B[i];
+			}
+			double sim = double(dot / (sqrt(denom_a) * sqrt(denom_b)));
+			cache[key(token1_ID, token2_ID)] = sim;
+			return sim;
 		}
 };
 
@@ -481,12 +509,41 @@ class ValidMatrix {
 			}
 		}
 
+		ValidMatrix(set<int> query_set, set<int> target_set, DataLoader *dl) {
+			int i = 0;
+			matching = min(query_set.size(), target_set.size());
+			// vector<int> query_tokens;
+			for(set<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
+				vector<double> temp;
+				vector<pair<int, int>> temp_tokens;
+				int qword = *itq;
+				for(set<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
+					int tword = *itt;
+					// if (validedge.find(key(qword, tword)) != validedge.end()) {
+					// 	temp.push_back(0.0 - validedge[key(qword, tword)]);
+					// 	// temp.push_back(validedge[key(qword, tword)]);
+					// } else {
+					// 	if (qword == tword) {
+					// 		temp.push_back(-1.0);
+					// 		// temp.push_back(1.0);
+					// 	} else {
+					// 		temp.push_back(0.0);
+					// 	}
+					// }
+					temp.push_back(0.0 - dl->calculate_similarity(qword, tword));
+					temp_tokens.push_back(make_pair(qword, tword));
+				}
+				M.push_back(temp);
+				M_tokens.push_back(temp_tokens);
+			}
+		}
+
 		const vector<vector<double>> reveal() {
 			return M;
 		}
-		int getrealsize() {
-			return realsize;
-		}
+		// int getrealsize() {
+		// 	return realsize;
+		// }
 
 		// solve matching with |Query| cardinality as base
 		// double solveQ(int q, std::set<pair<double, int>, cmp_increasing> *L_, std::mutex *mtx, double *etm, bool isEarly = true){
@@ -538,9 +595,10 @@ class AMatrix {
 		unordered_map<size_t, double> validEdges;
 		double theta;
 		int zero_entries = 0;
+		DataLoader *dl;
 	
 	public:
-		AMatrix(vector<set<int>>* Ws, vector<set<int>>* Wt, unordered_map<size_t, double> validedges, double threshold) {
+		AMatrix(vector<set<int>>* Ws, vector<set<int>>* Wt, unordered_map<size_t, double> validedges, double threshold, DataLoader *_dl) {
 			width = Ws->size();
 			height = Wt->size();
 			set1Windows = Ws;
@@ -548,6 +606,7 @@ class AMatrix {
 			validEdges = validedges;
 			theta = threshold;
 			data = new double[width * height];
+			dl = _dl;
 		}
 
 		void computeAlignment() {
@@ -561,11 +620,14 @@ class AMatrix {
 				for (j = 0; j < nsize; ++j) {
 					set<int> set1_tokens = set1Windows->at(i);
 					set<int> set2_tokens = set2Windows->at(j);
-
-					m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
+					if (set1_tokens.size() <= 10) {
+						m = new ValidMatrix(set1_tokens, set2_tokens, dl);
+					} else {
+						m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
+					}
 					// cout << "here" << endl;
 					sim = m->solveQ(set1_tokens.size());
-					// double sim = 1.0;
+					// sim = 1.0;
 					// cout << sim << endl;
 					if (sim >= theta) {
 						data[i + j*width] = sim;
@@ -685,12 +747,12 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 			vector<set<int>> set2Windows = kWidthWindows[set2Id];
 			// compute the alignment matrix if not computed previously
 			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				AMatrix *A = new AMatrix(&set1Windows, &set2Windows, validedges, theta);
+				AMatrix *A = new AMatrix(&set1Windows, &set2Windows, validedges, theta, dl);
 				A->computeAlignment();
 				results[key(set1Id, set2Id)] = A;
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
-				cout << "Set 1: " << env->getSetName(set1Id) << " Set 2: " << env->getSetName(set2Id) << " AMatrix Size: " << A->get_matrix_size() << endl;
+				// cout << "Set 1: " << env->getSetName(set1Id) << " Set 2: " << env->getSetName(set2Id) << " AMatrix Size: " << A->get_matrix_size() << endl;
 				// vector<int> set1Tokens = sets[set1Id];
 				// vector<int> set2Tokens = sets[set2Id];
 				// cout << "Set1 tokens:" << endl;
@@ -703,7 +765,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 				// }
 			}
 		}
-		cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 		counter += 1;
 	}
 	bs_search_end = std::chrono::high_resolution_clock::now();
