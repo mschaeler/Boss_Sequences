@@ -87,7 +87,6 @@ class Environment {
 		std::unordered_map<string, int> set2int;
 		int text1_average_cardinality = 0;
 		int text2_average_cardinality = 0;
-		// int k = 0;
 		
 	public:
 		Environment(string text1location, string text2location) {
@@ -121,7 +120,6 @@ class Environment {
 					while (getline(infile, line)) {
 						tokens += 1;
 						line.erase(line.find_last_not_of(" \n\r\t")+1);
-						// cout << "Line for File: " << f << " " << line << endl;
 						if (line.size() > 0) {
 							if (word2int.find(line) == word2int.end()) {
 								word2int[line] = id;
@@ -135,12 +133,9 @@ class Environment {
 								sets[sid].push_back(word2int[line]);
 								invertedIndex[word2int[line]].insert(sid);
 							}
-						} else {
-							cout << "ERROR if printed" << endl;
 						}
 					}
 				}
-				// cout << "Filename: " << f << " | Number of tokens: " << sets[sid].size() << endl;
 				sid += 1;
 			}
 			int text1_tokens = tokens;
@@ -172,12 +167,9 @@ class Environment {
 								sets[sid].push_back(word2int[line]);
 								invertedIndex[word2int[line]].insert(sid);
 							}
-						} else {
-							cout << "ERROR if printed 2" << endl;
 						}
 					}
 				}
-				// cout << "Filename: " << f << " | Number of tokens: " << sets[sid].size() << endl;
 				sid += 1;
 				
 			}
@@ -292,8 +284,6 @@ class DataLoader {
 						vectors[token_id] = vr;
 						dictionary.push_back(token_id);
 					}
-					// cout << "Token Id: " << token_id << endl;
-					// cout << "Embedding Size: " << embedding.size() << endl;
 				}
 			}
 			file.close();
@@ -382,13 +372,6 @@ class FaissIndexCPU {
 			}
 
 			faiss::fvec_renorm_L2(d, nb, xb);
-
-			// for (int i = 0; i < nb; i++) {
-			// 	vector<float> vec;
-			// 	for (int j = 0; j < d; j++) {
-			// 		vec.push_back(xb[d * i + j]);
-			// 	}
-			// }
 
 			cout << "Normalized vector storage check" << endl;
 			index->add(nb, xb);
@@ -493,11 +476,9 @@ class ValidMatrix {
 					int tword = *itt;
 					if (validedge.find(key(qword, tword)) != validedge.end()) {
 						temp.push_back(0.0 - validedge[key(qword, tword)]);
-						// temp.push_back(validedge[key(qword, tword)]);
 					} else {
 						if (qword == tword) {
 							temp.push_back(-1.0);
-							// temp.push_back(1.0);
 						} else {
 							temp.push_back(0.0);
 						}
@@ -512,24 +493,12 @@ class ValidMatrix {
 		ValidMatrix(set<int> query_set, set<int> target_set, DataLoader *dl) {
 			int i = 0;
 			matching = min(query_set.size(), target_set.size());
-			// vector<int> query_tokens;
 			for(set<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
 				vector<double> temp;
 				vector<pair<int, int>> temp_tokens;
 				int qword = *itq;
 				for(set<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
 					int tword = *itt;
-					// if (validedge.find(key(qword, tword)) != validedge.end()) {
-					// 	temp.push_back(0.0 - validedge[key(qword, tword)]);
-					// 	// temp.push_back(validedge[key(qword, tword)]);
-					// } else {
-					// 	if (qword == tword) {
-					// 		temp.push_back(-1.0);
-					// 		// temp.push_back(1.0);
-					// 	} else {
-					// 		temp.push_back(0.0);
-					// 	}
-					// }
 					temp.push_back(0.0 - dl->calculate_similarity(qword, tword));
 					temp_tokens.push_back(make_pair(qword, tword));
 				}
@@ -541,22 +510,6 @@ class ValidMatrix {
 		const vector<vector<double>> reveal() {
 			return M;
 		}
-		// int getrealsize() {
-		// 	return realsize;
-		// }
-
-		// solve matching with |Query| cardinality as base
-		// double solveQ(int q, std::set<pair<double, int>, cmp_increasing> *L_, std::mutex *mtx, double *etm, bool isEarly = true){
-		// 	HungarianAlgorithm HungAlgo;
-		// 	vector<int> assignment;
-		// 	double cost = HungAlgo.Solve(M, assignment, non_exact_token_indices, q, L_, mtx, etm, isEarly);
-		// 	double overlap = 0.0;
-		// 	assignment_internal = assignment;
-		// 	if (matching == 0) {
-		// 		return 0.0;
-		// 	}
-		// 	return -cost/q;
-		// }
 
 		double solveQ(int q) {
 			HungarianAlgorithm HungAlgo;
@@ -752,17 +705,6 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 				results[key(set1Id, set2Id)] = A;
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
-				// cout << "Set 1: " << env->getSetName(set1Id) << " Set 2: " << env->getSetName(set2Id) << " AMatrix Size: " << A->get_matrix_size() << endl;
-				// vector<int> set1Tokens = sets[set1Id];
-				// vector<int> set2Tokens = sets[set2Id];
-				// cout << "Set1 tokens:" << endl;
-				// for (auto s : set1Tokens) {
-				// 	cout << s << endl;
-				// }
-				// cout << "Set2 Tokens" << endl;
-				// for (auto s : set2Tokens) {
-				// 	cout << s << endl;
-				// }
 			}
 		}
 		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
