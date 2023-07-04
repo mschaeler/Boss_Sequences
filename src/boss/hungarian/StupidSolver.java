@@ -15,53 +15,6 @@ public class StupidSolver extends Solver{
 		this.permutations = compute_permutations(dim);
 	}
 	
-	private static final int[][] get_permutations(int dim){
-		if(dim==3) {
-			int[][] ret = {
-					{0,1,2}
-					,{0,2,1}
-					,{1,0,2}
-					,{1,2,0}
-					,{2,0,1}
-					,{2,1,0}
-			};
-			return ret;
-		}
-		if(dim==4) {
-			int[][] ret = {
-					{0,1,2,3}
-					,{0,1,3,2}
-					,{0,2,1,3}
-					,{0,2,3,1}
-					,{0,3,1,2}
-					,{0,3,2,1}
-					
-					,{1,0,2,3}
-					,{1,0,3,2}
-					,{1,2,0,3}
-					,{1,2,3,0}
-					,{1,3,0,2}
-					,{1,3,2,0}
-					
-					,{2,0,1,3}
-					,{2,0,2,3}
-					,{2,1,0,3}
-					,{2,1,3,0}
-					,{2,3,0,1}
-					,{2,3,1,0}
-					
-					,{3,0,1,2}
-					,{3,0,2,1}
-					,{3,1,0,2}
-					,{3,1,2,0}
-					,{3,2,0,1}
-					,{3,2,1,0}
-			};
-			return ret;
-		}
-		return null;
-	}
-	
 	private static int[][] compute_permutations(int n) {
 		int[] elements = new int[n];
 		for(int i=0;i<n;i++) {elements[i]=i;}
@@ -154,5 +107,10 @@ public class StupidSolver extends Solver{
 			};
 		hs = new StupidSolver(4);
 		System.out.println(hs.solve(costs2));
+	}
+
+	@Override
+	public String get_name() {
+		return this.getClass().getCanonicalName();
 	}
 }

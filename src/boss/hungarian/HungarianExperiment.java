@@ -1,5 +1,9 @@
 package boss.hungarian;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -66,8 +70,13 @@ public class HungarianExperiment {
 		return windows;
 	}
 	
-	final boolean VERBOSE = true;
+	public boolean VERBOSE = false;
+	public boolean TO_FILE = true;
+	FileWriter f;
+	BufferedWriter output;
+	
 	public void run(){
+		System.out.println("HungarianExperiment.run() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
@@ -105,19 +114,55 @@ public class HungarianExperiment {
 			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
 			this.alignement_matrixes.add(alignment_matrix);
 		}
+		
 		//Print result matrixes
+		int p = 0;
+		if(TO_FILE) {
+			String path = ".//results//"+System.currentTimeMillis()+"_sim()="+SIM_FUNCTION+"_k="+k+"_threshold="+threshold+"_"+this.solver.get_name()+".tsv";
+			try {
+				this.f = new FileWriter(path);
+				output = new BufferedWriter(f);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 		for(double[][] alignment_matrix : alignement_matrixes){
-			out_matrix(alignment_matrix);
+			out_matrix(alignment_matrix, p++);
 			int num_cells = alignment_matrix.length*alignment_matrix[0].length;
 			System.out.println(num_cells);
 		}
+		if(TO_FILE) {
+			try {
+				output.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
-	private void out_matrix(double[][] alignment_matrix) {
+	private void out_matrix(double[][] alignment_matrix, final int p_id) {
 		System.out.println("Next matrix");
+		if(TO_FILE) {
+			try {
+				output.write("Next matrix "+p_id);
+				output.newLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 		for(double[] array : alignment_matrix) {
 			String temp = outTSV(array);
-			System.out.println(temp);
+			if(VERBOSE) {
+				System.out.println(temp);
+			}
+			if(TO_FILE) {
+				try {
+					output.write(temp);
+					output.newLine();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 
@@ -142,16 +187,70 @@ public class HungarianExperiment {
 		}
 	}
 	
-	public static final double EQUAL = 0;
+	public static final double EQUAL 	= 0;
 	public static final double MAX_DIST = 1.0;
+	
+	public static final int COSINE 			= 0;
+	public static final int STRING_EDIT 	= 1;
+	public static final int VANILLA_OVERLAP = 3;
+	public static final int SIM_FUNCTION = VANILLA_OVERLAP;
+	
+	@SuppressWarnings("unused")
 	final double dist(final int set_id1, final int set_id2, final double[] vec_1, final double[] vec_2) {
 		if(set_id1==set_id2) {
 			return EQUAL;
 		}else if(vec_1==null || vec_2==null){//may happen e.g., for stop words
 			return MAX_DIST;
 		}
-		return cosine_distance(vec_1, vec_2);
+		if(SIM_FUNCTION == COSINE) {
+			return cosine_distance(vec_1, vec_2);	
+		}else if(SIM_FUNCTION == STRING_EDIT){
+			return edit_dist(set_id1, set_id2);
+		}else if(SIM_FUNCTION == VANILLA_OVERLAP){
+			return MAX_DIST;//only EQUAL or MAX_DIST
+		}else{
+			System.err.println("dist(): Unknown sim fnction");
+			return cosine_distance(vec_1, vec_2);
+		}
 	}
+	
+	//TODO make Strings available
+	public static int edit_dist(final int set_id1, final int set_id2){
+		System.err.println("edit_dist() not yet implemented");
+		String s1=null;
+		String s2=null;
+		return edit_dist(s1, s2, s1.length(), s2.length());
+	}
+	
+    static int edit_dist(String s1, String s2, int pos_s1, int pos_s2){
+    	//End of recursion if one Token sequence has been entirely consumed
+    	if (pos_s1 == 0) {
+    		 return pos_s2;
+    	}
+        if(pos_s2 == 0) {
+            return pos_s1;
+        }
+ 
+        //Here both sequences are identical. Move both positions to the token before.
+        if (s1.charAt(pos_s1 - 1)==s2.charAt(pos_s2 - 1)) {
+            return edit_dist(s1, s2, pos_s1 - 1, pos_s2 - 1);
+        }
+ 
+        return 1
+            + min(edit_dist(s1, s2, pos_s1, pos_s2 - 1)  		// Insert 
+            		, edit_dist(s1, s2, pos_s1 - 1, pos_s2)		// Remove
+            		, edit_dist(s1, s2, pos_s1 - 1,pos_s2 - 1)	// Replace
+              );
+    }
+    
+	static final int min(final int x, final int y, final int z){
+        if (x <= y && x <= z)
+            return x;
+        if (y <= x && y <= z)
+            return y;
+        else
+            return z;
+    }
 
 	//Optional TODO - normalize all vectors to length = 1. Then, computation is much simpler.
 	static double cosine_distance(final double[] vectorA, final double[] vectorB) {
