@@ -18,12 +18,12 @@ CHAPTER_PARAS = {
 }
 
 
-logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
+logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para_gcm.txt'
 logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_gcm.txt'
-logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter.txt'
-results_para2para = './para2para_k{0}.csv'
+logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_gcm.txt'
+results_para2para = './para2para_k{0}_gcm.csv'
 results_para2chapter = './para2chapter_k{0}_gcm.csv'
-results_chapter2chapter = './chapter2chapter_k{0}.csv'
+results_chapter2chapter = './chapter2chapter_k{0}_gcm.csv'
 
 
 def start_experiments():
@@ -219,5 +219,8 @@ if __name__ == '__main__':
     # print_results()
     # start_experiments_chapter2chapter()
     # print_results_chapter2chapter()
-    baseline_runner('para2chapter', 0.7, 3)
-    baseline_results_to_csv('para2chapter', 3)
+    for gran in ['para2para', 'para2chapter', 'chapter2chapter']:
+        for k in [3, 5, 7]:
+            print('Experiment for gran:{0}\tk:{1}'.format(gran, k))
+            baseline_runner(gran, 0.7, k)
+            baseline_results_to_csv(gran, k)
