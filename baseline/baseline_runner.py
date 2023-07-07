@@ -19,10 +19,10 @@ CHAPTER_PARAS = {
 
 
 logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
-logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_sim1_vm.txt'
+logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_gcm.txt'
 logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter.txt'
 results_para2para = './para2para_k{0}.csv'
-results_para2chapter = './para2chapter_k{0}.csv'
+results_para2chapter = './para2chapter_k{0}_gcm.csv'
 results_chapter2chapter = './chapter2chapter_k{0}.csv'
 
 
@@ -165,7 +165,7 @@ def baseline_runner(granularity, theta=0.7, k=3):
             for p in range(CHAPTER_PARAS[chapter]):
                 text1 = '/root/data/en/king_james_bible_para/{0}_{1}/'.format(chapter, p)
                 text2 = '/root/data/en/esv_chapter/{0}/'.format(chapter)
-                local_logfolder = paths[0].format(chapter, p, k)
+                local_logfolder = paths[0].format(chapter, p, chapter, k)
                 f = open(local_logfolder, 'w')
                 completed = subprocess.run(['./build/baseline', text1, text2, str(k), str(theta), outfolder, embedding_file], stdout=f)
                 print('returncode: ', completed.returncode)
@@ -219,5 +219,5 @@ if __name__ == '__main__':
     # print_results()
     # start_experiments_chapter2chapter()
     # print_results_chapter2chapter()
-    baseline_runner('chapter2chapter', 0.7, 3)
-    baseline_results_to_csv('chapter2chapter', 3)
+    baseline_runner('para2chapter', 0.7, 3)
+    baseline_results_to_csv('para2chapter', 3)
