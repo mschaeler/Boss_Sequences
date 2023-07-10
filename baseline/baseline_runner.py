@@ -18,12 +18,12 @@ CHAPTER_PARAS = {
 }
 
 
-logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para_gcm.txt'
-logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_gcm.txt'
-logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_gcm.txt'
-results_para2para = './para2para_k{0}_gcm.csv'
-results_para2chapter = './para2chapter_k{0}_gcm.csv'
-results_chapter2chapter = './chapter2chapter_k{0}_gcm.csv'
+logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para_permIndex.txt'
+logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_permIndex.txt'
+logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_permIndex.txt'
+results_para2para = './para2para_k{0}_permIndex.csv'
+results_para2chapter = './para2chapter_k{0}_permIndex.csv'
+results_chapter2chapter = './chapter2chapter_k{0}_permIndex.csv'
 
 
 def start_experiments():

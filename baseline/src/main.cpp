@@ -51,23 +51,43 @@ namespace fs = std::filesystem;
 using idx_t = faiss::Index::idx_t;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
 
-vector<set<int>> slidingWindows(vector<int>& tokens, int k) {
-	vector<set<int>> windows;
-	if (tokens.empty() || k <= 0 || k > tokens.size()) {
-		return windows;
-	}
+// vector<vector<int>> slidingWindows(vector<int>& tokens, int k) {
+// 	vector<vector<int>> windows;
+// 	if (tokens.empty() || k <= 0 || k > tokens.size()) {
+// 		return windows;
+// 	}
 
-	auto it = tokens.begin();
-	set<int> currentWindow(it, next(it, k));
-	windows.push_back(currentWindow);
+// 	auto it = tokens.begin();
+// 	vector<int> currentWindow(it, next(it, k));
+// 	windows.push_back(currentWindow);
 
-	while (next(it, k) != tokens.end()) {
-		currentWindow.erase(*it);
-		currentWindow.insert(*next(it, k));
-		windows.push_back(currentWindow);
-		++it;
-	}
-	return windows;
+// 	while (next(it, k) != tokens.end()) {
+// 		currentWindow.erase(*it);
+// 		currentWindow.push_back(*next(it, k));
+// 		windows.push_back(currentWindow);
+// 		++it;
+// 	}
+// 	return windows;
+// }
+
+std::vector<std::vector<int>> slidingWindows(vector<int>& nums, int k) {
+    std::vector<std::vector<int>> result;
+    if (nums.empty() || k <= 0 || k > nums.size()) {
+        return result;
+    }
+
+    auto it = nums.begin();
+    std::vector<int> window(it, std::next(it, k));
+    result.push_back(window);
+
+    while (std::next(it, k) != nums.end()) {
+        window.erase(window.begin());
+        window.push_back(*std::next(it, k));
+        result.push_back(window);
+        ++it;
+    }
+
+    return result;
 }
 
 /**
@@ -182,8 +202,8 @@ class Environment {
 			return sets;
 		}
 
-		std::unordered_map<int, vector<set<int>>> computeSlidingWindows(int windowWidth) {
-			std::unordered_map<int, vector<set<int>>> windows;
+		std::unordered_map<int, vector<vector<int>>> computeSlidingWindows(int windowWidth) {
+			std::unordered_map<int, vector<vector<int>>> windows;
 			for (auto i = sets.begin(); i != sets.end(); i++) {
 				windows[i->first] = slidingWindows(i->second, windowWidth);
 			}
@@ -290,7 +310,12 @@ class DataLoader {
 		}
 
 		vector<float> get_vector(int id){
-			return vectors[id];
+			if (vectors.find(id) == vectors.end()) {
+				vector<float> emptyVector(300, 0.0f);
+				return emptyVector;
+			} else {
+				return vectors[id];
+			}
 		}
 
 		set<int> getWords(){
@@ -379,6 +404,29 @@ class FaissIndexCPU {
 			cout << "Ntotal: " << index->ntotal << endl;
 		}
 
+		FaissIndexCPU(vector<vector<float>> vectors, int d) {
+			cout << "Vector Size: " << vectors[0].size() << endl;
+			// dictionary = db->get_dictionary();
+
+			index = new faiss::IndexFlatIP(d);
+
+			int nb = vectors.size();
+			float *xb = new float[d * nb];
+			for (int i = 0; i < nb; i++) {
+				for (int j = 0; j < d; j++) {
+					xb[d * i + j] = vectors[i][j];
+				}
+				xb[d * i] += i / 1000.;
+			}
+
+			faiss::fvec_renorm_L2(d, nb, xb);
+
+			cout << "Normalized vector storage check" << endl;
+			index->add(nb, xb);
+			cout << "Index Trained: " << index->is_trained << endl;
+			cout << "Ntotal: " << index->ntotal << endl;
+		}
+
 		std::tuple<vector<idx_t>, vector<float>> kNNSearch(int nq, vector<float> vxq, int k) {
 			int d = 300;
 			float* xq = vxq.data();
@@ -400,8 +448,7 @@ class FaissIndexCPU {
 			return {vI, vD};
 		}
 
-		std::tuple<vector<vector<idx_t>>, vector<vector<float>>> rangeSearch(int nq, vector<float> vxq, float radius) {
-			int d = 300;
+		std::tuple<vector<vector<idx_t>>, vector<vector<float>>> rangeSearch(int nq, vector<float> vxq, float radius, int d) {
 			float* xq = vxq.data();
 
 			faiss::RangeSearchResult* result = new faiss::RangeSearchResult(nq);
@@ -445,34 +492,34 @@ class ValidMatrix {
         // for edges popped from the monotonically decreasing priority queue by edge weights 
         // (cosine similarity) by leveraging valid edges, we save computing resources by do not 
         // have to re-calculate cosine similarity for edges retrieved from the Faiss index (which is expensive)
-		ValidMatrix(set<int> query_set, set<int> target_set, std::unordered_map<size_t, double> validedge) {
+		ValidMatrix(vector<int> query_set, vector<int> target_set, std::unordered_map<size_t, double> validedge) {
 			int i = 0;
-			set<int> query_set_pruned;
-			set<int> target_set_pruned;
+			vector<int> query_set_pruned;
+			vector<int> target_set_pruned;
 			matching = min(query_set.size(), target_set.size());
-			for(set<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
+			for(vector<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
 				vector<double> temp;
 				int qword = *itq;
-				for(set<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
+				for(vector<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
 					int tword = *itt;
 					if (validedge.find(key(qword, tword)) != validedge.end()) {
-						query_set_pruned.insert(qword);
-						target_set_pruned.insert(tword);
+						query_set_pruned.push_back(qword);
+						target_set_pruned.push_back(tword);
 					} else {
 						if (qword == tword) {
-							query_set_pruned.insert(qword);
-							target_set_pruned.insert(tword);
+							query_set_pruned.push_back(qword);
+							target_set_pruned.push_back(tword);
 						}
 					}// bucket upperbound not considering this
 				}
 			}
 			realsize = query_set_pruned.size() * target_set_pruned.size();
 			// vector<int> query_tokens;
-			for(set<int>::iterator itq = query_set_pruned.begin(); itq != query_set_pruned.end(); ++itq) {
+			for(vector<int>::iterator itq = query_set_pruned.begin(); itq != query_set_pruned.end(); ++itq) {
 				vector<double> temp;
 				vector<pair<int, int>> temp_tokens;
 				int qword = *itq;
-				for(set<int>::iterator itt = target_set_pruned.begin(); itt != target_set_pruned.end(); ++itt) {
+				for(vector<int>::iterator itt = target_set_pruned.begin(); itt != target_set_pruned.end(); ++itt) {
 					int tword = *itt;
 					if (validedge.find(key(qword, tword)) != validedge.end()) {
 						temp.push_back(0.0 - validedge[key(qword, tword)]);
@@ -490,14 +537,14 @@ class ValidMatrix {
 			}
 		}
 
-		ValidMatrix(set<int> query_set, set<int> target_set, DataLoader *dl) {
+		ValidMatrix(vector<int> query_set, vector<int> target_set, DataLoader *dl) {
 			int i = 0;
 			matching = min(query_set.size(), target_set.size());
-			for(set<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
+			for(vector<int>::iterator itq = query_set.begin(); itq != query_set.end(); ++itq) {
 				vector<double> temp;
 				vector<pair<int, int>> temp_tokens;
 				int qword = *itq;
-				for(set<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
+				for(vector<int>::iterator itt = target_set.begin(); itt != target_set.end(); ++itt) {
 					int tword = *itt;
 					temp.push_back(0.0 - dl->calculate_similarity(qword, tword));
 					temp_tokens.push_back(make_pair(qword, tword));
@@ -612,20 +659,129 @@ class GlobalAMatrix {
 
 };
 
+class PermutationOptimizedSearch {
+	private:
+		FaissIndexCPU *index;
+		vector<vector<int>> *set1Windows;
+		vector<vector<int>> *set2Windows;
+		unordered_map<int, int> permutationTracker; // permIndex to window it belongs
+		double theta;
+		DataLoader *dl;
+		int width;
+		int height;
+		int k;
+		double* data;
+		int zero_entries = 0;
+
+		vector<vector<int>> permute(const vector<int>& nums) {
+			vector<vector<int>> results;
+			vector<int> permutation(nums);
+			do {
+				results.push_back(permutation);
+			} while (std::next_permutation(permutation.begin(), permutation.end()));
+
+			return results;
+		}
+	
+	public:
+		PermutationOptimizedSearch(vector<vector<int>>* _set1Windows, vector<vector<int>>* _set2Windows, double _theta, DataLoader* _dl, int _k) {
+			set1Windows = _set1Windows;
+			set2Windows = _set2Windows;
+			theta = _theta;
+			dl = _dl;
+			k = _k;
+			width = set1Windows->size();
+			height = set2Windows->size();
+			data = new double[width * height];
+		}
+
+		void computeAlignment() {
+			/**
+			 * for each window w \in set2Windows, compute the concatenated vector
+			 * for each vector compute the permutation
+			 * build faiss index
+			 * perform search
+			*/
+			vector<vector<float>> vectors;
+			int permIndexTracker = 0;
+			for (int i = 0; i < set2Windows->size(); i++) {
+				vector<int> tokens = set2Windows->at(i);
+				vector<vector<int>> permutations = permute(tokens);
+				for (int j = 0; j < permutations.size(); j++) {
+					vector<int> currPerm = permutations.at(j);
+					vector<float> currPermVector;
+					for (int t : currPerm) {
+						vector<float> t_v = dl->get_vector(t);
+						currPermVector.insert(currPermVector.end(), t_v.begin(), t_v.end());
+					}
+					vectors.push_back(currPermVector);
+					permutationTracker[permIndexTracker] = i;
+					permIndexTracker += 1;
+				}
+			}
+
+			int d = k * 300;
+			index = new FaissIndexCPU(vectors, d);
+			vector<float> vxq;
+			for (int i = 0; i < set1Windows->size(); i++) {
+				vector<int> tokens = set1Windows->at(i);
+				vector<float> concatVector;
+				for (int t : tokens) {
+					vector<float> t_v = dl->get_vector(t);
+					concatVector.insert(concatVector.end(), t_v.begin(), t_v.end());
+				}
+				vxq.insert(vxq.end(), concatVector.begin(), concatVector.end());
+			}
+			int nq = width;
+			tuple<vector<vector<idx_t>>, vector<vector<float>>> rt = index->rangeSearch(nq, vxq, theta, d);
+			vector<vector<idx_t>> I = std::get<0>(rt);
+			vector<vector<float>> D = std::get<1>(rt);
+
+			for (int i = 0; i < nq; i++) {
+				vector<idx_t> nghs = I[i];
+				for (int n = 0; n < nghs.size(); n++) {
+					int permIndex = nghs[n];
+					int j = permutationTracker[permIndex];
+					double sim = static_cast<double>(D[i][n]);
+					if (data[i + j * width] < sim) {
+						data[i + j * width] = sim;
+					}
+				}
+			}
+
+			int dataLen = sizeof(data) / sizeof(double);
+			for (int j = 0; j < dataLen; j++) {
+				if (data[j] == 0.0) {
+					zero_entries += 1;
+				}
+			}
+
+		}
+
+		int get_matrix_size() {
+			return width * height;
+		}
+
+		int zeroCells() {
+			return zero_entries;
+		}
+
+};
+
 class AMatrix {
 	private:
 		int width;
 		int height;
 		double* data; // double* matrix 1-D representation of a matrix: matrix[i + j*width] = matrix[i][j].. matrix[width*height]... delete [] matrix;
-		vector<set<int>> *set1Windows;
-		vector<set<int>> *set2Windows;
+		vector<vector<int>> *set1Windows;
+		vector<vector<int>> *set2Windows;
 		unordered_map<size_t, double> validEdges;
 		double theta;
 		int zero_entries = 0;
 		DataLoader *dl;
 	
 	public:
-		AMatrix(vector<set<int>>* Ws, vector<set<int>>* Wt, unordered_map<size_t, double> validedges, double threshold, DataLoader *_dl) {
+		AMatrix(vector<vector<int>>* Ws, vector<vector<int>>* Wt, unordered_map<size_t, double> validedges, double threshold, DataLoader *_dl) {
 			width = Ws->size();
 			height = Wt->size();
 			set1Windows = Ws;
@@ -645,8 +801,8 @@ class AMatrix {
 				// #pragma omp parallel default(none) num_threads(4) shared(set1Windows, i, nsize, data) private(j, m, sim)
         		// #pragma omp for schedule(static)
 				for (j = 0; j < nsize; ++j) {
-					set<int> set1_tokens = set1Windows->at(i);
-					set<int> set2_tokens = set2Windows->at(j);
+					vector<int> set1_tokens = set1Windows->at(i);
+					vector<int> set2_tokens = set2Windows->at(j);
 					if (set1_tokens.size() <= 10) {
 						m = new ValidMatrix(set1_tokens, set2_tokens, dl);
 					} else {
@@ -702,7 +858,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	std::chrono::duration<double> sliding_window_elapsed;
 	double slidingWindowTime = 0.0;
 	sliding_window_start = std::chrono::high_resolution_clock::now();
-	std::unordered_map<int, vector<set<int>>> kWidthWindows = env->computeSlidingWindows(k); // setID --> sliding windows
+	std::unordered_map<int, vector<vector<int>>> kWidthWindows = env->computeSlidingWindows(k); // setID --> sliding windows
 	sliding_window_end = std::chrono::high_resolution_clock::now();
 	sliding_window_elapsed = sliding_window_end - sliding_window_start;
 	slidingWindowTime = sliding_window_elapsed.count();
@@ -768,10 +924,12 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	double bs_search_time = 0.0;
 	bs_search_start = std::chrono::high_resolution_clock::now();
 	int counter = 1;
+
+	// Local Cost Matrix
 	// for (int set1Id : text1Sets) {
-	// 	vector<set<int>> set1Windows = kWidthWindows[set1Id];
+	// 	vector<vector<int>> set1Windows = kWidthWindows[set1Id];
 	// 	for (int set2Id : text2Sets) {
-	// 		vector<set<int>> set2Windows = kWidthWindows[set2Id];
+	// 		vector<vector<int>> set2Windows = kWidthWindows[set2Id];
 	// 		// compute the alignment matrix if not computed previously
 	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
 	// 			AMatrix *A = new AMatrix(&set1Windows, &set2Windows, validedges, theta, dl);
@@ -784,15 +942,16 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 	// 	counter += 1;
 	// }
+
+	// Permutation Index Search
 	for (int set1Id : text1Sets) {
-		vector<int> set1Tokens = sets[set1Id];
+		vector<vector<int>> set1Windows = kWidthWindows[set1Id];
 		for (int set2Id : text2Sets) {
-			vector<int> set2Tokens = sets[set2Id];
+			vector<vector<int>> set2Windows = kWidthWindows[set2Id];
 			// compute the alignment matrix if not computed previously
 			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
-				A->computeAlignment(k);
-				// results[key(set1Id, set2Id)] = A;
+				PermutationOptimizedSearch* A = new PermutationOptimizedSearch(&set1Windows, &set2Windows, theta, dl, k);
+				A->computeAlignment();
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
 			}
@@ -800,6 +959,24 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 		counter += 1;
 	}
+
+	// Global Cost Matrix 
+	// for (int set1Id : text1Sets) {
+	// 	vector<int> set1Tokens = sets[set1Id];
+	// 	for (int set2Id : text2Sets) {
+	// 		vector<int> set2Tokens = sets[set2Id];
+	// 		// compute the alignment matrix if not computed previously
+	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
+	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
+	// 			A->computeAlignment(k);
+	// 			// results[key(set1Id, set2Id)] = A;
+	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
+	// 			numberOfZeroEntries += A->zeroCells();
+	// 		}
+	// 	}
+	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+	// 	counter += 1;
+	// }
 	bs_search_end = std::chrono::high_resolution_clock::now();
 	bs_search_elapsed = bs_search_end - bs_search_start;
 	bs_search_time = bs_search_elapsed.count();

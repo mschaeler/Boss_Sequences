@@ -1,0 +1,5 @@
+creating environment with lakes: /root/data/en/king_james_bible_para/2_18/, /root/data/en/esv_para/2_18/
+1 text1_files listed
+1 text2_files listed
+Inverted Index Size: 50
+Words: 20
