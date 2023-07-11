@@ -1,15 +1,7 @@
 /**
-
-    Implement the baseline:
-    - read the data from the txt file 
-    - read the vectors for each token
-    - solve the sliding window bipartite graph matching 
-      to compute the alignment matrix 
-
-	@todo:
-		- implement the Faiss Index for efficient search [done]
-		- update the valid edges [done]
-		- implement the AMatrix->computeAlignment()
+ * @author: Pranay Mundra
+ * @package: Semantic Alignment Calculator
+ * @version: 1.3
 */
 
 #include <iostream>
@@ -50,25 +42,6 @@ using namespace std;
 namespace fs = std::filesystem;
 using idx_t = faiss::Index::idx_t;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
-
-// vector<vector<int>> slidingWindows(vector<int>& tokens, int k) {
-// 	vector<vector<int>> windows;
-// 	if (tokens.empty() || k <= 0 || k > tokens.size()) {
-// 		return windows;
-// 	}
-
-// 	auto it = tokens.begin();
-// 	vector<int> currentWindow(it, next(it, k));
-// 	windows.push_back(currentWindow);
-
-// 	while (next(it, k) != tokens.end()) {
-// 		currentWindow.erase(*it);
-// 		currentWindow.push_back(*next(it, k));
-// 		windows.push_back(currentWindow);
-// 		++it;
-// 	}
-// 	return windows;
-// }
 
 std::vector<std::vector<int>> slidingWindows(vector<int>& nums, int k) {
     std::vector<std::vector<int>> result;
@@ -743,7 +716,7 @@ class PermutationOptimizedSearch {
 			tuple<vector<idx_t>, vector<float>> rt = index->kNNSearch(nq, vxq, permIndexTracker, d);
 			vector<idx_t> I = std::get<0>(rt);
 			vector<float> D = std::get<1>(rt);
-			
+
 			for (int i = 0; i < nq; i++) {
 				for (int j = 0; j < permIndexTracker; j++) {
 					int windowPermIndex = I[i * permIndexTracker + j];
@@ -759,7 +732,7 @@ class PermutationOptimizedSearch {
 				}
 			}
 
-			// int dataLen = sizeof(data) / sizeof(double);
+			// calculate the number of cells below the threshold
 			for (int i = 0; i < width; i++) {
 				for (int j = 0; j < height; j++) {
 					if (data[i + j * width] < theta) {
@@ -820,10 +793,8 @@ class AMatrix {
 					} else {
 						m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
 					}
-					// cout << "here" << endl;
 					sim = m->solveQ(set1_tokens.size());
 					// sim = 1.0;
-					// cout << sim << endl;
 					if (sim >= theta) {
 						data[i + j*width] = sim;
 					} else {
@@ -918,11 +889,8 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 		int tq = dictionary[tq_cur];
 		int word = dictionary[*it];
 		float fsim = D[cur];
-		// cout << "fsim: " << fsim << endl;
 		double sim = static_cast<double>(fsim);
-		// cout << "sim: " << sim << endl;
 		if (sim > 0.0) {
-			// cout << "here" << endl;
 			validedges[key(tq, word)] = sim;
 		}
 		cur += 1;
@@ -1006,10 +974,8 @@ int main(int argc, char const *argv[]) {
 	string text1_location = argv[1];
 	string text2_location = argv[2];
 	int k = stoi(argv[3]);
-	// cout << "Window Width: " << k << endl;
 	double theta = stod(argv[4]);
 	string result_file = argv[5];
-	// string database_path = argv[6];
 	string data_file = argv[6];	
 
 	double envtime = 0.0;
@@ -1034,7 +1000,6 @@ int main(int argc, char const *argv[]) {
 	}
 	invertedIndexSize += invertedIndex.size();
 	cout << "Inverted Index Size: " << invertedIndexSize << endl;
-	// Database *db = new Database(database_path, env);
 	cout << "Words: " << env->getWordSet().size() << endl;
 
 	dl_start = std::chrono::high_resolution_clock::now();
@@ -1042,9 +1007,6 @@ int main(int argc, char const *argv[]) {
 	dl_end = std::chrono::high_resolution_clock::now();
 	dl_elapsed = dl_end - dl_start;
 	dataloader_time = dl_elapsed.count();
-	// vector<float> test_vector = loader->get_vector(20);
-	// cout << "Words: " << loader->getWords().size() << endl;
-	// cout << "Test Vector Size: " << test_vector.size() << endl;
 
 	faiss_start = std::chrono::high_resolution_clock::now();
 	FaissIndexCPU *faissIndex = new FaissIndexCPU("./", loader, env->getWordSet());
