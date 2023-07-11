@@ -26,41 +26,6 @@ results_para2chapter = './para2chapter_k{0}_permIndex.csv'
 results_chapter2chapter = './chapter2chapter_k{0}_permIndex.csv'
 
 
-def start_experiments():
-    outfolder = '../results/'
-    # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para2chapter.txt'
-
-    for i in range(1, 11):
-        chapter = i
-        paras = [p for p in range(CHAPTER_PARAS[chapter])]
-        for p in paras:
-            text1 = '/root/data/en/king_james_bible_para/{0}_{1}/'.format(chapter, p)
-            # text2 = '/root/data/en/esv_chapter/{0}/'.format(chapter)
-            text2 = '/root/data/en/esv_para/{0}_{1}/'.format(chapter, p)
-            # local_logfolder = logfolder_para2chapter.format(chapter, p, chapter, 3)
-            local_logfolder = logfolder_para2para.format(chapter, p, 5)
-            f = open(local_logfolder, 'w')
-            completed = subprocess.run(['./build/baseline', text1, text2, "5", "0.7", outfolder, "./en.tsv"], stdout=f)
-            print('returncode: ', completed.returncode)
-            f.close()
-
-
-def start_experiments_chapter2chapter():
-    outfolder = '../results/'
-    # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para2chapter.txt'
-
-    for i in range(1, 11):
-        chapter = i
-        text1 = '/root/data/en/king_james_bible_chapter/{0}/'.format(chapter) 
-        text2 = '/root/data/en/esv_chapter/{0}/'.format(chapter)
-        # local_logfolder = logfolder_para2chapter.format(chapter, p, chapter, 3)
-        local_logfolder = logfolder_chapter2chapter.format(chapter, 5)
-        f = open(local_logfolder, 'w')
-        completed = subprocess.run(['./build/baseline', text1, text2, "5", "0.7", outfolder, "./en.tsv"], stdout=f)
-        print('returncode: ', completed.returncode)
-        f.close()
-
-
 def get_data(fileloc):
     file = open(fileloc, 'r')
     lines = file.readlines()
@@ -101,37 +66,6 @@ def get_data(fileloc):
             result_data['algoTime'] = float(s[1].strip())
 
     return result_data
-
-def print_results():
-    outfile = './para2para.csv'
-    # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
-    with open(outfile, 'w') as f:
-        f.write('Paragraph, AlgoTime(ms), Result Matrix, Chapter\n')
-        idx = 0
-        for i in range(1, 11):
-            paras = [p for p in range(CHAPTER_PARAS[i])]
-            for p in paras:
-                # data = get_data(logfolder_para2chapter.format(i, p, i, 3))
-                data = get_data(logfolder_para2para.format(i, p, 3))
-                algoTime_ms = data['algoTime'] * 1000
-                matrixSize = data['alignmentMatrixSize']
-                f.write('{0}, {1}, {2}, {3}\n'.format(idx, algoTime_ms, matrixSize, i))
-                idx += 1
-    f.close()
-
-
-def print_results_chapter2chapter():
-    outfile = './chapter2chapter_k5.csv'
-    # logfolder = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para.txt'
-    with open(outfile, 'w') as f:
-        f.write('AlgoTime(ms), Result Matrix, Chapter\n')
-        for i in range(1, 11):
-            data = get_data(logfolder_chapter2chapter.format(i, 5))
-            algoTime_ms = data['algoTime'] * 1000
-            matrixSize = data['alignmentMatrixSize']
-            f.write('{0}, {1}, {2}\n'.format(algoTime_ms, matrixSize, i))
-    f.close()
-
 
 
 def get_paths(granularity):
@@ -189,38 +123,39 @@ def baseline_results_to_csv(granularity, k):
     if granularity in ['para2para', 'para2chapter'] :
         outfile = paths[1].format(k)
         with open(outfile, 'w') as f:
-            f.write('Paragraph, AlgoTime(ms), Result Matrix, Chapter\n')
+            f.write('Paragraph, AlgoTime(ms), Result Matrix, Chapter, Zero Entries\n')
             idx = 0
             for i in range(1, 11):
                 for p in range(CHAPTER_PARAS[i]):
                     if granularity == 'para2chapter':
-                        data = get_data(logfolder_para2chapter.format(i, p, i, k))
+                        data = get_data(paths[0].format(i, p, i, k))
                     else:
                         data = get_data(paths[0].format(i, p, k))
                     algoTime_ms = data['algoTime'] * 1000
                     matrixSize = data['alignmentMatrixSize']
-                    f.write('{0}, {1}, {2}, {3}\n'.format(idx, algoTime_ms, matrixSize, i))
+                    zeroEntries = data['belowThresholdCells']
+                    f.write('{0}, {1}, {2}, {3}, {4}\n'.format(idx, algoTime_ms, matrixSize, i, zeroEntries))
                     idx += 1
         f.close()
     
     elif granularity == 'chapter2chapter':
         outfile = paths[1].format(k)
         with open(outfile, 'w') as f:
-            f.write('AlgoTime(ms), Result Matrix, Chapter\n')
+            f.write('AlgoTime(ms), Result Matrix, Chapter, Zero Entries\n')
             for i in range(1, 11):
                 data = get_data(paths[0].format(i, k))
-                algoTime_ms = data['algoTime'] * 1000
-                matrixSize = data['alignmentMatrixSize']
-                f.write('{0}, {1}, {2}\n'.format(algoTime_ms, matrixSize, i))
+                try:
+                    algoTime_ms = data['algoTime'] * 1000
+                    matrixSize = data['alignmentMatrixSize']
+                    zeroEntries = data['belowThresholdCells']
+                    f.write('{0}, {1}, {2}, {3}\n'.format(algoTime_ms, matrixSize, i, zeroEntries))
+                except KeyError:
+                    print(paths[0].format(i, k))
         f.close()
 
 if __name__ == '__main__':
-    # start_experiments()
-    # print_results()
-    # start_experiments_chapter2chapter()
-    # print_results_chapter2chapter()
-    for gran in ['para2para', 'para2chapter', 'chapter2chapter']:
-        for k in [3, 5, 7]:
+    for gran in ['para2chapter', 'para2para', 'chapter2chapter']:
+        for k in [3]:
             print('Experiment for gran:{0}\tk:{1}'.format(gran, k))
-            baseline_runner(gran, 0.7, k)
+            # baseline_runner(gran, 0.7, k)
             baseline_results_to_csv(gran, k)

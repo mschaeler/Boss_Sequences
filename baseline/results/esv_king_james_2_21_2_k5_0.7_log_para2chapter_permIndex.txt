@@ -1,0 +1,25 @@
+creating environment with lakes: /root/data/en/king_james_bible_para/2_21/, /root/data/en/esv_chapter/2/
+1 text1_files listed
+1 text2_files listed
+Inverted Index Size: 528
+Words: 257
+Vector Size: 300
+Normalized vector storage check
+Index Trained: 1
+Ntotal: 194
+Sliding Window Computation time: 0.000566683
+Out of dictionary words: 63
+Faiss Search Time: 0.0271495
+size of I: 37636
+Size of valid edges: 35860
+Vector Size: 1500
+Normalized vector storage check
+Index Trained: 1
+Ntotal: 50183
+Main Loop Time: 5.77616
+Number of Graph Matching Computed: 14649
+Number of Zero Entries Cells: 1
+Env Time: 0.00289722
+Dataloader Time: 0.305112
+FaissIndex Time: 0.0132685
+Algorithm Time: 5.85375

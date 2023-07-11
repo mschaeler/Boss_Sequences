@@ -427,13 +427,15 @@ class FaissIndexCPU {
 			cout << "Ntotal: " << index->ntotal << endl;
 		}
 
-		std::tuple<vector<idx_t>, vector<float>> kNNSearch(int nq, vector<float> vxq, int k) {
-			int d = 300;
+		std::tuple<vector<idx_t>, vector<float>> kNNSearch(int nq, vector<float> vxq, int k, int d) {
+			// int d = 300;
+			cout << "K: " << k << endl;
 			float* xq = vxq.data();
 			for (int i = 0; i < nq; i++) {
 				xq[d * i] += i / 1000.;
 			}
-
+			int nb = vxq.size() / d;
+			faiss::fvec_renorm_L2(d, nb, xq);
 			// search xq
 			idx_t *I = new idx_t[k * nq];
 			float *D = new float[k * nq];
@@ -676,6 +678,9 @@ class PermutationOptimizedSearch {
 		vector<vector<int>> permute(const vector<int>& nums) {
 			vector<vector<int>> results;
 			vector<int> permutation(nums);
+			// Sort the permutation vector
+    		std::sort(permutation.begin(), permutation.end());
+
 			do {
 				results.push_back(permutation);
 			} while (std::next_permutation(permutation.begin(), permutation.end()));
@@ -693,6 +698,7 @@ class PermutationOptimizedSearch {
 			width = set1Windows->size();
 			height = set2Windows->size();
 			data = new double[width * height];
+			memset(data, 0.0, sizeof(data));
 		}
 
 		void computeAlignment() {
@@ -718,6 +724,7 @@ class PermutationOptimizedSearch {
 					permutationTracker[permIndexTracker] = i;
 					permIndexTracker += 1;
 				}
+				// cout << i << endl;
 			}
 
 			int d = k * 300;
@@ -733,26 +740,31 @@ class PermutationOptimizedSearch {
 				vxq.insert(vxq.end(), concatVector.begin(), concatVector.end());
 			}
 			int nq = width;
-			tuple<vector<vector<idx_t>>, vector<vector<float>>> rt = index->rangeSearch(nq, vxq, theta, d);
-			vector<vector<idx_t>> I = std::get<0>(rt);
-			vector<vector<float>> D = std::get<1>(rt);
-
+			tuple<vector<idx_t>, vector<float>> rt = index->kNNSearch(nq, vxq, permIndexTracker, d);
+			vector<idx_t> I = std::get<0>(rt);
+			vector<float> D = std::get<1>(rt);
+			
 			for (int i = 0; i < nq; i++) {
-				vector<idx_t> nghs = I[i];
-				for (int n = 0; n < nghs.size(); n++) {
-					int permIndex = nghs[n];
-					int j = permutationTracker[permIndex];
-					double sim = static_cast<double>(D[i][n]);
-					if (data[i + j * width] < sim) {
-						data[i + j * width] = sim;
+				for (int j = 0; j < permIndexTracker; j++) {
+					int windowPermIndex = I[i * permIndexTracker + j];
+					int w = permutationTracker[windowPermIndex];
+					float fsim = D[i * permIndexTracker + j];
+					double sim = static_cast<double>(fsim);
+					if (sim >= theta) {
+						if (sim > data[i + w * width]) {
+							data[i + w * width] = sim;
+							// cout << "i : " << i << " j : " << w << " sim : " << sim << endl;
+						}
 					}
 				}
 			}
 
-			int dataLen = sizeof(data) / sizeof(double);
-			for (int j = 0; j < dataLen; j++) {
-				if (data[j] == 0.0) {
-					zero_entries += 1;
+			// int dataLen = sizeof(data) / sizeof(double);
+			for (int i = 0; i < width; i++) {
+				for (int j = 0; j < height; j++) {
+					if (data[i + j * width] < theta) {
+						zero_entries += 1;
+					}
 				}
 			}
 
@@ -892,7 +904,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	std::chrono::duration<double> faiss_search_elapsed;
 	double faiss_search_time = 0.0;
 	faiss_search_start = std::chrono::high_resolution_clock::now();
-	tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, nq);
+	tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, nq, 300);
 	faiss_search_end = std::chrono::high_resolution_clock::now();
 	faiss_search_elapsed = faiss_search_end - faiss_search_start;
 	faiss_search_time = faiss_search_elapsed.count();
