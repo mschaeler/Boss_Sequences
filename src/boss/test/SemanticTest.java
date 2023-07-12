@@ -23,11 +23,21 @@ public class SemanticTest {
 	static final int GRANULARITY_BOOK_TO_BOOK     		= 3;
 	
 	public static void main(String[] args) {
-		System.out.println("SemanticTest.main() [START]");
-		ArrayList<Book> books = ImporterAPI.get_all_english_books();
-		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+		//ArrayList<Book> books = ImporterAPI.get_all_english_books();
+		ArrayList<Book> books = ImporterAPI.get_all_german_books();
+		prepare_experiment(books);
+	}
+	
+	static void prepare_experiment_2(Book b_1, Book b_2) {
+		System.out.println("SemanticTest.prepare_experiment() [START]");
+		ArrayList<Book> temp = new ArrayList<Book>(2); temp.add(b_1); temp.add(b_2);//to get all tokens
+		ArrayList<Book> tokenized_books = Tokenizer.run(temp, new BasicTokenizer());
 		
 		ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
+		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
+		String file_path = Embedding.ENGLISH_MINIMAL_EMBEDDINGS;
+		HashMap<Integer, double[]> embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+		
 		//System.out.println(all_tokens_ordered.toString());
 		
 		ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
@@ -36,33 +46,79 @@ public class SemanticTest {
 		// MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		
-		if(MAPPING_GRANUALRITY == GRANULARITY_PARAGRAPH_TO_CHAPTER) {
-			get_tokens_paragraph_to_chapter(tokenized_books.get(0), tokenized_books.get(1), raw_book_1, raw_book_2);
-		}else if(MAPPING_GRANUALRITY == GRANULARITY_PARAGRAPH_TO_PARAGRAPH){
-			raw_book_1 = get_tokens(tokenized_books.get(0));
-			raw_book_2 = get_tokens(tokenized_books.get(1));
-		}else if(MAPPING_GRANUALRITY == GRANULARITY_CHAPTER_TO_CHAPTER){
-			raw_book_1 = get_tokens_chapter(tokenized_books.get(0));
-			raw_book_2 = get_tokens_chapter(tokenized_books.get(1));
-		}else if(MAPPING_GRANUALRITY == GRANULARITY_BOOK_TO_BOOK){
-			raw_book_1 = get_tokens_book(tokenized_books.get(0));
-			raw_book_2 = get_tokens_book(tokenized_books.get(1));
-		}else{
-			System.err.println("Unknown granulartiy");
-		}
-		
-		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
-		String file_path = Embedding.ENGLISH_EMBEDDINGS;
-		HashMap<Integer, double[]> embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+		get_tokens(tokenized_books.get(0), tokenized_books.get(1), raw_book_1, raw_book_2);
 		
 		final int k=3;
 		final double threshold = 0.7;
-		ArrayList<int[]> raw_paragraphs_b1   = encode(raw_book_1, token_ids);
-		ArrayList<int[]> raw_paragraphs_b2   = encode(raw_book_2, token_ids);
+		ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+		ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
 		
 		HungarianExperiment exp = new HungarianExperiment(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
 		exp.run();
-		System.out.println("SemanticTest.main() [DONE]");
+		//exp.run_idea_nikolaus();
+		System.out.println("SemanticTest.prepare_experiment() [DONE]");
+	}
+	
+	/**
+	 * Returns the int-token representation based on the current MAPPING_GRANUALRITY
+	 * 
+	 * @param tokenized_book_1
+	 * @param tokenized_book_2
+	 * @param raw_book_1 - return value
+	 * @param raw_book_2 - return value
+	 */
+	static void get_tokens(final Book tokenized_book_1, final Book tokenized_book_2, final ArrayList<String[]> raw_book_1, final ArrayList<String[]> raw_book_2) {
+		if(MAPPING_GRANUALRITY == GRANULARITY_PARAGRAPH_TO_CHAPTER) {
+			get_tokens_paragraph_to_chapter(tokenized_book_1, tokenized_book_2, raw_book_1, raw_book_2);
+		}else if(MAPPING_GRANUALRITY == GRANULARITY_PARAGRAPH_TO_PARAGRAPH){
+			get_tokens(tokenized_book_1, raw_book_1);
+			get_tokens(tokenized_book_2, raw_book_2);
+		}else if(MAPPING_GRANUALRITY == GRANULARITY_CHAPTER_TO_CHAPTER){
+			get_tokens_chapter(tokenized_book_1, raw_book_1);
+			get_tokens_chapter(tokenized_book_2, raw_book_2);
+		}else if(MAPPING_GRANUALRITY == GRANULARITY_BOOK_TO_BOOK){
+			get_tokens_book(tokenized_book_1, raw_book_1);
+			get_tokens_book(tokenized_book_2, raw_book_2);
+		}else{
+			System.err.println("Unknown granulartiy");
+		}
+	}
+	
+	static void prepare_experiment(ArrayList<Book> books) {
+		System.out.println("SemanticTest.prepare_experiment() [START]");
+		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+		
+		ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
+		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
+		String file_path = Embedding.get_embedding_path(books.get(0).language);
+		HashMap<Integer, double[]> embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+		
+		// MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		
+		//For each pair of books (i,j)
+		for(int i=0;i<tokenized_books.size();i++) {
+			Book tokenized_book_1 = tokenized_books.get(i);
+			for(int j=i+1;j<tokenized_books.size();j++) {
+				Book tokenized_book_2 = tokenized_books.get(j);	
+				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
+				
+				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
+				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
+				
+				get_tokens(tokenized_book_1, tokenized_book_2, raw_book_1, raw_book_2);
+				
+				final int k=3;
+				final double threshold = 0.7;
+				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
+				
+				HungarianExperiment exp = new HungarianExperiment(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
+				exp.run();
+			}
+		}
+		
+		System.out.println("SemanticTest.prepare_experiment() [DONE]");
 	}
 	
 	private static void get_tokens_paragraph_to_chapter(final Book b_1, final Book b_2, final ArrayList<String[]> raw_book_b1, final ArrayList<String[]> raw_book_b2){
@@ -132,8 +188,7 @@ public class SemanticTest {
 	 * @param book
 	 * @return
 	 */
-	private static ArrayList<String[]> get_tokens(Book book) {
-		ArrayList<String[]> result = new ArrayList<String[]>(100);
+	private static ArrayList<String[]> get_tokens(Book book, ArrayList<String[]> result) {
 		for(Chapter c : book.my_chapters) {
 			for(Paragraph p : c.my_paragraphs) {
 				TokenizedParagraph tp = (TokenizedParagraph) p;
@@ -149,8 +204,7 @@ public class SemanticTest {
 	 * @param book
 	 * @return
 	 */
-	private static ArrayList<String[]> get_tokens_chapter(Book book) {
-		ArrayList<String[]> result = new ArrayList<String[]>(100);
+	private static ArrayList<String[]> get_tokens_chapter(Book book, final ArrayList<String[]> result) {
 		for(Chapter c : book.my_chapters) {
 			ArrayList<String> chapter_tokens = new ArrayList<String>(1000);
 			for(Paragraph p : c.my_paragraphs) {
@@ -174,8 +228,7 @@ public class SemanticTest {
 	 * @param book
 	 * @return
 	 */
-	private static ArrayList<String[]> get_tokens_book(Book book) {
-		ArrayList<String[]> result = new ArrayList<String[]>(1);
+	private static ArrayList<String[]> get_tokens_book(final Book book, final ArrayList<String[]> result) {
 		ArrayList<String> temp = new ArrayList<String>(1000);
 		for(Chapter c : book.my_chapters) {
 			for(Paragraph p : c.my_paragraphs) {

@@ -7,6 +7,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 
 public class MatchesWithEmbeddings extends Match{
@@ -68,12 +72,12 @@ public class MatchesWithEmbeddings extends Match{
 	}
 	public static ArrayList<MatchesWithEmbeddings> load(String file_path) {
 		// Creates a FileWriter
-	    File file;
 	    ArrayList<MatchesWithEmbeddings> mew = new ArrayList<MatchesWithEmbeddings>(1000);
 		try {
-			file = new File(file_path);
 		    // Creates a BufferedWriter
-		    BufferedReader input = new BufferedReader(new FileReader(file));
+		    //BufferedReader input = new BufferedReader(new FileReader(file));
+			Path path = Paths.get(file_path);
+			BufferedReader input = Files.newBufferedReader(path,StandardCharsets.UTF_8);
 		    String header = input.readLine();
 		    System.out.println(header);
 		    

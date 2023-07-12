@@ -11,6 +11,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import plus.data.Book;
+
 public class Embedding {
 	String[] words;
 	double[][] vectors = null;//loaded on demand
@@ -206,4 +208,22 @@ public class Embedding {
 		}
 		return length_prefix;
 	}
+	
+	public static String get_embedding_path(final int language) {
+		return get_embedding_path(language, false);
+	} 
+	public static String get_embedding_path(final int language, boolean ignore_stopwords) {
+		if(language == Book.LANGUAGE_ENGLISH) {
+			if(ignore_stopwords) {
+				return ENGLISH_MINIMAL_EMBEDDINGS;
+			}else{
+				return ENGLISH_EMBEDDINGS;
+			}
+		}else if(language == Book.LANGUAGE_GERMAN){
+			return GERMAN_MINIMAL_EMBEDDINGS;
+		}else{
+			System.err.println("get_embedding_path() Unknown embedding for language="+language);
+			return null;
+		}
+	} 
 }

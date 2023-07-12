@@ -45,7 +45,7 @@ public abstract class Tokenizer {
 		}else if(language == Book.LANGUAGE_OLD_GEORGIAN){
 			regex_characters_to_keep = "[^a-zA-ZΑ-Ωα-ωäöüÄÖÜßίϊ�?όάέ�?ϋΰήώ ]";
 		}else if(language == Book.LANGUAGE_GERMAN){
-			regex_characters_to_keep = "[^a-zA-ZäöüÄÖÜß ]";
+			regex_characters_to_keep = "[^a-zA-Z������� ]";
 		}else if(language == Book.LANGUAGE_ENGLISH){
 			regex_characters_to_keep = "[^a-zA-Z ]";
 		}else{

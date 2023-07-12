@@ -25,6 +25,8 @@ public class HungarianExperiment {
 	
 	Solver solver = null;
 	
+	//final double[][] cost_matrix_buffer;
+	
 	public HungarianExperiment(ArrayList<int[]> raw_paragraphs_b1, ArrayList<int[]> raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index){
 		this.k = k;
 		this.threshold = threshold;
@@ -38,12 +40,26 @@ public class HungarianExperiment {
 		}
 		this.embedding_vector_index = embedding_vector_index;
 		
+		/*int max_length_line = max(raw_paragraphs_b1);
+		int max_length_column = max(raw_paragraphs_b2);
+		this.cost_matrix_buffer = new double[max_length_column][max_length_line];*/
+		
 		//out(raw_paragraphs_b1, k_with_windows_b1);
 		//out(raw_paragraphs_b2, k_with_windows_b2);
 		
 		this.alignement_matrixes = new ArrayList<double[][]>(num_paragraphs);
 	}
 	
+	private int max(ArrayList<int[]> raw_pragraph) {
+		int max_length = 0;
+		for(int[] array : raw_pragraph) {
+			if(array.length>max_length) {
+				max_length = array.length;
+			}
+		}
+		return max_length;
+	}
+
 	public void set_solver(Solver s){
 		this.solver = s;
 	}
@@ -70,11 +86,116 @@ public class HungarianExperiment {
 		return windows;
 	}
 	
-	public boolean VERBOSE = false;
-	public boolean TO_FILE = true;
+	public final boolean VERBOSE = false;
+	public final boolean TO_FILE = false;
 	FileWriter f;
 	BufferedWriter output;
 	
+	/**
+	 * The main difference to the run() method below is the way how we compute the similarity (or distance) of two k-width windows. 
+	 * Normally we use the assignment problem. Here, we average the vectors in one k-width window to kind of represent the average semantics....
+	 */
+	public void run_idea_nikolaus() {
+		System.out.println("HungarianExperiment.run_idea_nikolaus() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
+		if(this.solver==null) {
+			System.err.println("Solver is null: Using StupidSolver");
+			this.solver = new StupidSolver(k);
+		}
+		
+		//get embedding vector size 
+		int embedding_vector_size = -1;
+		double[] vec = this.embedding_vector_index.get(1);//some id
+		if(vec!=null) {
+			embedding_vector_size = vec.length;
+		}else{
+			System.err.println("run_idea_nikolaus(): vec == null");
+		}
+		
+		final double[] avg_vec_window_1 = new double[embedding_vector_size];
+		final double[] avg_vec_window_2 = new double[embedding_vector_size];
+		
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//For each paragraph - get the k-width windows
+			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = new double[k_windows_p1.length][k_windows_p2.length];
+			//For each pair of windows
+			for(int line=0;line<k_windows_p1.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+				for(int column=0;column<k_windows_p2.length;column++) {
+					final int[] current_window_p1 = k_windows_p1[line];
+					final int[] current_window_p2 = k_windows_p2[column];
+					
+					double cost = get_dist_avg_vectors(current_window_p1,current_window_p2,avg_vec_window_1,avg_vec_window_2);
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
+				}
+			}
+			stop = System.currentTimeMillis();
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}
+		
+		String experiment_name = "idea_nikolaus";//default experiment, has no special name
+		print_results(experiment_name);
+	}
+	
+	private double sum(double[][] alignment_matrix) {
+		double sum = 0;
+		for(double[] array : alignment_matrix) {
+			for(double d : array) {
+				sum+=d;
+			}
+		}
+		return sum;
+	}
+
+	private double[] get_avg_vector(final int[] window, final double[] buffer) {
+		final int vector_size = buffer.length;
+		//clear the buffer
+		for(int dim=0;dim<vector_size;dim++) {
+			buffer[dim] = 0;
+		}
+		
+		double num_vecotrs_p1 = 0;
+		for(int id : window) {
+			double[] temp = this.embedding_vector_index.get(id);
+			if(temp!=null) {
+				for(int dim=0;dim<vector_size;dim++) {
+					buffer[dim] += temp[dim];
+				}
+				num_vecotrs_p1++;
+			}
+		}
+		if(num_vecotrs_p1==0) {
+			return null;
+		}else{
+			for(int dim=0;dim<vector_size;dim++) {
+				buffer[dim] /= num_vecotrs_p1;
+			}
+		}
+		return buffer;
+	}
+	
+	
+	private final double get_dist_avg_vectors(final int[] window_p1, final int[] window_p2, final double[] buffer_1, final double[] buffer_2) {
+		final double[] avg_vector_1 = get_avg_vector(window_p1, buffer_1);
+		final double[] avg_vector_2 = get_avg_vector(window_p2, buffer_2);
+		if(avg_vector_1==null || avg_vector_2==null ) {
+			return MAX_DIST;
+		}
+		final double dist = cosine_distance(avg_vector_1, avg_vector_2);
+		return dist;
+	}
+
 	public void run(){
 		System.out.println("HungarianExperiment.run() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
@@ -91,15 +212,22 @@ public class HungarianExperiment {
 			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);
 			//Allocate space for the alignment matrix
 			final double[][] alignment_matrix = new double[k_windows_p1.length][k_windows_p2.length];
+			final double[][] cost_matrix_buffer = fill_cost_matrix(p);
+			
 			//For each pair of windows
 			for(int line=0;line<k_windows_p1.length;line++) {
 				//get the line to get rid of 2D array resolution
 				final double[] alignment_matrix_line = alignment_matrix[line];
-				for(int column=0;column<k_windows_p2.length;column++) {
-					final int[] current_window_p1 = k_windows_p1[line];
-					final int[] current_window_p2 = k_windows_p2[column];
+				
+				
+				for(int column=0;column<k_windows_p2.length;column++) {	
+					//Fill local matrix of the current window combination from global matrix
 					//Note it is cost matrix with cosine distance. I.e, not similarity. 
-					fill_cost_matrix(current_window_p1,current_window_p2,cost_matrix);
+					for(int i=0;i<this.k;i++) {
+						for(int j=0;j<this.k;j++) {
+							cost_matrix[i][j] = cost_matrix_buffer[line+i][column+j];
+						}
+					}
 					//That's the important line
 					double cost = this.solver.solve(cost_matrix, threshold);
 					//normalize costs: Before it was distance. Now it is similarity.
@@ -114,7 +242,11 @@ public class HungarianExperiment {
 			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
 			this.alignement_matrixes.add(alignment_matrix);
 		}
-		
+		String experiment_name = "";//default experiment, has no special name
+		print_results(experiment_name);
+	}
+
+	void print_results(String experiment_name) {
 		//Print result matrixes
 		int p = 0;
 		if(TO_FILE) {
@@ -129,7 +261,8 @@ public class HungarianExperiment {
 		for(double[][] alignment_matrix : alignement_matrixes){
 			out_matrix(alignment_matrix, p++);
 			int num_cells = alignment_matrix.length*alignment_matrix[0].length;
-			System.out.println(num_cells);
+			double check_sum = sum(alignment_matrix);
+			System.out.println(num_cells+" sum="+check_sum);
 		}
 		if(TO_FILE) {
 			try {
@@ -151,11 +284,13 @@ public class HungarianExperiment {
 			}
 		}
 		for(double[] array : alignment_matrix) {
-			String temp = outTSV(array);
+			String temp = null; 
 			if(VERBOSE) {
+				temp  = outTSV(array);
 				System.out.println(temp);
 			}
 			if(TO_FILE) {
+				if(temp==null) {temp  = outTSV(array);}
 				try {
 					output.write(temp);
 					output.newLine();
@@ -166,15 +301,38 @@ public class HungarianExperiment {
 		}
 	}
 
-	private String outTSV(double[] array) {
-		String s = ""+array[0];
+	private String outTSV(double[] array) {//TODO with String builder
+		StringBuffer sb = new StringBuffer(1000);
+		sb.append(array[0]);
+		//String s = ""+array[0];
 		for(int i=1;i<array.length;i++) {
-			s+="\t"+array[i];
+			//s+="\t"+array[i];
+			sb.append("\t");
+			sb.append(array[i]);
 		}
-		return s;
+		return sb.toString();
+	}
+	
+	private double[][] fill_cost_matrix(final int paragraph) {
+		final int[] raw_paragraph_1 = this.raw_paragraphs_b1.get(paragraph);
+		final int[] raw_paragraph_2 = this.raw_paragraphs_b2.get(paragraph);
+		final double[][] global_cost_matrix = new double[raw_paragraph_1.length][raw_paragraph_2.length];
+		
+		
+		for(int line=0;line<raw_paragraph_1.length;line++) {
+			final int set_id_window_p1 = raw_paragraph_1[line];
+			final double[] vec_1 = this.embedding_vector_index.get(set_id_window_p1);
+			for(int column=0;column<raw_paragraph_2.length;column++) {
+				final int set_id_window_p2 = raw_paragraph_2[column];
+				final double[] vec_2 = this.embedding_vector_index.get(set_id_window_p2);
+				final double dist = dist(set_id_window_p1,set_id_window_p2,vec_1,vec_2);
+				global_cost_matrix[line][column] = dist;
+			}
+		}
+		return global_cost_matrix;
 	}
 
-	private void fill_cost_matrix(final int[] k_window_p1, final int[] k_window_p2, final double[][] cost_matrix) {
+	/*private void fill_cost_matrix(final int[] k_window_p1, final int[] k_window_p2, final double[][] cost_matrix) {
 		for(int line=0;line<this.k;line++) {
 			final int set_id_window_p1 = k_window_p1[line];
 			final double[] vec_1 = this.embedding_vector_index.get(set_id_window_p1);
@@ -185,7 +343,7 @@ public class HungarianExperiment {
 				cost_matrix[line][column] = dist;
 			}
 		}
-	}
+	}*/
 	
 	public static final double EQUAL 	= 0;
 	public static final double MAX_DIST = 1.0;
@@ -193,7 +351,7 @@ public class HungarianExperiment {
 	public static final int COSINE 			= 0;
 	public static final int STRING_EDIT 	= 1;
 	public static final int VANILLA_OVERLAP = 3;
-	public static final int SIM_FUNCTION = VANILLA_OVERLAP;
+	public static final int SIM_FUNCTION = COSINE;
 	
 	@SuppressWarnings("unused")
 	final double dist(final int set_id1, final int set_id2, final double[] vec_1, final double[] vec_2) {
@@ -215,7 +373,7 @@ public class HungarianExperiment {
 	}
 	
 	//TODO make Strings available
-	public static int edit_dist(final int set_id1, final int set_id2){
+	static int edit_dist(final int set_id1, final int set_id2){
 		System.err.println("edit_dist() not yet implemented");
 		String s1=null;
 		String s2=null;
