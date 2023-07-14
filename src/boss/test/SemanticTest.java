@@ -26,15 +26,18 @@ public class SemanticTest {
 	static final int GRANULARITY_BOOK_TO_BOOK     		= 3;
 	
 	public static void main(String[] args) {
-		final int k=3;
+		final int[] k_s= {3,4,5,6};
 		final double threshold = 0.7;
 		
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
-		ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
-		for(HungarianExperiment he :hes) {
-			he.run_baseline();
-			//he.run_pruning();
+		
+		for(int k : k_s) {
+			ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
+			for(HungarianExperiment he :hes) {
+				//he.run_baseline();
+				he.run_pruning();
+			}
 		}
 		
 		/*String file_path = Embedding.get_embedding_path(books.get(0).language);

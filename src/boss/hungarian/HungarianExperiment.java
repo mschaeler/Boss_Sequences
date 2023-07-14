@@ -514,6 +514,7 @@ public class HungarianExperiment {
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
 	static final boolean SAFE_MODE = true;
+	static final boolean LOGGING_MODE = true;
 	
 	static final int USE_COLUMN_SUM = 0;
 	static final int USE_MATRIX_MAX = 1;
@@ -525,11 +526,15 @@ public class HungarianExperiment {
 	public void run_pruning(){
 		System.out.println("HungarianExperiment.run_pruning() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" pruning="+PRUNING_APPROACH);
 		if(SAFE_MODE) System.err.println("SAFE_MODE");
+		if(LOGGING_MODE) System.err.println("LOGGING_MODE");
 		final double[][] cost_matrix = new double[k][k];
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
 			this.solver = new StupidSolver(k);
 		}
+		
+		double[] run_times = new double[num_paragraphs];
+		long[][] counts = new long[num_paragraphs][2];
 			
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
@@ -537,6 +542,9 @@ public class HungarianExperiment {
 			//Allocate space for the alignment matrix
 			final double[][] alignment_matrix = alignement_matrixes.get(p);
 			final double[][] global_cost_matrix_buffer = fill_cost_matrix(p);
+			
+			long num_cels_geq_threshold = 0;
+			long num_cels_geq_threshold_estimation = 0;
 			
 			//For each pair of windows
 			for(int line=0;line<alignment_matrix.length;line++) {
@@ -565,11 +573,13 @@ public class HungarianExperiment {
 					
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+						if(LOGGING_MODE) {num_cels_geq_threshold_estimation++;}
 						//That's the important line
 						double cost = this.solver.solve(cost_matrix, threshold);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
+							if(LOGGING_MODE) {num_cels_geq_threshold++;}
 							alignment_matrix_line[column] = normalized_similarity;
 						}//else keep it zero
 					}
@@ -586,13 +596,24 @@ public class HungarianExperiment {
 							}
 						}
 					}
+					if(LOGGING_MODE) {
+						counts[p][0]=num_cels_geq_threshold_estimation;
+						counts[p][1]=num_cels_geq_threshold;
+					}
 				}
 			}
 			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
 			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
 		}
 		String experiment_name = "";//default experiment, has no special name
-		print_results(experiment_name, null);//TODO
+		print_results(experiment_name, run_times);//TODO
+		if(LOGGING_MODE) {
+			System.out.println("p\tnum_cells\tbounded\tcomputed");
+			for(int p=0;p<num_paragraphs;p++) {
+				System.out.println(p+"\t"+alignement_matrixes.get(p).length*alignement_matrixes.get(p)[0].length+"\t"+counts[p][0]+"\t"+counts[p][1]);
+			}
+		}
 	}
 	
 	private double get_matrix_min(final double[][] cost_matrix) {
@@ -614,7 +635,7 @@ public class HungarianExperiment {
 		Arrays.fill(this.k_buffer, Double.MAX_VALUE);
 		for(int i=0;i<this.k;i++) {
 			final double[] line = cost_matrix[i];
-			double row_min = 0;
+			double row_min = Double.MAX_VALUE;
 			for(int j=0;j<this.k;j++) {
 				final double val = line[j];
 				if(val<row_min) {
