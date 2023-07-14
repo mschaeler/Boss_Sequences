@@ -31,9 +31,22 @@ public class MatchesWithEmbeddings extends Match{
 		String s2 = components[1];
 		Double score = Double.parseDouble(components[2]);
 		double[] vector = new double[components.length-3];
-		for(int i=0;i<vector.length;i++) {
-			Double temp = Double.parseDouble(components[i+3]);
-			vector[i] = temp.doubleValue();
+		if(NORMALIZE_VECTORS) {
+			double length = 0;
+			for(int i=0;i<vector.length;i++) {
+				Double temp = Double.parseDouble(components[i+3]);
+				length+=temp.doubleValue()*temp.doubleValue();
+				vector[i] = temp.doubleValue();
+			}
+			length = Math.sqrt(length);
+			for(int i=0;i<vector.length;i++) {
+				vector[i] = vector[i]/length;
+			}
+		}else{
+			for(int i=0;i<vector.length;i++) {
+				Double temp = Double.parseDouble(components[i+3]);
+				vector[i] = temp.doubleValue();
+			}	
 		}
 		return new MatchesWithEmbeddings(s1, s2, score, vector);
 	}
@@ -70,7 +83,10 @@ public class MatchesWithEmbeddings extends Match{
 			e.printStackTrace();
 		}		
 	}
+	
+	public static final boolean NORMALIZE_VECTORS = true;
 	public static ArrayList<MatchesWithEmbeddings> load(String file_path) {
+		System.out.println("MatchesWithEmbeddings.load("+file_path+") NORMALIZE_VECTORS = "+true);
 		// Creates a FileWriter
 	    ArrayList<MatchesWithEmbeddings> mew = new ArrayList<MatchesWithEmbeddings>(1000);
 		try {
@@ -87,7 +103,7 @@ public class MatchesWithEmbeddings extends Match{
 	        while ((line = input.readLine()) != null) {
 	        	MatchesWithEmbeddings temp = to_instance(line);
 	        	mew.add(temp);
-	        	if(i%100==0) {
+	        	if(i%1000==0) {
 	        		System.out.println(line);	
 	        	}
 	        	i++;

@@ -211,7 +211,13 @@ public class Embedding {
 	
 	public static String get_embedding_path(final int language) {
 		return get_embedding_path(language, false);
-	} 
+	}
+	/**
+	 * 
+	 * @param language
+	 * @param ignore_stopwords
+	 * @return
+	 */
 	public static String get_embedding_path(final int language, boolean ignore_stopwords) {
 		if(language == Book.LANGUAGE_ENGLISH) {
 			if(ignore_stopwords) {
