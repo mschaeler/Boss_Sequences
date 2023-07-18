@@ -69,7 +69,7 @@ public class HungarianAlgorithmPranayImplementation extends HungarianAlgorithmPr
 	}
 
 	@Override
-	void assignmentoptimal(final int[] assignment, final double[][] distMatrix, final int nOfRows,
+	void assignmentoptimal(final int[] assignment, final double[][] distMatrixIn, final int nOfRows,
 			final int nOfColumns) {
 		boolean[] coveredColumns;
 		boolean[] coveredRows;
@@ -86,6 +86,12 @@ public class HungarianAlgorithmPranayImplementation extends HungarianAlgorithmPr
 														// matrix above
 		/* check if all matrix elements are positive */
 		nOfElements = nOfRows * nOfColumns;
+		double[][] distMatrix = new double[nOfRows][nOfColumns];//workig copy to be modified
+		for(int i = 0;i<nOfRows;i++) {
+			for(int j=0;j<nOfColumns;j++) {
+				distMatrix[i][j] = distMatrixIn[i][j];
+			}
+		}
 		/*
 		 * distMatrix = new double[nOfElements]; distMatrixEnd = nOfElements;//XXX
 		 * pointer magic?
@@ -141,7 +147,7 @@ public class HungarianAlgorithmPranayImplementation extends HungarianAlgorithmPr
 				nOfColumns, minDim);
 
 		/* compute cost and remove invalid assignments */
-		computeassignmentcost(assignment, distMatrix, nOfRows);
+		computeassignmentcost(assignment, distMatrixIn, nOfRows);
 	}
 
 	@Override
@@ -357,6 +363,16 @@ public class HungarianAlgorithmPranayImplementation extends HungarianAlgorithmPr
 		/* move to step 3 */
 		step3(assignment, distMatrix, starMatrix, newStarMatrix, primeMatrix, coveredColumns, coveredRows, nOfRows,
 				nOfColumns, minDim);
+	}
+
+	@Override
+	public double solve(double[][] cost_matrix, double threshold) {
+		return Solve(cost_matrix, new ArrayList<Integer>());
+	}
+
+	@Override
+	public String get_name() {
+		return "Pranay's Hungarian Algorithm";
 	}
 
 }

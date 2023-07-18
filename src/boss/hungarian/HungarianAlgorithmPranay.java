@@ -2,7 +2,7 @@ package boss.hungarian;
 
 import java.util.ArrayList;
 
-public abstract class HungarianAlgorithmPranay {
+public abstract class HungarianAlgorithmPranay extends Solver{
 	public abstract double Solve(double[][] DistMatrix, ArrayList<Integer> Assignment);
 	abstract void assignmentoptimal(int[] assignment, double[][] distMatrix, int nOfRows, int nOfColumns);
 	abstract void buildassignmentvector(int[] assignment, boolean[] starMatrix, int nOfRows, int nOfColumns);

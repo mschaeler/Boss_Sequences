@@ -38,6 +38,7 @@ public class HungarianAlgorithmWiki extends Solver{
 	
 	@Override
 	public double solve(final double[][] costs, final double threshold) {
+		final double cost_threshold = (double)k-(threshold*(double)k);
 	    final int J = k, W = k;
 	    Arrays.fill(job, -1);
 	    //ArrayList<Double> answers = new ArrayList<Double>(W+1);
@@ -89,6 +90,10 @@ public class HungarianAlgorithmWiki extends Solver{
 	        	}
 	        	job[w_cur] = job[w];
 	        }
+	        /*
+	        if(W<k && -yt[W]>=cost_threshold){//early termination
+	        	return -yt[W];
+	        }*/
 	        //answers.add(-yt[W]);
 	    }
 	    return -yt[W];

@@ -888,7 +888,7 @@ public class HungarianExperiment {
 		
 		double[] run_times = new double[num_paragraphs];
 			
-		HungarianAlgorithmPranay HAP = new HungarianAlgorithmPranayImplementation();
+		Solver HAP = new HungarianAlgorithmPranayImplementation();
 		Solver H_WIKI = new HungarianAlgorithmWiki(k);
 		
 		double stop,start;
@@ -915,11 +915,11 @@ public class HungarianExperiment {
 					double cost = this.solver.solve(cost_matrix, threshold);
 					
 					//Now the tests 
-					double cost_HAP = HAP.Solve(cost_matrix, new ArrayList<Integer>(k)); 
+					double cost_HAP = HAP.solve(cost_matrix, threshold); 
 					double cost_WIKI = H_WIKI.solve(cost_matrix, threshold);
 					
-					if(cost_HAP!=cost) {
-						//System.err.println("cost_HAP!=cost\t"+cost_HAP+"\t"+cost);
+					if(!is_equal(cost_HAP,cost)) {
+						System.err.println("cost_HAP!=cost\t"+cost_HAP+"\t"+cost);
 					}
 					if(!is_equal(cost_WIKI,cost)){
 						System.err.println("cost_WIKI!=cost\t"+cost_WIKI+"\t"+cost);
