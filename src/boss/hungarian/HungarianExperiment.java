@@ -6,9 +6,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 import boss.embedding.MatchesWithEmbeddings;
+import boss.util.Histogram;
 
 public class HungarianExperiment {
 	final int num_paragraphs;
@@ -513,8 +516,8 @@ public class HungarianExperiment {
 	
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
-	static final boolean SAFE_MODE = true;
-	static final boolean LOGGING_MODE = true;
+	static final boolean SAFE_MODE    = false;
+	static final boolean LOGGING_MODE = false;
 	
 	static final int USE_COLUMN_SUM = 0;
 	static final int USE_MATRIX_MAX = 1;
@@ -677,13 +680,366 @@ public class HungarianExperiment {
 		return col_sum;
 	}
 
-	public void run_baseline(){
-		System.out.println("HungarianExperiment.run() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
+	double[][] dense_global_matrix_buffer = null;
+	public void run_baseline_global_matrix_dense(){
+		System.out.println("HungarianExperiment.run_baseline_global_matrix_dense() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
 			this.solver = new StupidSolver(k);
 		}
+		
+		if(dense_global_matrix_buffer==null) {//XXX - this is not fair. Just for testing
+			create_dense_matrix();
+		}
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
+			
+			//For each pair of windows
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+								
+				for(int column=0;column<alignment_matrix[0].length;column++) {	
+					//Fill local matrix of the current window combination from global matrix
+					//Note it is cost matrix with cosine distance. I.e, not similarity. 
+					for(int i=0;i<this.k;i++) {
+						final int set_id_window_p1 = k_windows_p1[line][i];
+						
+						for(int j=0;j<this.k;j++) {
+							final int set_id_window_p2 = k_windows_p2[column][j];
+							double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+							cost_matrix[i][j] = dist;
+							
+							if(SAFE_MODE) {
+								double dist_safe = dist(set_id_window_p1, set_id_window_p2, this.embedding_vector_index.get(set_id_window_p1), this.embedding_vector_index.get(set_id_window_p2));
+								if(dist_safe!=dist) {
+									System.err.println("dist_safe!=dist:\t"+dist_safe+"\t"+dist);
+								}
+							}
+						}
+					}
+					//That's the important line
+					double cost = this.solver.solve(cost_matrix, threshold);
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
+				}
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}	
+		
+		String experiment_name = "";//default experiment, has no special name
+		print_results(experiment_name, run_times);
+	}
+	
+	
+	
+	HashMap<Integer, Double> sparse_global_matrix_buffer = new HashMap<Integer, Double>();
+	/**
+	 * Stores how often we re-use a previously computes distance.
+	 */
+	HashMap<Integer, Integer> sparse_global_matrix_access_log = new HashMap<Integer, Integer>();
+	/**
+	 * We use a sparse matrix for the pair-wise token similarities. The idea is to avoid excessive re computations of distances.
+	 */
+	public void run_baseline_global_matrix_sparse(){
+		System.out.println("HungarianExperiment.run_baseline_global_matrix_dense() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
+		final double[][] cost_matrix = new double[k][k];
+		if(this.solver==null) {
+			System.err.println("Solver is null: Using StupidSolver");
+			this.solver = new StupidSolver(k);
+		}
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
+			
+			//For each pair of windows
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+								
+				for(int column=0;column<alignment_matrix[0].length;column++) {	
+					//Fill local matrix of the current window combination from global matrix
+					//Note it is cost matrix with cosine distance. I.e, not similarity. 
+					for(int i=0;i<this.k;i++) {
+						final int set_id_window_p1 = k_windows_p1[line][i];
+						
+						for(int j=0;j<this.k;j++) {
+							final int set_id_window_p2 = k_windows_p2[column][j];
+							
+							final int key = get_key(set_id_window_p1,set_id_window_p2);
+							Double dist = sparse_global_matrix_buffer.get(key);
+							if(LOGGING_MODE) {
+								if(dist==null) {
+									sparse_global_matrix_access_log.put(key, 0);//first re use
+								}else{
+									Integer re_use = sparse_global_matrix_access_log.get(key);
+									sparse_global_matrix_access_log.put(key, re_use.intValue()+1);
+								}
+							}
+								
+							if(dist==null) {//we haven't seen this pair before: Let's compute and cache it
+								final double[] vec_1 = this.embedding_vector_index.get(set_id_window_p1);
+								final double[] vec_2 = this.embedding_vector_index.get(set_id_window_p2);
+								dist = dist(set_id_window_p1, set_id_window_p2, vec_1, vec_2);
+								sparse_global_matrix_buffer.put(key, dist);
+							}
+							
+							cost_matrix[i][j] = dist.doubleValue();
+						}
+					}
+					//That's the important line
+					double cost = this.solver.solve(cost_matrix, threshold);
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
+				}
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}
+		if(LOGGING_MODE) {
+			System.out.println("Computes distance for num of pairs: "+sparse_global_matrix_access_log.size());
+			ArrayList<Integer> counts = new ArrayList<Integer>(sparse_global_matrix_access_log.size());
+			for(Entry<Integer, Integer> e : sparse_global_matrix_access_log.entrySet()) {
+				counts.add(e.getValue());
+			}
+			boss.util.Histogram hist = new Histogram(counts);
+			System.out.println(hist.toString());
+			System.out.println(hist.getStatistics());
+		}
+		
+		
+		String experiment_name = "";//default experiment, has no special name
+		print_results(experiment_name, run_times);
+	}
+	
+	private void create_dense_matrix() {
+		double start = System.currentTimeMillis();
+		int max_id = 0;
+		for(int[] p : raw_paragraphs_b1) {
+			for(int id : p) {
+				if(id>max_id) {
+					max_id = id;
+				}
+			}
+		}
+		for(int[] p : raw_paragraphs_b2) {//Second paragraph
+			for(int id : p) {
+				if(id>max_id) {
+					max_id = id;
+				}
+			}
+		}
+		this.dense_global_matrix_buffer = new double[max_id+1][max_id+1];//This is big....
+		for(int line_id=0;line_id<dense_global_matrix_buffer.length;line_id++) {
+			final double[] vec_1 = this.embedding_vector_index.get(line_id);
+			for(int col_id=line_id+1;col_id<dense_global_matrix_buffer[0].length;col_id++) {//Exploits symmetry
+				final double[] vec_2 = this.embedding_vector_index.get(col_id);
+				double dist = dist(line_id, col_id, vec_1, vec_2);
+				dense_global_matrix_buffer[line_id][col_id] = dist;
+				dense_global_matrix_buffer[col_id][line_id] = dist;
+			}
+		}
+		double stop = System.currentTimeMillis();
+		System.out.println("create_dense_matrix()\t"+(stop-start));
+	}
+
+	private int get_key(int set_id_window_p1, int set_id_window_p2) {
+		if(set_id_window_p1>set_id_window_p2) {//exploit symmetry
+			return set_id_window_p1 |= (set_id_window_p2 << 16);
+		}else{
+			return set_id_window_p2 |= (set_id_window_p1 << 16);
+		}
+	}
+
+	
+	public void test_hungarian_implementations(){
+		System.out.println("HungarianExperiment.test_hunagrian_implementations() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
+		final double[][] cost_matrix = new double[k][k];
+		this.solver = new StupidSolver(k);
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		HungarianAlgorithmPranay HAP = new HungarianAlgorithmPranayImplementation();
+		Solver H_WIKI = new HungarianAlgorithmWiki(k);
+		
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final double[][] global_cost_matrix_buffer = fill_cost_matrix(p);
+			
+			//For each pair of windows
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+								
+				for(int column=0;column<alignment_matrix[0].length;column++) {	
+					//Fill local matrix of the current window combination from global matrix
+					//Note it is cost matrix with cosine distance. I.e, not similarity. 
+					for(int i=0;i<this.k;i++) {
+						for(int j=0;j<this.k;j++) {
+							cost_matrix[i][j] = global_cost_matrix_buffer[line+i][column+j];
+						}
+					}
+					//That's the important line
+					double cost = this.solver.solve(cost_matrix, threshold);
+					
+					//Now the tests 
+					double cost_HAP = HAP.Solve(cost_matrix, new ArrayList<Integer>(k)); 
+					double cost_WIKI = H_WIKI.solve(cost_matrix, threshold);
+					
+					if(cost_HAP!=cost) {
+						//System.err.println("cost_HAP!=cost\t"+cost_HAP+"\t"+cost);
+					}
+					if(!is_equal(cost_WIKI,cost)){
+						System.err.println("cost_WIKI!=cost\t"+cost_WIKI+"\t"+cost);
+					}
+					
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
+				}
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}
+		String experiment_name = "";//default experiment, has no special name
+		print_results(experiment_name, run_times);
+	}
+	
+	private boolean is_equal(double val_1, double val_2) {
+		if(val_1-DOUBLE_PRECISION_BOUND<val_2 && val_1+DOUBLE_PRECISION_BOUND>val_2) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * This should always use the best combination of all techniques.
+	 * Currently this is
+	 * (1) Normalized vectors to unit length
+	 * (2) Hungarian implementation from Wikipedia
+	 * (3) Dense global cost matrix
+	 * (4) min(row_min,column_min) bound on the local cost matrix: O(n³)
+	 */
+	public void run_solution(){
+		//Check config (1) Normalized vectors to unit length
+		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
+			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
+		}
+		//Ensure config (2) Hungarian implementation from Wikipedia
+		this.solver = new HungarianAlgorithmWiki(k);
+		
+		// (3) Dense global cost matrix - compute once
+		if(dense_global_matrix_buffer==null) {//XXX Has extra runtime measurement inside method
+			create_dense_matrix();
+		}
+		
+		System.out.println("HungarianExperiment.run_solution() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
+			
+			//For each pair of windows
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+								
+				for(int column=0;column<alignment_matrix[0].length;column++) {	
+					//Fill local matrix of the current window combination from global matrix
+					//Note it is cost matrix with cosine distance. I.e, not similarity. 
+					for(int i=0;i<this.k;i++) {
+						final int set_id_window_p1 = k_windows_p1[line][i];
+						for(int j=0;j<this.k;j++) {
+							final int set_id_window_p2 = k_windows_p2[column][j];
+							double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+							cost_matrix[i][j] = dist;
+						}
+					}
+					
+					// (4) compute the bound
+					final double lb_cost = get_column_row_sum(cost_matrix);
+					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
+					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+						//That's the important line
+						double cost = this.solver.solve(cost_matrix, threshold);
+						//normalize costs: Before it was distance. Now it is similarity.
+						double normalized_similarity = 1.0 - (cost / (double)k);
+						if(normalized_similarity>=threshold) {
+							alignment_matrix_line[column] = normalized_similarity;
+						}//else keep it zero
+					}
+					if(SAFE_MODE) {//if false removed by compiler
+						double cost = this.solver.solve(cost_matrix, threshold);
+						//normalize costs: Before it was distance. Now it is similarity.
+						double normalized_similarity = 1.0 - (cost / (double)k);
+						if(normalized_similarity>up_normalized_similarity+DOUBLE_PRECISION_BOUND) {
+							System.err.println("normalized_similarity>normalized_estimate_similarity "+up_normalized_similarity+" "+normalized_similarity);
+						}else {
+							//System.out.println("normalized_similarity<=normalized_estimate_similarity "+normalized_estimate_similarity+" "+normalized_similarity);
+						}
+					}
+				}
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}
+		String experiment_name = "";//default experiment, has no special name
+		print_results(experiment_name, run_times);
+	}
+	
+	public void run_baseline(){
+		if(this.solver==null) {
+			System.err.println("Solver is null: Using StupidSolver");
+			this.solver = new StupidSolver(k);
+		}
+		System.out.println("HungarianExperiment.run_baseline() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
 		
 		double[] run_times = new double[num_paragraphs];
 			

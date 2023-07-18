@@ -4,41 +4,61 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
-public class HungarianAlgorithmWiki {
+public class HungarianAlgorithmWiki extends Solver{
+	final int k;
+	/**
+	 * potentials
+	 */
+    final double[] ys; 
+    /**
+     * -yt[W] will equal the sum of all deltas
+     */
+    final double[] yt;
+    /**
+     * job[w] = job assigned to w-th worker, or -1 if no job assigned. Note: a W-th worker was added for convenience
+     */
+    final int[] job;
+    /**
+     * min reduced cost over edges from Z to worker w
+     */
+    final double[] min_to;
+    /**
+     * previous worker on alternating path
+     */
+    final int[] prv;
+    
+	public HungarianAlgorithmWiki(final int k) {
+		this.k = k;
+		ys = new double[k];// potentials
+	    yt = new double[k+1];
+	    job = new int[k + 1];
+	    min_to  = new double[k + 1];
+	    prv  = new int[k + 1];// previous worker on alternating path
+	}
 	
-	public static ArrayList<Integer> hungarian(final int[][] costs) {
-	    //const int J = (int)size(C), W = (int)size(C[0]);
-	    final int J = costs.length, W = costs[0].length;
-	    assert(J <= W);
-	    // job[w] = job assigned to w-th worker, or -1 if no job assigned
-	    // note: a W-th worker was added for convenience
-	    final int[] job = new int[W + 1];
+	@Override
+	public double solve(final double[][] costs, final double threshold) {
+	    final int J = k, W = k;
 	    Arrays.fill(job, -1);
-	    
-	    final int[] ys = new int[J];// potentials
-	    final int[] yt = new int[W+1];
-	    // -yt[W] will equal the sum of all deltas
-	    ArrayList<Integer> answers = new ArrayList<Integer>(W+1);
-	    final int inf = Integer.MAX_VALUE;
+	    //ArrayList<Double> answers = new ArrayList<Double>(W+1);
+	    final double inf = Double.MAX_VALUE;
 	    	    
 	    for (int j_cur = 0; j_cur < J; ++j_cur) {  // assign j_cur-th job
-	        int w_cur = W;
+	        int w_cur  = W;
 	        job[w_cur] = j_cur;
-	        // min reduced cost over edges from Z to worker w
-	        int[] min_to  = new int[W + 1];
+	        
 	        Arrays.fill(min_to, inf);
-	        int[] prv  = new int[W + 1];// previous worker on alternating path
 	        Arrays.fill(prv, -1);
 	        boolean[] in_Z  = new boolean[W + 1]; // whether worker is in Z
 	        
 	        while (job[w_cur] != -1) {   // runs at most j_cur + 1 times
 	            in_Z[w_cur] = true;
 	            final int j = job[w_cur];
-	            int delta = inf;
+	            double delta = inf;
 	            int w_next = 0;//@CheckMe set manually
 	            for (int w = 0; w < W; ++w) {
 	                if (!in_Z[w]) {
-	                	int temp;
+	                	double temp;
 	                	if((temp=costs[j][w] - ys[j] - yt[w])<min_to[w]) {
 	                		min_to[w] = temp;
 	                		prv[w] = w_cur;
@@ -64,33 +84,17 @@ public class HungarianAlgorithmWiki {
 	        // update assignments along alternating path
 	        for (int w; w_cur != -1; w_cur = w) {
 	        	w = prv[w_cur];
-	        	if(w==-1) {
+	        	if(w==-1) {//Error in Wiki code, works in CPP but results in memory access before job array
 	        		break;
 	        	}
 	        	job[w_cur] = job[w];
 	        }
-	        answers.add(-yt[W]);
+	        //answers.add(-yt[W]);
 	    }
-	    return answers;
+	    return -yt[W];
 	}
-	static void sanity_check_hungarian() {
-	    int[][] costs= {{8, 5, 9}, {4, 2, 4}, {7, 3, 8}};
-	    int[] result = {5, 9, 15};
-	    
-		int[][] costs2= {
-				{1, 3, 4, 2}
-				, {1, 2, 4, 3}
-				, {1, 4, 2, 3}
-				, {2, 1, 4, 3}
-			};
-	    ArrayList<Integer> temp = hungarian(costs);
-	    System.out.println("Done "+temp);
-	    
-	    temp = hungarian(costs2);
-	    System.out.println("Done "+temp);
-	}
-	
-	public static void main(String[] args) {
-		sanity_check_hungarian();
+	@Override
+	public String get_name() {
+		return "HungarianAlgorithmWiki";
 	}
 }

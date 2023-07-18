@@ -9,7 +9,7 @@ public class StupidSolver extends Solver{
 	int[][] permutations;
 	int dim;
 	
-	StupidSolver(int dim){
+	public StupidSolver(int dim){
 		//if(dim!=3 && dim!=4) System.err.println("dim!=3");
 		this.dim = dim;
 		this.permutations = compute_permutations(dim);

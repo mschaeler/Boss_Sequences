@@ -7,7 +7,9 @@ import java.util.HashSet;
 
 import boss.embedding.Embedding;
 import boss.embedding.MatchesWithEmbeddings;
+import boss.hungarian.HungarianAlgorithmWiki;
 import boss.hungarian.HungarianExperiment;
+import boss.hungarian.StupidSolver;
 import boss.lexicographic.BasicTokenizer;
 import boss.lexicographic.TokenizedParagraph;
 import boss.lexicographic.Tokenizer;
@@ -26,7 +28,7 @@ public class SemanticTest {
 	static final int GRANULARITY_BOOK_TO_BOOK     		= 3;
 	
 	public static void main(String[] args) {
-		final int[] k_s= {3,4,5,6};
+		final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.7;
 		
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
@@ -34,9 +36,16 @@ public class SemanticTest {
 		
 		for(int k : k_s) {
 			ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
-			for(HungarianExperiment he :hes) {
+			for(HungarianExperiment he : hes) {
+				//he.set_solver(new StupidSolver(k));
+				he.set_solver(new HungarianAlgorithmWiki(k));
+				
 				//he.run_baseline();
-				he.run_pruning();
+				he.run_solution();
+				//he.run_pruning();
+				//he.run_baseline_global_matrix_dense();
+				//he.run_baseline_global_matrix_sparse();
+				//he.test_hungarian_implementations();
 			}
 		}
 		
