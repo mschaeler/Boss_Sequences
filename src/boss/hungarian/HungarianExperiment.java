@@ -522,8 +522,14 @@ public class HungarianExperiment {
 	static final int USE_COLUMN_SUM = 0;
 	static final int USE_MATRIX_MAX = 1;
 	static final int USE_COLUMN_ROW_SUM = 2;
+	static final int USE_WINDOW_SUM = 3;
 	
-	static final int PRUNING_APPROACH = USE_COLUMN_ROW_SUM;
+	
+	static final int PRUNING_APPROACH = USE_WINDOW_SUM;
+	
+	final double to_normalized_similarity(final double cost) {
+		return 1.0 - (cost / (double)k);
+	}
 	
 	@SuppressWarnings("unused")
 	public void run_pruning(){
@@ -536,6 +542,15 @@ public class HungarianExperiment {
 			this.solver = new StupidSolver(k);
 		}
 		
+		//Below stuff for USE_WINDOW_SUM bound
+		double[] index_nearest_neighbor = null;
+		boolean[] exlude_me_p1 = null;
+		boolean[] exlude_me_p2 = null;
+		
+		if(PRUNING_APPROACH == USE_WINDOW_SUM) {
+			index_nearest_neighbor = get_nearest_neighbor();
+		}
+		
 		double[] run_times = new double[num_paragraphs];
 		long[][] counts = new long[num_paragraphs][2];
 			
@@ -546,15 +561,32 @@ public class HungarianExperiment {
 			final double[][] alignment_matrix = alignement_matrixes.get(p);
 			final double[][] global_cost_matrix_buffer = fill_cost_matrix(p);
 			
+			if(PRUNING_APPROACH == USE_WINDOW_SUM) {
+				final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+				final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
+				exlude_me_p1 = get_bound_window_sum(index_nearest_neighbor, k_windows_p1);
+				exlude_me_p2 = get_bound_window_sum(index_nearest_neighbor, k_windows_p2);
+			}
+			
 			long num_cels_geq_threshold = 0;
 			long num_cels_geq_threshold_estimation = 0;
 			
 			//For each pair of windows
 			for(int line=0;line<alignment_matrix.length;line++) {
+				if(PRUNING_APPROACH == USE_WINDOW_SUM) {
+					if(exlude_me_p1[line]) {
+						continue;//We can exclude this line
+					}
+				}
 				//get the line to get rid of 2D array resolution
 				final double[] alignment_matrix_line = alignment_matrix[line];
 				
-				for(int column=0;column<alignment_matrix[0].length;column++) {	
+				for(int column=0;column<alignment_matrix[0].length;column++) {
+					if(PRUNING_APPROACH == USE_WINDOW_SUM) {
+						if(exlude_me_p2[column]) {
+							continue;//We can exclude this column
+						}
+					}
 					//Fill local matrix of the current window combination from global matrix
 					//Note it is cost matrix with cosine distance. I.e, not similarity. 
 					for(int i=0;i<this.k;i++) {
@@ -570,6 +602,8 @@ public class HungarianExperiment {
 						lb_cost = k*get_matrix_min(cost_matrix);//we assume that this value occurs k times
 					}else if(PRUNING_APPROACH == USE_COLUMN_ROW_SUM){
 						lb_cost = get_column_row_sum(cost_matrix);
+					}else if(PRUNING_APPROACH == USE_WINDOW_SUM){
+						lb_cost = 0;//No bound here
 					}else{
 						System.err.println("Unknonw pruning apporach");
 					}
@@ -619,6 +653,22 @@ public class HungarianExperiment {
 		}
 	}
 	
+	private boolean[] get_bound_window_sum(final double[] index_nearest_neighbor, final int[][] k_windows) {
+		boolean[] exclude_me = new boolean[k_windows.length];//TODO Optimize computation exploit running window
+		for(int w=0;w<k_windows.length;w++) {
+			int[] window = k_windows[w];
+			double min_cost = 0;
+			for(int id : window){
+				min_cost += index_nearest_neighbor[id];
+			}
+			double max_sim = to_normalized_similarity(min_cost);
+			if(max_sim<threshold) {
+				exclude_me[w] = true;
+			}
+		}
+		return exclude_me;
+	}
+
 	private double get_matrix_min(final double[][] cost_matrix) {
 		double min = Double.MAX_VALUE;
 		for(int i=0;i<this.k;i++) {
@@ -841,6 +891,34 @@ public class HungarianExperiment {
 		print_results(experiment_name, run_times);
 	}
 	
+	/**
+	 * Creates an index for the 1-nearest neighbor bound of each set
+	 * 
+	 * @return
+	 */
+	private double[] get_nearest_neighbor(){
+		if(this.dense_global_matrix_buffer==null) {
+			create_dense_matrix();
+		}
+		final int size = dense_global_matrix_buffer.length;
+		double[] index_nearest_neighbor = new double[size];
+		
+		for(int id=0;id<size;id++) {
+			final double[] line = dense_global_matrix_buffer[id];
+			double min_cost = Double.MAX_VALUE;
+			for(int other_id=0;other_id<size;other_id++){
+				if(id==other_id) continue;//FIXME This line is basically wrong.... works only if the id is not part of the other window
+				double dist = line[other_id]; 
+				if(dist<min_cost) {
+					min_cost = dist;
+				}
+			}
+			index_nearest_neighbor[id] = min_cost;
+		}
+		
+		return index_nearest_neighbor;
+	}
+	
 	private void create_dense_matrix() {
 		double start = System.currentTimeMillis();
 		int max_id = 0;
@@ -890,6 +968,7 @@ public class HungarianExperiment {
 			
 		Solver HAP = new HungarianAlgorithmPranayImplementation();
 		Solver H_WIKI = new HungarianAlgorithmWiki(k);
+		HungarianKevinStern HKS = null;
 		
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
@@ -917,12 +996,18 @@ public class HungarianExperiment {
 					//Now the tests 
 					double cost_HAP = HAP.solve(cost_matrix, threshold); 
 					double cost_WIKI = H_WIKI.solve(cost_matrix, threshold);
+					HKS = new HungarianKevinStern(cost_matrix); 
+					double cost_HKS = HKS.solve(cost_matrix);
+					
 					
 					if(!is_equal(cost_HAP,cost)) {
 						System.err.println("cost_HAP!=cost\t"+cost_HAP+"\t"+cost);
 					}
 					if(!is_equal(cost_WIKI,cost)){
 						System.err.println("cost_WIKI!=cost\t"+cost_WIKI+"\t"+cost);
+					}
+					if(!is_equal(cost_HKS,cost)){
+						System.err.println("cost_HKS!=cost\t"+cost_HKS+"\t"+cost);
 					}
 					
 					//normalize costs: Before it was distance. Now it is similarity.
@@ -1030,7 +1115,8 @@ public class HungarianExperiment {
 			this.alignement_matrixes.add(alignment_matrix);
 		}
 		String experiment_name = "";//default experiment, has no special name
-		print_results(experiment_name, run_times);
+		if(VERBOSE)
+			print_results(experiment_name, run_times);
 	}
 	
 	public void run_baseline(){

@@ -32,6 +32,9 @@ public class SemanticTest {
 		final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.7;
 		
+		//MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
 		
@@ -42,7 +45,7 @@ public class SemanticTest {
 				//he.set_solver(new HungarianAlgorithmWiki(k));
 				he.set_solver(new HungarianAlgorithmPranayImplementation());
 				
-				he.run_baseline();
+				//he.run_baseline();
 				//he.run_solution();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
@@ -122,9 +125,6 @@ public class SemanticTest {
 		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
 		String file_path = Embedding.get_embedding_path(books.get(0).language,false);
 		HashMap<Integer, double[]> embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
-		
-		// MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
-		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		
 		//For each pair of books (i,j)
 		for(int i=0;i<tokenized_books.size();i++) {
