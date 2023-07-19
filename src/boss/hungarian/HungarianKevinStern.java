@@ -48,7 +48,7 @@ import java.util.Arrays;
  * @author Kevin L. Stern
  */
 
-public class HungarianKevinStern {
+public class HungarianKevinStern extends Solver{
 	private final double[][] costMatrix;
 	private final int rows, cols, dim;
 	private final double[] labelByWorker, labelByJob;
@@ -67,29 +67,12 @@ public class HungarianKevinStern {
 	 *                   the same length; in addition, all entries must be
 	 *                   non-infinite numbers.
 	 */
-	public HungarianKevinStern(double[][] costMatrix) {
-		this.dim = Math.max(costMatrix.length, costMatrix[0].length);
-		this.rows = costMatrix.length;
-		this.cols = costMatrix[0].length;
+	public HungarianKevinStern(int k) {
+		this.dim = k;
+		this.rows = k;
+		this.cols = k;
 		this.costMatrix = new double[this.dim][this.dim];
-		for (int w = 0; w < this.dim; w++) {
-			if (w < costMatrix.length) {
-				if (costMatrix[w].length != this.cols) {
-					throw new IllegalArgumentException("Irregular cost matrix");
-				}
-				for (int j = 0; j < this.cols; j++) {
-					if (Double.isInfinite(costMatrix[w][j])) {
-						throw new IllegalArgumentException("Infinite cost");
-					}
-					if (Double.isNaN(costMatrix[w][j])) {
-						throw new IllegalArgumentException("NaN cost");
-					}
-				}
-				this.costMatrix[w] = Arrays.copyOf(costMatrix[w], this.dim);
-			} else {
-				this.costMatrix[w] = new double[this.dim];
-			}
-		}
+		
 		labelByWorker = new double[this.dim];
 		labelByJob = new double[this.dim];
 		minSlackWorkerByJob = new int[this.dim];
@@ -97,9 +80,7 @@ public class HungarianKevinStern {
 		committedWorkers = new boolean[this.dim];
 		parentWorkerByCommittedJob = new int[this.dim];
 		matchJobByWorker = new int[this.dim];
-		Arrays.fill(matchJobByWorker, -1);
 		matchWorkerByJob = new int[this.dim];
-		Arrays.fill(matchWorkerByJob, -1);
 	}
 
 	/**
@@ -128,8 +109,20 @@ public class HungarianKevinStern {
 	 *         cost matrix. A matching value of -1 indicates that the corresponding
 	 *         worker is unassigned.
 	 */
-	public double solve(final double[][] org_cost_matrix) {
-		Arrays.fill(matchJobByWorker, -1);//TODO for future use
+	public double solve(final double[][] org_cost_matrix, double threshold) {
+		//Note, we need to copy the matrix, because we modify the values in between
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		Arrays.fill(matchJobByWorker, -1);
 		Arrays.fill(matchWorkerByJob, -1);
 		/*
 		 * Heuristics to improve performance: Reduce rows and columns by their smallest
@@ -156,38 +149,6 @@ public class HungarianKevinStern {
 		}
 		
 		return cost;
-	}
-	
-	/**
-	 * Execute the algorithm.
-	 * 
-	 * @return the minimum cost matching of workers to jobs based upon the provided
-	 *         cost matrix. A matching value of -1 indicates that the corresponding
-	 *         worker is unassigned.
-	 */
-	public int[] execute() {
-		/*
-		 * Heuristics to improve performance: Reduce rows and columns by their smallest
-		 * element, compute an initial non-zero dual feasible solution and create a
-		 * greedy matching from workers to jobs of the cost matrix.
-		 */
-		reduce();
-		computeInitialFeasibleSolution();
-		greedyMatch();
-
-		int w = fetchUnmatchedWorker();
-		while (w < dim) {
-			initializePhase(w);
-			executePhase();
-			w = fetchUnmatchedWorker();
-		}
-		int[] result = Arrays.copyOf(matchJobByWorker, rows);
-		for (w = 0; w < result.length; w++) {
-			if (result[w] >= cols) {
-				result[w] = -1;
-			}
-		}
-		return result;
 	}
 
 	/**
@@ -368,5 +329,10 @@ public class HungarianKevinStern {
 				minSlackValueByJob[j] -= slack;
 			}
 		}
+	}
+
+	@Override
+	public String get_name() {
+		return "Hungarian Algorithm by Kevin Stern";
 	}
 }

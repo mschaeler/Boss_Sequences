@@ -968,7 +968,7 @@ public class HungarianExperiment {
 			
 		Solver HAP = new HungarianAlgorithmPranayImplementation();
 		Solver H_WIKI = new HungarianAlgorithmWiki(k);
-		HungarianKevinStern HKS = null;
+		Solver HKS = new HungarianKevinStern(k);
 		
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
@@ -995,10 +995,8 @@ public class HungarianExperiment {
 					
 					//Now the tests 
 					double cost_HAP = HAP.solve(cost_matrix, threshold); 
-					double cost_WIKI = H_WIKI.solve(cost_matrix, threshold);
-					HKS = new HungarianKevinStern(cost_matrix); 
-					double cost_HKS = HKS.solve(cost_matrix);
-					
+					double cost_WIKI = H_WIKI.solve(cost_matrix, threshold); 
+					double cost_HKS = HKS.solve(cost_matrix, threshold);					
 					
 					if(!is_equal(cost_HAP,cost)) {
 						System.err.println("cost_HAP!=cost\t"+cost_HAP+"\t"+cost);
