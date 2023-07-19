@@ -1,7 +1,7 @@
 import os 
 from os.path import isfile
 import re
-
+import numpy as np
 
 
 
@@ -55,10 +55,49 @@ def write_data(data, outfolder):
 
 
 
+def normalize_vector(vector):
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return vector
+    return vector / norm
+
+def cosine_sim(a, b):
+    dot_product = np.dot(a, b)
+    return dot_product
+
+def vectort_test():
+    a1 = np.random.uniform(low=0, high=1, size=300)
+    a2 = np.random.uniform(low=0, high=1, size=300)
+    a3 = np.random.uniform(low=0, high=1, size=300)
+
+    b1 = np.random.uniform(low=0, high=1, size=300)
+    b2 = np.random.uniform(low=0, high=1, size=300)
+    b3 = np.random.uniform(low=0, high=1, size=300)
+    
+    a1 = normalize_vector(a1)
+    a2 = normalize_vector(a2)
+    a3 = normalize_vector(a3)
+
+    b1 = normalize_vector(b1)
+    b2 = normalize_vector(b2)
+    b3 = normalize_vector(b3)
+
+    A = np.concatenate((a1, a2, a3))
+    B = np.concatenate((b1, b2, b3))
+
+    cos_sim = cosine_sim(a1, b1) + cosine_sim(a2, b2) + cosine_sim(a3, b3)
+    print(cos_sim / 3)
+    print(cosine_sim(A, B) / 3)
+    print(cosine_sim(normalize_vector(A), normalize_vector(B)))
+
+
+
+
 
 
 if __name__ == "__main__":
-    fileloc = "./data/en/king_james_bible.txt"
-    data = load_data(fileloc)
-    outfolder ="/root/data/en/king_james_bible_chapter/"
-    write_data(data, outfolder)
+    # fileloc = "./data/en/king_james_bible.txt"
+    # data = load_data(fileloc)
+    # outfolder ="/root/data/en/king_james_bible_chapter/"
+    # write_data(data, outfolder)
+    vectort_test()

@@ -2,6 +2,11 @@
     "cmake.sourceDirectory": "/root/Boss_Sequences/baseline/src",
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
-        "iostream": "cpp"
-    }
+        "iostream": "cpp",
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "ranges": "cpp"
+    },
+    "python.analysis.typeCheckingMode": "off"
 }

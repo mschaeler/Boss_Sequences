@@ -22,6 +22,7 @@
 #include <sstream>
 #include <numeric>
 #include <queue>
+#include <limits>
 #include <random>
 #include <algorithm>
 #include <unordered_map>
@@ -254,6 +255,21 @@ class DataLoader {
 			}
 			return result;
 		}
+
+		void normalizeVector(vector<float>& vec) {
+			float norm = 0.0f;
+
+			// Compute the L2 norm
+			for (float value : vec) {
+				norm += value * value;
+			}
+			norm = sqrt(norm);
+
+			// Normalize the vector using the L2 norm
+			for (float& value : vec) {
+				value /= norm;
+			}
+		}
 	public:
 		DataLoader(string location, Environment *e){
 			// read TSV file
@@ -270,11 +286,13 @@ class DataLoader {
 						for (int i = 3; i < values.size(); i++) {
 							embedding.push_back(stof(values[i]));
 						}
-						float* r = new float[300];
-						r = embedding.data();
-						faiss::fvec_renorm_L2(300, 1, r);
-						vector<float> vr(r, r + 300);
-						vectors[token_id] = vr;
+						// float* r = new float[300];
+						// r = embedding.data();
+						// faiss::fvec_renorm_L2(300, 1, r);
+						// vector<float> vr(r, r + 300);
+						// vectors[token_id] = vr;
+						normalizeVector(embedding);
+						vectors[token_id] = embedding;
 						dictionary.push_back(token_id);
 					}
 				}
@@ -333,7 +351,8 @@ class DataLoader {
 				denom_a += A[i] * A[i];
 				denom_b += B[i] * B[i];
 			}
-			double sim = double(dot / (sqrt(denom_a) * sqrt(denom_b)));
+			// double sim = double(dot / (sqrt(denom_a) * sqrt(denom_b)));
+			double sim = static_cast<double>(dot);
 			cache[key(token1_ID, token2_ID)] = sim;
 			return sim;
 		}
@@ -392,7 +411,7 @@ class FaissIndexCPU {
 				xb[d * i] += i / 1000.;
 			}
 
-			faiss::fvec_renorm_L2(d, nb, xb);
+			// faiss::fvec_renorm_L2(d, nb, xb);
 
 			cout << "Normalized vector storage check" << endl;
 			index->add(nb, xb);
@@ -408,7 +427,8 @@ class FaissIndexCPU {
 				xq[d * i] += i / 1000.;
 			}
 			int nb = vxq.size() / d;
-			faiss::fvec_renorm_L2(d, nb, xq);
+			cout << "NB: " << nb << endl;
+			// faiss::fvec_renorm_L2(d, nb, xq);
 			// search xq
 			idx_t *I = new idx_t[k * nq];
 			float *D = new float[k * nq];
@@ -449,6 +469,283 @@ class FaissIndexCPU {
 
 };
 
+/**
+ * @author Pranay Mundra
+ * @package C++ Implementation of the Hungarian Algorithm orginally by Kevin L. Stern
+ * @copyright Kevin L. Stern
+*/
+class HungarianKevinStern {
+private:
+    const int dim;
+    std::vector<std::vector<double>> costMatrix;
+    std::vector<double> labelByWorker, labelByJob, minSlackValueByJob;
+    std::vector<int> minSlackWorkerByJob, matchJobByWorker, matchWorkerByJob;
+    std::vector<int> parentWorkerByCommittedJob;
+    std::vector<bool> committedWorkers;
+
+    void computeInitialFeasibleSolution() {
+        for (int j = 0; j < dim; j++) {
+            labelByJob[j] = std::numeric_limits<double>::infinity();
+        }
+
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                if (costMatrix[w][j] < labelByJob[j]) {
+                    labelByJob[j] = costMatrix[w][j];
+                }
+            }
+        }
+    }
+    /**
+	 * Execute a single phase of the algorithm. A phase of the Hungarian algorithm
+	 * consists of building a set of committed workers and a set of committed jobs
+	 * from a root unmatched worker by following alternating unmatched/matched
+	 * zero-slack edges. If an unmatched job is encountered, then an augmenting path
+	 * has been found and the matching is grown. If the connected zero-slack edges
+	 * have been exhausted, the labels of committed workers are increased by the
+	 * minimum slack among committed workers and non-committed jobs to create more
+	 * zero-slack edges (the labels of committed jobs are simultaneously decreased
+	 * by the same amount in order to maintain a feasible labeling).
+	 * <p>
+	 * 
+	 * The runtime of a single phase of the algorithm is O(n^2), where n is the
+	 * dimension of the internal square cost matrix, since each edge is visited at
+	 * most once and since increasing the labeling is accomplished in time O(n) by
+	 * maintaining the minimum slack values among non-committed jobs. When a phase
+	 * completes, the matching will have increased in size.
+	 */
+    void executePhase() {
+        while (true) {
+            int minSlackWorker = -1, minSlackJob = -1;
+            double minSlackValue = std::numeric_limits<double>::infinity();
+
+            for (int j = 0; j < dim; j++) {
+                if (parentWorkerByCommittedJob[j] == -1) {
+                    if (minSlackValueByJob[j] < minSlackValue) {
+                        minSlackValue = minSlackValueByJob[j];
+                        minSlackWorker = minSlackWorkerByJob[j];
+                        minSlackJob = j;
+                    }
+                }
+            }
+
+            if (minSlackValue > 0) {
+                updateLabeling(minSlackValue);
+            }
+
+            parentWorkerByCommittedJob[minSlackJob] = minSlackWorker;
+
+            if (matchWorkerByJob[minSlackJob] == -1) {
+                /*
+				 * An augmenting path has been found.
+				 */
+                int committedJob = minSlackJob;
+                int parentWorker = parentWorkerByCommittedJob[committedJob];
+
+                while (true) {
+                    int temp = matchJobByWorker[parentWorker];
+                    match(parentWorker, committedJob);
+                    committedJob = temp;
+
+                    if (committedJob == -1) {
+                        break;
+                    }
+
+                    parentWorker = parentWorkerByCommittedJob[committedJob];
+                }
+
+                return;
+            } else {
+                /*
+				 * Update slack values since we increased the size of the committed workers set.
+				 */
+                int worker = matchWorkerByJob[minSlackJob];
+                committedWorkers[worker] = true;
+
+                for (int j = 0; j < dim; j++) {
+                    if (parentWorkerByCommittedJob[j] == -1) {
+                        double slack = costMatrix[worker][j] - labelByWorker[worker] - labelByJob[j];
+
+                        if (minSlackValueByJob[j] > slack) {
+                            minSlackValueByJob[j] = slack;
+                            minSlackWorkerByJob[j] = worker;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+	 * 
+	 * @return the first unmatched worker or {@link #dim} if none.
+	 */
+    int fetchUnmatchedWorker() {
+        for (int w = 0; w < dim; w++) {
+            if (matchJobByWorker[w] == -1) {
+                return w;
+            }
+        }
+
+        return dim;
+    }
+
+    /**
+	 * Find a valid matching by greedily selecting among zero-cost matchings. This
+	 * is a heuristic to jump-start the augmentation algorithm.
+	 */
+    void greedyMatch() {
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                if (matchJobByWorker[w] == -1 && matchWorkerByJob[j] == -1 &&
+                    costMatrix[w][j] - labelByWorker[w] - labelByJob[j] == 0) {
+                    match(w, j);
+                }
+            }
+        }
+    }
+
+    /**
+	 * Initialize the next phase of the algorithm by clearing the committed workers
+	 * and jobs sets and by initializing the slack arrays to the values
+	 * corresponding to the specified root worker.
+	 * 
+	 * @param w the worker at which to root the next phase.
+	 */
+    void initializePhase(int w) {
+        committedWorkers.assign(dim, false);
+        parentWorkerByCommittedJob.assign(dim, -1);
+        committedWorkers[w] = true;
+
+        for (int j = 0; j < dim; j++) {
+            minSlackValueByJob[j] = costMatrix[w][j] - labelByWorker[w] - labelByJob[j];
+            minSlackWorkerByJob[j] = w;
+        }
+    }
+
+    /**
+	 * Helper method to record a matching between worker w and job j.
+	 */
+    void match(int w, int j) {
+        matchJobByWorker[w] = j;
+        matchWorkerByJob[j] = w;
+    }
+
+    /**
+	 * Reduce the cost matrix by subtracting the smallest element of each row from
+	 * all elements of the row as well as the smallest element of each column from
+	 * all elements of the column. Note that an optimal assignment for a reduced
+	 * cost matrix is optimal for the original cost matrix.
+	 */
+    void reduce() {
+        for (int w = 0; w < dim; w++) {
+            double min = std::numeric_limits<double>::infinity();
+
+            for (int j = 0; j < dim; j++) {
+                if (costMatrix[w][j] < min) {
+                    min = costMatrix[w][j];
+                }
+            }
+
+            for (int j = 0; j < dim; j++) {
+                costMatrix[w][j] -= min; //XXX here we indeed modify the matrix
+            }
+        }
+
+        std::vector<double> min(dim, std::numeric_limits<double>::infinity());
+
+        for (int j = 0; j < dim; j++) {
+            for (int w = 0; w < dim; w++) {
+                if (costMatrix[w][j] < min[j]) {
+                    min[j] = costMatrix[w][j];
+                }
+            }
+        }
+
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                costMatrix[w][j] -= min[j]; //XXX here we indeed modify the matrix
+            }
+        }
+    }
+
+    /**
+	 * Update labels with the specified slack by adding the slack value for
+	 * committed workers and by subtracting the slack value for committed jobs. In
+	 * addition, update the minimum slack values appropriately.
+	 */
+    void updateLabeling(double slack) {
+        for (int w = 0; w < dim; w++) {
+            if (committedWorkers[w]) {
+                labelByWorker[w] += slack;
+            }
+        }
+
+        for (int j = 0; j < dim; j++) {
+            if (parentWorkerByCommittedJob[j] != -1) {
+                labelByJob[j] -= slack;
+            } else {
+                minSlackValueByJob[j] -= slack;
+            }
+        }
+    }
+
+public:
+    /**
+	 * Construct an instance of the algorithm.
+	 * 
+	 * @param costMatrix the cost matrix, where matrix[i][j] holds the cost of
+	 *                   assigning worker i to job j, for all i, j. The cost matrix
+	 *                   must not be irregular in the sense that all rows must be
+	 *                   the same length; in addition, all entries must be
+	 *                   non-infinite numbers.
+	 */
+    HungarianKevinStern(int k) : dim(k), costMatrix(k, std::vector<double>(k, 0.0)),
+                                 labelByWorker(k, 0.0), labelByJob(k, 0.0),
+                                 minSlackValueByJob(k, 0.0),
+                                 minSlackWorkerByJob(k, 0),
+                                 matchJobByWorker(k, -1), matchWorkerByJob(k, -1),
+                                 parentWorkerByCommittedJob(k, -1),
+                                 committedWorkers(k, false) {}
+
+    /**
+	 * Execute the algorithm.
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+
+    double solve(const std::vector<std::vector<double>>& org_cost_matrix, double threshold) {
+        // Note: we need to copy the matrix, as we'll modify the values in between
+        for (int w = 0; w < dim; w++) {
+            costMatrix[w] = org_cost_matrix[w];
+        }
+
+        reduce();
+        computeInitialFeasibleSolution();
+        greedyMatch();
+
+        int w = fetchUnmatchedWorker();
+
+        while (w < dim) {
+            initializePhase(w);
+            executePhase();
+            w = fetchUnmatchedWorker();
+        }
+
+        // DONE - Collect the result
+        double cost = 0.0;
+        double cost_2 = 0.0;
+
+        for (w = 0; w < matchJobByWorker.size(); w++) {
+            cost += org_cost_matrix[w][matchJobByWorker[w]];
+            cost_2 += org_cost_matrix[w][matchWorkerByJob[w]];
+        }
+
+        return cost;
+    }
+};
 
 
 /**
@@ -560,6 +857,7 @@ class ValidMatrix {
 		// }
 };
 
+
 class GlobalAMatrix {
 	private:
 		vector<vector<double>> costMatrix;
@@ -568,8 +866,8 @@ class GlobalAMatrix {
 		vector<int> *set2Tokens;
 		double theta;
 		DataLoader *dl;
-		int Ws;
-		int Wt;
+		int width;
+		int height;
 		int zero_entries = 0;
 
 	public:
@@ -593,9 +891,9 @@ class GlobalAMatrix {
 		void computeAlignment(int k) {
 			int rows = costMatrix.size();
 			int cols = costMatrix[0].size();
-			Ws = set1Tokens->size() - k + 1;
-			Wt = set2Tokens->size() - k + 1;
-			alignmentMatrix = new double[Ws * Wt];
+			width = set1Tokens->size() - k + 1;
+			height = set2Tokens->size() - k + 1;
+			alignmentMatrix = new double[width * height];
 			for (int i = 0; i <= rows - k; i++) {
 				for (int j = 0; j <= cols - k; j++) {
 					vector<vector<double>> currWindow(k, vector<double>(k));
@@ -614,9 +912,9 @@ class GlobalAMatrix {
 						sim = -cost/k;
 					}
 					if (sim >= theta) {
-						alignmentMatrix[i + j * Ws] = sim;
+						alignmentMatrix[i + j * width] = sim;
 					} else {
-						alignmentMatrix[i + j * Ws] = 0.0;
+						alignmentMatrix[i + j * width] = 0.0;
 						zero_entries += 1;
 					}
 					
@@ -625,11 +923,19 @@ class GlobalAMatrix {
 		}
 
 		int get_matrix_size() {
-			return Ws * Wt;
+			return width * height;
 		}
 
 		int zeroCells() {
 			return zero_entries;
+		}
+
+		void printAMatrix() {
+			for (int i = 0; i < width; i++) {
+				for (int j = 0; j < height; j++) {
+					cout << alignmentMatrix[i + j * width] << "," << " \n"[j == height - 1];
+				}
+			}
 		}
 
 };
@@ -645,7 +951,7 @@ class PermutationOptimizedSearch {
 		int width;
 		int height;
 		int k;
-		double* data;
+		double* alignmentMatrix;;
 		int zero_entries = 0;
 
 		vector<vector<int>> permute(const vector<int>& nums) {
@@ -670,8 +976,8 @@ class PermutationOptimizedSearch {
 			k = _k;
 			width = set1Windows->size();
 			height = set2Windows->size();
-			data = new double[width * height];
-			memset(data, 0.0, sizeof(data));
+			alignmentMatrix = new double[width * height];
+			memset(alignmentMatrix, 0.0, sizeof(alignmentMatrix));
 		}
 
 		void computeAlignment() {
@@ -683,7 +989,7 @@ class PermutationOptimizedSearch {
 			*/
 			vector<vector<float>> vectors;
 			int permIndexTracker = 0;
-			for (int i = 0; i < set2Windows->size(); i++) {
+			for (int i = 0; i < height; i++) {
 				vector<int> tokens = set2Windows->at(i);
 				vector<vector<int>> permutations = permute(tokens);
 				for (int j = 0; j < permutations.size(); j++) {
@@ -703,7 +1009,7 @@ class PermutationOptimizedSearch {
 			int d = k * 300;
 			index = new FaissIndexCPU(vectors, d);
 			vector<float> vxq;
-			for (int i = 0; i < set1Windows->size(); i++) {
+			for (int i = 0; i < width; i++) {
 				vector<int> tokens = set1Windows->at(i);
 				vector<float> concatVector;
 				for (int t : tokens) {
@@ -724,8 +1030,8 @@ class PermutationOptimizedSearch {
 					float fsim = D[i * permIndexTracker + j];
 					double sim = static_cast<double>(fsim);
 					if (sim >= theta) {
-						if (sim > data[i + w * width]) {
-							data[i + w * width] = sim;
+						if (sim > alignmentMatrix[i + w * width]) {
+							alignmentMatrix[i + w * width] = sim;
 							// cout << "i : " << i << " j : " << w << " sim : " << sim << endl;
 						}
 					}
@@ -735,7 +1041,7 @@ class PermutationOptimizedSearch {
 			// calculate the number of cells below the threshold
 			for (int i = 0; i < width; i++) {
 				for (int j = 0; j < height; j++) {
-					if (data[i + j * width] < theta) {
+					if (alignmentMatrix[i + j * width] < theta) {
 						zero_entries += 1;
 					}
 				}
@@ -749,6 +1055,14 @@ class PermutationOptimizedSearch {
 
 		int zeroCells() {
 			return zero_entries;
+		}
+
+		void printAMatrix() {
+			for (int i = 0; i < width; i++) {
+				for (int j = 0; j < height; j++) {
+					cout << alignmentMatrix[i + j * width] << "," << " \n"[j == height - 1];
+				}
+			}
 		}
 
 };
@@ -847,6 +1161,9 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	slidingWindowTime = sliding_window_elapsed.count();
 	cout << "Sliding Window Computation time: " << slidingWindowTime << endl;
  	std::unordered_map<size_t, double> validedges;
+	/**
+	 * @todo: Check the correctness in terms of getting the IDS from the dictionary
+	*/
 	// for all tokens between the two texts, do a faiss similarity search and cache the edges
 	int nq = 0;
 	int i = 0;
@@ -932,6 +1249,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 			if (results.find(key(set1Id, set2Id)) == results.end()) {
 				PermutationOptimizedSearch* A = new PermutationOptimizedSearch(&set1Windows, &set2Windows, theta, dl, k);
 				A->computeAlignment();
+				A->printAMatrix();
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
 			}
@@ -949,6 +1267,7 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
 	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
 	// 			A->computeAlignment(k);
+	// 			A->printAMatrix();
 	// 			// results[key(set1Id, set2Id)] = A;
 	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
 	// 			numberOfZeroEntries += A->zeroCells();
