@@ -47,8 +47,9 @@ public class SemanticTest {
 				//he.set_solver(new HungarianAlgorithmPranayImplementation());
 				he.set_solver(new HungarianKevinStern(k));
 				
-				he.run_baseline();
-				//he.run_solution();
+				//he.run_baseline();
+				//he.run_baseline_zick_zack();
+				he.run_solution();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
 				//he.run_baseline_global_matrix_sparse();

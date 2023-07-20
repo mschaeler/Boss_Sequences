@@ -17,6 +17,7 @@ public class HungarianExperiment {
 	final int num_paragraphs;
 	final int k;
 	final double threshold;
+	final int max_id;
 	
 	final ArrayList<int[][]> k_with_windows_b1;
 	final ArrayList<int[][]> k_with_windows_b2;
@@ -66,6 +67,23 @@ public class HungarianExperiment {
 		}
 		
 		this.k_buffer = new double[k];
+		
+		int max_id = 0;
+		for(int[] p : raw_paragraphs_b1) {
+			for(int id : p) {
+				if(id>max_id) {
+					max_id = id;
+				}
+			}
+		}
+		for(int[] p : raw_paragraphs_b2) {//Second paragraph
+			for(int id : p) {
+				if(id>max_id) {
+					max_id = id;
+				}
+			}
+		}
+		this.max_id = max_id;
 	}
 	
 	private int max(ArrayList<int[]> raw_pragraph) {
@@ -525,7 +543,7 @@ public class HungarianExperiment {
 	static final int USE_WINDOW_SUM = 3;
 	
 	
-	static final int PRUNING_APPROACH = USE_WINDOW_SUM;
+	static final int PRUNING_APPROACH = USE_COLUMN_SUM;
 	
 	final double to_normalized_similarity(final double cost) {
 		return 1.0 - (cost / (double)k);
@@ -560,6 +578,12 @@ public class HungarianExperiment {
 			//Allocate space for the alignment matrix
 			final double[][] alignment_matrix = alignement_matrixes.get(p);
 			final double[][] global_cost_matrix_buffer = fill_cost_matrix(p);
+			
+			double[][] max_window_line_buffer=null;
+			double[][] max_window_column_buffer=null;
+			if(PRUNING_APPROACH != USE_WINDOW_SUM) {//Mind the !=
+				fill_max_window_buffer(global_cost_matrix_buffer,max_window_line_buffer,max_window_column_buffer);
+			}
 			
 			if(PRUNING_APPROACH == USE_WINDOW_SUM) {
 				final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
@@ -653,6 +677,46 @@ public class HungarianExperiment {
 		}
 	}
 	
+	private void fill_max_window_buffer(double[][] global_cost_matrix_buffer, double[][] max_window_line_buffer,
+			double[][] max_window_column_buffer) {
+		final int num_lines = global_cost_matrix_buffer.length;
+		final int num_columns = global_cost_matrix_buffer[0].length;
+		final double[] value_buffer = new double[k];
+		
+		max_window_line_buffer = new double[num_lines-k][num_columns];
+		for(int line=0;line<num_lines;line++) {
+			final double[] cost_matrix_line = global_cost_matrix_buffer[line];
+			final double[] max_window_line_buffer_line = max_window_line_buffer[line];
+			
+			{//first window is special
+				for(int i=0;i<k;i++) {
+					value_buffer[i] = cost_matrix_line[i];
+				}
+				double window_max = max(value_buffer);
+				max_window_line_buffer_line[0] = window_max;
+			}
+			
+			//The idea is that we replace the oldest value (i.e., the one not in the window anymore) with the new one in the window
+			for(int window=1;window<max_window_line_buffer_line.length;window++) {
+				int replace_position = (window-1)%k;
+				value_buffer[replace_position] = cost_matrix_line[k-1+window];
+				double window_max = max(value_buffer);
+				max_window_line_buffer_line[window] = window_max;
+			}
+		}
+		
+	}
+
+	private final double max(final double[] values) {
+		double max = values[0];
+		for(int i=1;i<values.length;i++) {
+			if(max<values[i]) {
+				max=values[i];
+			}
+		}
+		return max;
+	}
+
 	private boolean[] get_bound_window_sum(final double[] index_nearest_neighbor, final int[][] k_windows) {
 		boolean[] exclude_me = new boolean[k_windows.length];//TODO Optimize computation exploit running window
 		for(int w=0;w<k_windows.length;w++) {
@@ -730,7 +794,7 @@ public class HungarianExperiment {
 		return col_sum;
 	}
 
-	double[][] dense_global_matrix_buffer = null;
+	static double[][] dense_global_matrix_buffer = null;
 	public void run_baseline_global_matrix_dense(){
 		System.out.println("HungarianExperiment.run_baseline_global_matrix_dense() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
@@ -921,21 +985,6 @@ public class HungarianExperiment {
 	
 	private void create_dense_matrix() {
 		double start = System.currentTimeMillis();
-		int max_id = 0;
-		for(int[] p : raw_paragraphs_b1) {
-			for(int id : p) {
-				if(id>max_id) {
-					max_id = id;
-				}
-			}
-		}
-		for(int[] p : raw_paragraphs_b2) {//Second paragraph
-			for(int id : p) {
-				if(id>max_id) {
-					max_id = id;
-				}
-			}
-		}
 		this.dense_global_matrix_buffer = new double[max_id+1][max_id+1];//This is big....
 		for(int line_id=0;line_id<dense_global_matrix_buffer.length;line_id++) {
 			final double[] vec_1 = this.embedding_vector_index.get(line_id);
@@ -1036,7 +1085,7 @@ public class HungarianExperiment {
 	 * This should always use the best combination of all techniques.
 	 * Currently this is
 	 * (1) Normalized vectors to unit length
-	 * (2) Hungarian implementation from Wikipedia
+	 * (2) Hungarian implementation from Kevin Stern
 	 * (3) Dense global cost matrix
 	 * (4) min(row_min,column_min) bound on the local cost matrix: O(n³)
 	 */
@@ -1045,8 +1094,8 @@ public class HungarianExperiment {
 		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
 			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
 		}
-		//Ensure config (2) Hungarian implementation from Wikipedia
-		this.solver = new HungarianAlgorithmWiki(k);
+		//Ensure config (2) Hungarian implementation from Kevin Stern
+		this.solver = new HungarianKevinStern(k);
 		
 		// (3) Dense global cost matrix - compute once
 		if(dense_global_matrix_buffer==null) {//XXX Has extra runtime measurement inside method
@@ -1117,6 +1166,73 @@ public class HungarianExperiment {
 			print_results(experiment_name, run_times);
 	}
 	
+	public void run_baseline_zick_zack(){
+		if(this.solver==null) {
+			System.err.println("Solver is null: Using StupidSolver");
+			this.solver = new StupidSolver(k);
+		}
+		System.out.println("HungarianExperiment.run_baseline_zick_zack() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final double[][] global_cost_matrix_buffer = fill_cost_matrix(p);
+			
+			//For each pair of windows
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+				int column=0;
+				{	//Initially we really fill the entire cost matrix
+					//Fill local matrix of the current window combination from global matrix
+					//Note it is cost matrix with cosine distance. I.e, not similarity. 
+					for(int i=0;i<this.k;i++) {
+						for(int j=0;j<this.k;j++) {
+							cost_matrix[i][j] = global_cost_matrix_buffer[line+i][column+j];
+						}
+					}
+					//That's the important line
+					double cost = this.solver.solve(cost_matrix, threshold);
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
+					column++;
+				}
+				
+				//the idea is that we now change only one k-vector, but not re-fill the entire matrix again
+				for(;column<alignment_matrix[0].length;column++) {	
+					final int replace_position = (column-1)%k;
+					for(int i=0;i<this.k;i++) {
+						cost_matrix[i][replace_position] = global_cost_matrix_buffer[line+i][replace_position];
+					}
+					//That's the important line
+					double cost = this.solver.solve(cost_matrix, threshold);
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity<threshold) {
+						normalized_similarity = 0;
+					}
+					alignment_matrix_line[column] = normalized_similarity;
+				}
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}
+		String experiment_name = "";//default experiment, has no special name
+		if(VERBOSE)
+			print_results(experiment_name, run_times);
+	}
+	
 	public void run_baseline(){
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
@@ -1163,7 +1279,8 @@ public class HungarianExperiment {
 			this.alignement_matrixes.add(alignment_matrix);
 		}
 		String experiment_name = "";//default experiment, has no special name
-		print_results(experiment_name, run_times);
+		if(VERBOSE)
+			print_results(experiment_name, run_times);
 	}
 
 	void print_results(String experiment_name, double[] run_times) {
