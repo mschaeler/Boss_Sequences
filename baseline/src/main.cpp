@@ -903,12 +903,14 @@ class GlobalAMatrix {
 						}
 					}
 					HungarianAlgorithm HungAlgo;
+					HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
 					vector<int> assignment;
 					double sim;
 					if (currWindow.size() == 0) {
 						sim = 0.0;
 					} else {
-						double cost = HungAlgo.Solve(currWindow, assignment);
+						// double cost = HungAlgo.Solve(currWindow, assignment);
+						double cost = HungAlgoStern->solve(currWindow, theta);
 						sim = -cost/k;
 					}
 					if (sim >= theta) {
@@ -920,6 +922,76 @@ class GlobalAMatrix {
 					
 				}
 			}
+		}
+		/**
+		 * @param pruning_method : {0 : column_sum, 1 : matrix_min, 2 : row sum}
+		*/
+		void computeAlignmentWithPruning(int k, int pruning_method) {
+
+		}
+
+		double get_matrix_min(vector<vector<double>>& matrix) {
+			double min = matrix[0][0];
+			for (size_t i = 0; i < matrix.size(); i++) {
+				for (size_t j = 0; j < matrix[i].size(); j++) {
+					if (matrix[i][j] < min) {
+						min = matrix[i][j];
+					}
+				}
+			}
+			return min;
+		}
+
+		double get_column_sum(vector<vector<double>>& matrix) {
+			double col_sum = 0.0;
+			for (size_t j = 0; j < matrix.size(); ++j) {
+				double col_min = matrix[0][j];
+				for (size_t i = 1; i < matrix[0].size(); ++i) {
+					double cost = matrix[i][j];
+					if (cost < col_min) {
+						col_min = cost;
+					}
+				}
+				col_sum += col_min;
+			}
+			return col_sum;
+		}
+
+		double sum(const std::vector<double>& vec) {
+			double result = 0.0;
+			for (double val : vec) {
+				result += val;
+			}
+			return result;
+		}
+
+		double get_column_row_sum(vector<vector<double>>& matrix) {
+			int k = matrix.size(); 
+			std::vector<double> k_buffer(k, std::numeric_limits<double>::max());
+			double row_sum = 0;
+
+			for (int i = 0; i < k; ++i) {
+				const std::vector<double>& line = matrix[i];
+				double row_min = std::numeric_limits<double>::max();
+
+				for (int j = 0; j < k; ++j) {
+					const double val = line[j];
+					if (val < row_min) {
+						row_min = val;
+					}
+
+					if (val < k_buffer[j]) {
+						k_buffer[j] = val;
+					}
+				}
+
+				row_sum += row_min;
+			}
+
+			double col_sum = sum(k_buffer);
+			double min_cost = std::max(row_sum, col_sum);
+
+			return min_cost;
 		}
 
 		int get_matrix_size() {
@@ -1241,34 +1313,15 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	// }
 
 	// Permutation Index Search
-	for (int set1Id : text1Sets) {
-		vector<vector<int>> set1Windows = kWidthWindows[set1Id];
-		for (int set2Id : text2Sets) {
-			vector<vector<int>> set2Windows = kWidthWindows[set2Id];
-			// compute the alignment matrix if not computed previously
-			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				PermutationOptimizedSearch* A = new PermutationOptimizedSearch(&set1Windows, &set2Windows, theta, dl, k);
-				A->computeAlignment();
-				A->printAMatrix();
-				numberOfGraphMatchingComputed += A->get_matrix_size();
-				numberOfZeroEntries += A->zeroCells();
-			}
-		}
-		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
-		counter += 1;
-	}
-
-	// Global Cost Matrix 
 	// for (int set1Id : text1Sets) {
-	// 	vector<int> set1Tokens = sets[set1Id];
+	// 	vector<vector<int>> set1Windows = kWidthWindows[set1Id];
 	// 	for (int set2Id : text2Sets) {
-	// 		vector<int> set2Tokens = sets[set2Id];
+	// 		vector<vector<int>> set2Windows = kWidthWindows[set2Id];
 	// 		// compute the alignment matrix if not computed previously
 	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
-	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
-	// 			A->computeAlignment(k);
+	// 			PermutationOptimizedSearch* A = new PermutationOptimizedSearch(&set1Windows, &set2Windows, theta, dl, k);
+	// 			A->computeAlignment();
 	// 			A->printAMatrix();
-	// 			// results[key(set1Id, set2Id)] = A;
 	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
 	// 			numberOfZeroEntries += A->zeroCells();
 	// 		}
@@ -1276,6 +1329,25 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 	// 	counter += 1;
 	// }
+
+	// Global Cost Matrix 
+	for (int set1Id : text1Sets) {
+		vector<int> set1Tokens = sets[set1Id];
+		for (int set2Id : text2Sets) {
+			vector<int> set2Tokens = sets[set2Id];
+			// compute the alignment matrix if not computed previously
+			if (results.find(key(set1Id, set2Id)) == results.end()) {
+				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
+				A->computeAlignment(k);
+				A->printAMatrix();
+				// results[key(set1Id, set2Id)] = A;
+				numberOfGraphMatchingComputed += A->get_matrix_size();
+				numberOfZeroEntries += A->zeroCells();
+			}
+		}
+		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+		counter += 1;
+	}
 	bs_search_end = std::chrono::high_resolution_clock::now();
 	bs_search_elapsed = bs_search_end - bs_search_start;
 	bs_search_time = bs_search_elapsed.count();
