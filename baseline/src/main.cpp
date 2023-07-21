@@ -20,6 +20,7 @@
 #include <cstring>
 #include <cmath>
 #include <sstream>
+#include <deque>
 #include <numeric>
 #include <queue>
 #include <limits>
@@ -887,6 +888,78 @@ class GlobalAMatrix {
 				costMatrix.push_back(temp);
 			}
 		}
+		// Function to compute and store min and max values in a sliding window for each row and column
+		pair<vector<vector<int>>, vector<vector<int>>> slidingWindowMinMax(const vector<vector<int>>& matrix, int k) {
+			int rows = matrix.size();
+			int cols = matrix[0].size();
+			vector<vector<int>> row_min_values(rows, vector<int>());
+			vector<vector<int>> row_max_values(rows, vector<int>());
+			vector<vector<int>> col_min_values(rows, vector<int>(cols - k + 1, 0));
+			vector<vector<int>> col_max_values(rows, vector<int>(cols - k + 1, 0));
+
+			// Compute row min and max values
+			for (int i = 0; i < rows; ++i) {
+				deque<int> min_deque;
+				deque<int> max_deque;
+
+				for (int j = 0; j < cols; ++j) {
+					// Remove elements out of the window's range from both deques
+					while (!min_deque.empty() && min_deque.front() <= j - k)
+						min_deque.pop_front();
+					while (!max_deque.empty() && max_deque.front() <= j - k)
+						max_deque.pop_front();
+
+					// Remove elements smaller than the current element from the back of the deque
+					while (!min_deque.empty() && matrix[i][j] <= matrix[i][min_deque.back()])
+						min_deque.pop_back();
+					while (!max_deque.empty() && matrix[i][j] >= matrix[i][max_deque.back()])
+						max_deque.pop_back();
+
+					// Add the current element's index to the back of the deque
+					min_deque.push_back(j);
+					max_deque.push_back(j);
+
+					// Update min and max values in the current window
+					if (j >= k - 1) {
+						row_min_values[i].push_back(matrix[i][min_deque.front()]);
+						row_max_values[i].push_back(matrix[i][max_deque.front()]);
+					}
+				}
+			}
+
+			// Compute column min and max values
+			for (int j = 0; j < cols; ++j) {
+				deque<int> min_deque;
+				deque<int> max_deque;
+
+				for (int i = 0; i < rows; ++i) {
+					// Remove elements out of the window's range from both deques
+					while (!min_deque.empty() && min_deque.front() <= i - k)
+						min_deque.pop_front();
+					while (!max_deque.empty() && max_deque.front() <= i - k)
+						max_deque.pop_front();
+
+					// Remove elements smaller than the current element from the back of the deque
+					while (!min_deque.empty() && matrix[i][j] <= matrix[min_deque.back()][j])
+						min_deque.pop_back();
+					while (!max_deque.empty() && matrix[i][j] >= matrix[max_deque.back()][j])
+						max_deque.pop_back();
+
+					// Add the current element's index to the back of the deque
+					min_deque.push_back(i);
+					max_deque.push_back(i);
+
+					// Update min and max values in the current window
+					if (i >= k - 1) {
+						col_min_values[i - k + 1][j] = matrix[min_deque.front()][j];
+						col_max_values[i - k + 1][j] = matrix[max_deque.front()][j];
+					}
+				}
+			}
+
+			return make_pair(row_min_values, row_max_values);
+		}
+
 
 		void computeAlignment(int k) {
 			int rows = costMatrix.size();
