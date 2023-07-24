@@ -49,7 +49,8 @@ public class SemanticTest {
 				
 				//he.run_baseline();
 				//he.run_baseline_zick_zack();
-				he.run_solution();
+				he.run_zick_zack();
+				//he.run_solution();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
 				//he.run_baseline_global_matrix_sparse();
@@ -119,6 +120,8 @@ public class SemanticTest {
 		}
 	}
 	
+	
+	static HashMap<Integer, double[]> embedding_vector_index_buffer = null;
 	static ArrayList<HungarianExperiment> prepare_experiment(ArrayList<Book> books, final int k, final double threshold) {
 		System.out.println("SemanticTest.prepare_experiment() [START]");
 		ArrayList<HungarianExperiment> ret = new ArrayList<HungarianExperiment>(books.size());
@@ -126,8 +129,14 @@ public class SemanticTest {
 		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
 		ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
 		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
-		String file_path = Embedding.get_embedding_path(books.get(0).language,false);
-		HashMap<Integer, double[]> embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+		
+		HashMap<Integer, double[]> embedding_vector_index;
+		if(embedding_vector_index_buffer==null) {
+			String file_path = Embedding.get_embedding_path(books.get(0).language,false);
+			embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+		}else{
+			embedding_vector_index = embedding_vector_index_buffer;
+		}
 		
 		//For each pair of books (i,j)
 		for(int i=0;i<tokenized_books.size();i++) {
