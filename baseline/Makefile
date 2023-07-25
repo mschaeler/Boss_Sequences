@@ -9,7 +9,7 @@ INC_DIR = $(HUNG) $(USER_INC) $(MOD)
 LINK_DIR = $(OPT_LINK)
 INC_PARAMS = $(foreach d, $(INC_DIR), -I$d)
 LINK_PARAMS = $(foreach l, $(LINK_DIR), -L$l)
-CFLAGS = -lstdc++fs -fPIC -std=c++17 -Wno-deprecated -fopenmp $(LINK_PARAMS) $(INC_PARAMS) -lsqlite3 -lfaiss -lopenblas -llapack -ltbb
+CFLAGS = -lstdc++fs -O4 -fPIC -std=c++17 -Wno-deprecated -fopenmp $(LINK_PARAMS) $(INC_PARAMS) -lsqlite3 -lfaiss -lopenblas -llapack -ltbb
 
 baseline: $(BUILD)/baseline-main.o $(BUILD)/hung.o $(BUILD)/timing.o
 	$(CC) -g -o $(BUILD)/baseline $(BUILD)/baseline-main.o $(BUILD)/hung.o $(BUILD)/timing.o $(CFLAGS)

@@ -862,6 +862,8 @@ class ValidMatrix {
 class GlobalAMatrix {
 	private:
 		vector<vector<double>> costMatrix;
+		vector<vector<pair<double, double>>> rowStats;
+		vector<vector<pair<double, double>>> colStats;
 		double* alignmentMatrix;
 		vector<int> *set1Tokens;
 		vector<int> *set2Tokens;
@@ -870,6 +872,9 @@ class GlobalAMatrix {
 		int width;
 		int height;
 		int zero_entries = 0;
+		int num_cells_pruned = 0;
+		int num_cells_geq_threshold_estimate = 0;
+		int num_cells_geq_threshold = 0;
 
 	public:
 		GlobalAMatrix(vector<int>* _set1Tokens, vector<int>* _set2Tokens, double _theta, DataLoader* _dl) {
@@ -888,78 +893,45 @@ class GlobalAMatrix {
 				costMatrix.push_back(temp);
 			}
 		}
-		// Function to compute and store min and max values in a sliding window for each row and column
-		pair<vector<vector<int>>, vector<vector<int>>> slidingWindowMinMax(const vector<vector<int>>& matrix, int k) {
-			int rows = matrix.size();
-			int cols = matrix[0].size();
-			vector<vector<int>> row_min_values(rows, vector<int>());
-			vector<vector<int>> row_max_values(rows, vector<int>());
-			vector<vector<int>> col_min_values(rows, vector<int>(cols - k + 1, 0));
-			vector<vector<int>> col_max_values(rows, vector<int>(cols - k + 1, 0));
 
-			// Compute row min and max values
-			for (int i = 0; i < rows; ++i) {
-				deque<int> min_deque;
-				deque<int> max_deque;
 
-				for (int j = 0; j < cols; ++j) {
-					// Remove elements out of the window's range from both deques
-					while (!min_deque.empty() && min_deque.front() <= j - k)
-						min_deque.pop_front();
-					while (!max_deque.empty() && max_deque.front() <= j - k)
-						max_deque.pop_front();
+		GlobalAMatrix(vector<int>* _set1Tokens, vector<int>* _set2Tokens, double _theta, DataLoader* _dl, int k) : 
+			rowStats(_set1Tokens->size(), std::vector<std::pair<double, double>>(_set2Tokens->size())), colStats(_set1Tokens->size(), std::vector<std::pair<double, double>>(_set2Tokens->size())),
+			set1Tokens(_set1Tokens), set2Tokens(_set2Tokens), theta(_theta), dl(_dl) {
+			/**
+			 * @todo : How to populate colStats on the fly?
+			*/
+			// calculate the cost matrix
+			for (int i = 0; i < set1Tokens->size(); i++) {
+				vector<double> temp;
+				int word1 = set1Tokens->at(i);
+				double currMin = std::numeric_limits<double>::infinity();
+				double currMax = 0.0;
+				for (int j = 0; j < set2Tokens->size(); j++) {
+					int word2 = set2Tokens->at(j);
+					double sim = dl->calculate_similarity(word1, word2);
+					temp.push_back(0.0 - sim);
+					// handle the min update:
+					if (currMin > sim) {
+						currMin = sim;
+						int start_index = max(0, j - k + 1);
+						for (int s = start_index; s <= j; s++) {
+							rowStats[i][s].first = currMin;
+						}
+					}
 
-					// Remove elements smaller than the current element from the back of the deque
-					while (!min_deque.empty() && matrix[i][j] <= matrix[i][min_deque.back()])
-						min_deque.pop_back();
-					while (!max_deque.empty() && matrix[i][j] >= matrix[i][max_deque.back()])
-						max_deque.pop_back();
-
-					// Add the current element's index to the back of the deque
-					min_deque.push_back(j);
-					max_deque.push_back(j);
-
-					// Update min and max values in the current window
-					if (j >= k - 1) {
-						row_min_values[i].push_back(matrix[i][min_deque.front()]);
-						row_max_values[i].push_back(matrix[i][max_deque.front()]);
+					// handle the max update:
+					if (sim > currMax) {
+						currMax = sim;
+						int start_index = max(0, j - k + 1);
+						for (int s = start_index; s <= j; s++) {
+							rowStats[i][s].second = currMax;
+						}
 					}
 				}
+				costMatrix.push_back(temp);
 			}
-
-			// Compute column min and max values
-			for (int j = 0; j < cols; ++j) {
-				deque<int> min_deque;
-				deque<int> max_deque;
-
-				for (int i = 0; i < rows; ++i) {
-					// Remove elements out of the window's range from both deques
-					while (!min_deque.empty() && min_deque.front() <= i - k)
-						min_deque.pop_front();
-					while (!max_deque.empty() && max_deque.front() <= i - k)
-						max_deque.pop_front();
-
-					// Remove elements smaller than the current element from the back of the deque
-					while (!min_deque.empty() && matrix[i][j] <= matrix[min_deque.back()][j])
-						min_deque.pop_back();
-					while (!max_deque.empty() && matrix[i][j] >= matrix[max_deque.back()][j])
-						max_deque.pop_back();
-
-					// Add the current element's index to the back of the deque
-					min_deque.push_back(i);
-					max_deque.push_back(i);
-
-					// Update min and max values in the current window
-					if (i >= k - 1) {
-						col_min_values[i - k + 1][j] = matrix[min_deque.front()][j];
-						col_max_values[i - k + 1][j] = matrix[max_deque.front()][j];
-					}
-				}
-			}
-
-			return make_pair(row_min_values, row_max_values);
 		}
-
 
 		void computeAlignment(int k) {
 			int rows = costMatrix.size();
@@ -976,14 +948,14 @@ class GlobalAMatrix {
 						}
 					}
 					HungarianAlgorithm HungAlgo;
-					HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
+					// HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
 					vector<int> assignment;
 					double sim;
 					if (currWindow.size() == 0) {
 						sim = 0.0;
 					} else {
-						// double cost = HungAlgo.Solve(currWindow, assignment);
-						double cost = HungAlgoStern->solve(currWindow, theta);
+						double cost = HungAlgo.Solve(currWindow, assignment);
+						// double cost = HungAlgoStern->solve(currWindow, theta);
 						sim = -cost/k;
 					}
 					if (sim >= theta) {
@@ -999,8 +971,111 @@ class GlobalAMatrix {
 		/**
 		 * @param pruning_method : {0 : column_sum, 1 : matrix_min, 2 : row sum}
 		*/
-		void computeAlignmentWithPruning(int k, int pruning_method) {
+		void computeAlignmentWithPruning_precomputed(int k, int pruning_method) {
+			int rows = costMatrix.size();
+			int cols = costMatrix[0].size();
+			width = set1Tokens->size() - k + 1;
+			height = set2Tokens->size() - k + 1;
+			alignmentMatrix = new double[width * height];
+			for (int i = 0; i <= rows - k; i++) {
+				for (int j = 0; j <= cols - k; j++) {
+					vector<vector<double>> currWindow(k, vector<double>(k));
+					double row_min_sum = 0.0;
+					double row_max_sum = 0.0;
+					for (int m = 0; m < k; m++) {
+						int n;
+						for (n = 0; n < k; n++) {
+							currWindow[m][n] = costMatrix[i + m][j + n];
+						}
+						row_min_sum += rowStats[i + m][j + n - 1].first;
+						row_max_sum += rowStats[i + m][j + n - 1].second;
+					}
+					HungarianAlgorithm HungAlgo;
+					HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
+					vector<int> assignment;
+					double sim;
+					double lb_cost;
+					if (pruning_method == 0) {
 
+					} else if (pruning_method == 1) {
+
+					} else {
+						lb_cost = row_min_sum;
+					}
+
+					double est_normalized_sim = 1 - (lb_cost / static_cast<double>(k));
+					if (currWindow.size() == 0) {
+						sim = 0.0;
+					} else if (est_normalized_sim > theta) {
+						// sim = est_normalized_sim;
+						num_cells_geq_threshold_estimate += 1;
+						double cost = HungAlgoStern->solve(currWindow, theta);
+						sim = -cost/k;
+						if (sim >= theta) {
+							alignmentMatrix[i + j * width] = sim;
+							num_cells_geq_threshold += 1;
+						} else {
+							alignmentMatrix[i + j * width] = 0.0;
+							zero_entries += 1;
+						}
+					} else {
+						num_cells_pruned += 1;
+					}
+					
+				}
+			}
+		}
+
+
+		void computeAlignmentWithPruning(int k, int pruning_method) {
+			int rows = costMatrix.size();
+			int cols = costMatrix[0].size();
+			width = set1Tokens->size() - k + 1;
+			height = set2Tokens->size() - k + 1;
+			alignmentMatrix = new double[width * height];
+			for (int i = 0; i <= rows - k; i++) {
+				for (int j = 0; j <= cols - k; j++) {
+					vector<vector<double>> currWindow(k, vector<double>(k));
+					for (int m = 0; m < k; m++) {
+						int n;
+						for (n = 0; n < k; n++) {
+							currWindow[m][n] = costMatrix[i + m][j + n];
+						}
+					}
+					// HungarianAlgorithm HungAlgo;
+					HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
+					vector<int> assignment;
+					double sim;
+					double lb_cost;
+					if (pruning_method == 0) {
+						lb_cost = get_column_sum(currWindow);
+					} else if (pruning_method == 1) {
+						lb_cost = k * get_matrix_min(currWindow);
+					} else {
+						lb_cost = get_column_row_sum(currWindow);
+					}
+
+					double est_normalized_sim = 1 - (lb_cost / static_cast<double>(k));
+					if (currWindow.size() == 0) {
+						sim = 0.0;
+					} else if (est_normalized_sim > theta) {
+						// sim = est_normalized_sim;
+						num_cells_geq_threshold_estimate += 1;
+						double cost = HungAlgoStern->solve(currWindow, theta);
+						sim = -cost/k;
+						if (sim >= theta) {
+							alignmentMatrix[i + j * width] = sim;
+							num_cells_geq_threshold += 1;
+						} else {
+							alignmentMatrix[i + j * width] = 0.0;
+							zero_entries += 1;
+						}
+					} else {
+						num_cells_pruned += 1;
+					}
+					
+				}
+			}
 		}
 
 		double get_matrix_min(vector<vector<double>>& matrix) {
@@ -1073,6 +1148,14 @@ class GlobalAMatrix {
 
 		int zeroCells() {
 			return zero_entries;
+		}
+
+		int prunedCount() {
+			return num_cells_pruned;
+		}
+
+		pair<int, int> getEstimateCounts() {
+			return make_pair(num_cells_geq_threshold_estimate, num_cells_geq_threshold);
 		}
 
 		void printAMatrix() {
@@ -1294,6 +1377,9 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 
 	int numberOfGraphMatchingComputed = 0;
 	int numberOfZeroEntries = 0;
+	int pruned_cells = 0;
+	int numCellsAboveThresoldEstimate = 0;
+	int numCellsAboveThresold = 0;
 	
 	std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
 	std::chrono::time_point<std::chrono::high_resolution_clock> sliding_window_start, sliding_window_end;
@@ -1403,19 +1489,43 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	// 	counter += 1;
 	// }
 
-	// Global Cost Matrix 
+	// // Global Cost Matrix 
+	// for (int set1Id : text1Sets) {
+	// 	vector<int> set1Tokens = sets[set1Id];
+	// 	for (int set2Id : text2Sets) {
+	// 		vector<int> set2Tokens = sets[set2Id];
+	// 		// compute the alignment matrix if not computed previously
+	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
+	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
+	// 			A->computeAlignment(k);
+	// 			// A->printAMatrix();
+	// 			// results[key(set1Id, set2Id)] = A;
+	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
+	// 			numberOfZeroEntries += A->zeroCells();
+	// 		}
+	// 	}
+	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+	// 	counter += 1;
+	// }
+
+	// // Global Cost Matrix with Pruning
 	for (int set1Id : text1Sets) {
 		vector<int> set1Tokens = sets[set1Id];
 		for (int set2Id : text2Sets) {
 			vector<int> set2Tokens = sets[set2Id];
 			// compute the alignment matrix if not computed previously
 			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
-				A->computeAlignment(k);
-				A->printAMatrix();
+				// GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
+				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl, k);
+				A->computeAlignmentWithPruning_precomputed(k, 2);
+				// A->printAMatrix();
 				// results[key(set1Id, set2Id)] = A;
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
+				pruned_cells += A->prunedCount();
+				pair<int, int> count_est = A->getEstimateCounts();
+				numCellsAboveThresoldEstimate += count_est.first;
+				numCellsAboveThresold += count_est.second;
 			}
 		}
 		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
@@ -1427,6 +1537,9 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	cout << "Main Loop Time: " << bs_search_time << endl;
 	cout << "Number of Graph Matching Computed: " << numberOfGraphMatchingComputed << endl;
 	cout << "Number of Zero Entries Cells: " << numberOfZeroEntries << endl;
+	cout << "Number of Pruned Cells: " << pruned_cells << endl;
+	cout << "Number of Estimated Cells Above Threshold: " << numCellsAboveThresoldEstimate << endl;
+	cout << "Number of Cells Above Threshold: " << numCellsAboveThresold << endl;
 }
 
 /**

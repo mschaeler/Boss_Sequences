@@ -18,12 +18,12 @@ CHAPTER_PARAS = {
 }
 
 
-logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para_gcm_stern2.txt'
-logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_gcm_stern2.txt'
-logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_gcm_stern2.txt'
-results_para2para = './para2para_k{0}_gcm_stern2.csv'
-results_para2chapter = './para2chapter_k{0}_gcm_stern2.csv'
-results_chapter2chapter = './chapter2chapter_k{0}_gcm_stern2.csv'
+logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para_gcm_pruning_precompute_v3.txt'
+logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_gcm_pruning_precompute_v3.txt'
+logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_gcm_pruning_precompute_v3.txt'
+results_para2para = './para2para_k{0}_gcm_pruning_precompute_v3.csv'
+results_para2chapter = './para2chapter_k{0}_gcm_pruning_precompute_v3.csv'
+results_chapter2chapter = './chapter2chapter_k{0}_gcm_pruning_precompute_v3.csv'
 
 
 def get_data(fileloc):
