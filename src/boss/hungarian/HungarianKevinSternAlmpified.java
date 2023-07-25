@@ -49,6 +49,7 @@ import java.util.Arrays;
  */
 
 public class HungarianKevinSternAlmpified extends Solver{
+	private final double[][] buffer;
 	private double[][] costMatrix;
 	private final int rows, cols, dim;
 	private final double[] labelByWorker, labelByJob;
@@ -74,7 +75,8 @@ public class HungarianKevinSternAlmpified extends Solver{
 		this.dim = k;
 		this.rows = k;
 		this.cols = k;
-		this.costMatrix = new double[this.dim][this.dim];
+		this.buffer = new double[this.dim][this.dim];
+		this.costMatrix = buffer;
 		
 		labelByWorker = new double[this.dim];
 		labelByJob = new double[this.dim];
@@ -113,7 +115,7 @@ public class HungarianKevinSternAlmpified extends Solver{
 	 */
 	public double solve_new_line(final double[][] org_cost_matrix, double threshold, final double[] pre_computed_col_minima) {
 		solve_counter++;//For statistics only
-		this.costMatrix = org_cost_matrix;
+		this.costMatrix = buffer;
 		
 		//Note, we need to copy the matrix, because we modify the values in between
 		for (int w = 0; w < this.dim; w++) {
@@ -135,14 +137,10 @@ public class HungarianKevinSternAlmpified extends Solver{
 		 * element, compute an initial non-zero dual feasible solution and create a
 		 * greedy matching from workers to jobs of the cost matrix.
 		 */
-		/*reduce(pre_computed_col_minima);
+		reduce(pre_computed_col_minima);
 		computeInitialFeasibleSolution();
-		if(new_matrix_line) {
-			greedyMatch();  
-		}else{
-			initializePhase(1);//This is for the 1 new matching
-			executePhase();
-		}*/
+		greedyMatch();  
+		
 
 		int w = fetchUnmatchedWorker();
 		while (w < dim) {
@@ -167,14 +165,9 @@ public class HungarianKevinSternAlmpified extends Solver{
 	 *         cost matrix. A matching value of -1 indicates that the corresponding
 	 *         worker is unassigned.
 	 */
-	public double solve(final double[][] org_cost_matrix, double threshold, final double[] pre_computed_col_minima, final boolean new_matrix_line) {
+	public double solve_next_cell(final double[][] org_cost_matrix, double threshold, final double[] pre_computed_col_minima, final boolean new_matrix_line) {
 		solve_counter++;//For statistics only
 		this.costMatrix = org_cost_matrix;
-		
-		//Note, we need to copy the matrix, because we modify the values in between
-		/*for (int w = 0; w < this.dim; w++) {
-			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
-		}*/
 		
 		Arrays.fill(labelByWorker, 0);
 		Arrays.fill(labelByJob, 0);

@@ -1324,7 +1324,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve(cost_matrix, threshold, k_buffer, true);
+						double cost = solver.solve_new_line(cost_matrix, threshold, k_buffer);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1390,7 +1390,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve(cost_matrix, threshold, k_buffer, true);//FIXME must be false, but algo does not work correctly with this.
+						double cost = solver.solve_next_cell(cost_matrix, threshold, k_buffer, true);//FIXME must be false, but algo does not work correctly with this.
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
