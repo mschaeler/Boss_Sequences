@@ -1276,10 +1276,7 @@ public class HungarianExperiment {
 		final double[][] cost_matrix = new double[k][k];
 		
 		double[] run_times = new double[num_paragraphs];
-		//final double[] min_cost_lines  = new double[k];
-		final double[] min_cost_columns= new double[k];
-		double sum_min_lines, sum_min_columns, lb_cost;
-		
+		double lb_cost;
 			
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
@@ -1306,12 +1303,6 @@ public class HungarianExperiment {
 						}
 					}
 					
-					//Compute the bounds: In the fist cell we have to do it entirely
-					/*get_column_row_minima(cost_matrix, min_cost_lines, min_cost_columns);
-					sum_min_lines   = sum(min_cost_lines);
-					sum_min_columns = sum(min_cost_columns);
-					lb_cost         = Math.max(sum_min_columns, sum_min_lines);*/
-					
 					lb_cost = get_column_row_sum(cost_matrix);
 					
 					if(SAFE_MODE) {
@@ -1324,7 +1315,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve_new_line(cost_matrix, threshold, k_buffer);
+						double cost = solver.solve(cost_matrix, threshold, k_buffer);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1339,34 +1330,13 @@ public class HungarianExperiment {
 				for(;column<alignment_matrix[0].length;column++) {
 					//Update the cost matrix exploiting the rolling window. I.e., the cost matrix is ring buffer.
 					final int replace_position = (column-1)%k;
-					//double old_min_cost_col = min_cost_columns[replace_position];
-					min_cost_columns[replace_position] = Double.MAX_VALUE;
+
 					for(int i=0;i<this.k;i++) {
 						final int set_id_window_p1 = k_windows_p1[line][i];
 						final int set_id_window_p2 = k_windows_p2[column][k-1];//Always the new one
-						double cost_l_c = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
-						//double old_cost_l_c = cost_matrix[i][replace_position];
+						final double cost_l_c = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
 						cost_matrix[i][replace_position] = cost_l_c;
-						
-						/*
-						//Step 1: Line costs
-						if(cost_l_c<min_cost_lines[i]) {//becomes the new line minimum
-							min_cost_lines[i] = cost_l_c;
-							sum_min_lines-=old_cost_l_c;
-							sum_min_lines+=cost_l_c;
-						}else if(old_cost_l_c==min_cost_lines[i]) {//the old cost was the minimum
-							//re-compute the minimum
-							//TODO
-						}else{//the new cost are not smaller than the minimum and the old cost was not the minimum
-							//Best case nothing todo
-						}
-						//Update column costs	
-						if(min_cost_columns[replace_position]>cost_l_c){
-							min_cost_columns[replace_position] = cost_l_c;
-						}*/
 					}
-					//sum_min_columns-=old_min_cost_col;
-					//sum_min_columns+=min_cost_columns[replace_position];
 					
 					if(SAFE_MODE){
 						double[][] cost_matrix_copy = new double[k][k];
@@ -1390,7 +1360,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve_next_cell(cost_matrix, threshold, k_buffer, true);//FIXME must be false, but algo does not work correctly with this.
+						double cost = solver.solve(cost_matrix, threshold, k_buffer);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {

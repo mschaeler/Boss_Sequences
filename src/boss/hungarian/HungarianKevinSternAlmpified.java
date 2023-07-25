@@ -105,7 +105,23 @@ public class HungarianKevinSternAlmpified extends Solver{
 			}
 		}
 	}
-
+	
+	/**
+	 * Compute an initial feasible solution by assigning zero labels to the workers
+	 * and by assigning to each job a label equal to the minimum cost among its
+	 * incident edges.
+	 */
+	protected void computeInitialFeasibleSolution(final double[] col_minima) {
+		for (int w = 0; w < dim; w++) {
+			for (int j = 0; j < dim; j++) {
+				if (costMatrix[w][j] == col_minima[j]) {
+					labelByJob[j] = costMatrix[w][j];
+					//There may be multiple minima, so I should not break 
+				}
+			}
+		}
+	}
+	
 	/**
 	 * Execute the algorithm.
 	 * 
@@ -113,14 +129,9 @@ public class HungarianKevinSternAlmpified extends Solver{
 	 *         cost matrix. A matching value of -1 indicates that the corresponding
 	 *         worker is unassigned.
 	 */
-	public double solve_new_line(final double[][] org_cost_matrix, double threshold, final double[] pre_computed_col_minima) {
+	public double solve(final double[][] org_cost_matrix, final double threshold, final double[] col_minima) {
 		solve_counter++;//For statistics only
-		this.costMatrix = buffer;
-		
-		//Note, we need to copy the matrix, because we modify the values in between
-		for (int w = 0; w < this.dim; w++) {
-			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
-		}
+		this.costMatrix = org_cost_matrix;
 		
 		Arrays.fill(labelByWorker, 0);
 		Arrays.fill(labelByJob, 0);
@@ -132,73 +143,14 @@ public class HungarianKevinSternAlmpified extends Solver{
 		Arrays.fill(matchJobByWorker, -1);
 		Arrays.fill(matchWorkerByJob, -1);
 		
-		/*
-		 * Heuristics to improve performance: Reduce rows and columns by their smallest
-		 * element, compute an initial non-zero dual feasible solution and create a
-		 * greedy matching from workers to jobs of the cost matrix.
-		 */
-		reduce(pre_computed_col_minima);
-		computeInitialFeasibleSolution();
-		greedyMatch();  
-		
+		//This is the new heuristics - FIXME
+		//System.err.println("Does not work");
+		//int worker = matchWorkerByJob[new_job];
+		//un_match(worker, new_job);
 
-		int w = fetchUnmatchedWorker();
-		while (w < dim) {
-			initializePhase(w);
-			executePhase();
-			w = fetchUnmatchedWorker();
-		}
-		//DONE - Collect result
+		computeInitialFeasibleSolution(col_minima);
+		greedyMatch();
 		
-		double cost = 0;
-		for(w=0; w<matchJobByWorker.length;w++) {
-			cost += org_cost_matrix[w][matchJobByWorker[w]];
-		}
-		
-		return cost;
-	}
-	
-	/**
-	 * Execute the algorithm.
-	 * 
-	 * @return the minimum cost matching of workers to jobs based upon the provided
-	 *         cost matrix. A matching value of -1 indicates that the corresponding
-	 *         worker is unassigned.
-	 */
-	public double solve_next_cell(final double[][] org_cost_matrix, double threshold, final double[] pre_computed_col_minima, final boolean new_matrix_line) {
-		solve_counter++;//For statistics only
-		this.costMatrix = org_cost_matrix;
-		
-		Arrays.fill(labelByWorker, 0);
-		Arrays.fill(labelByJob, 0);
-		Arrays.fill(minSlackWorkerByJob, 0);
-		Arrays.fill(minSlackValueByJob, 0);
-		Arrays.fill(committedWorkers, false);
-		Arrays.fill(parentWorkerByCommittedJob, 0);
-		
-		if(new_matrix_line) {
-			Arrays.fill(matchJobByWorker, -1);
-			Arrays.fill(matchWorkerByJob, -1);
-		}else{
-			int new_worker = -1;//TODO
-			int job = matchWorkerByJob[new_worker];
-			un_match(new_worker, job);
-		}
-		
-		/*
-		 * Heuristics to improve performance: Reduce rows and columns by their smallest
-		 * element, compute an initial non-zero dual feasible solution and create a
-		 * greedy matching from workers to jobs of the cost matrix.
-		 */
-		/*reduce(pre_computed_col_minima);
-		computeInitialFeasibleSolution();
-		if(new_matrix_line) {
-			greedyMatch();  
-		}else{
-			initializePhase(1);//This is for the 1 new matching
-			executePhase();
-		}*/
-
 		int w = fetchUnmatchedWorker();
 		while (w < dim) {
 			initializePhase(w);
@@ -229,7 +181,7 @@ public class HungarianKevinSternAlmpified extends Solver{
 		}
 		
 		Arrays.fill(labelByWorker, 0);
-		Arrays.fill(labelByJob, 0);
+		Arrays.fill(labelByJob, 0);//TODO init with positive inf
 		Arrays.fill(minSlackWorkerByJob, 0);
 		Arrays.fill(minSlackValueByJob, 0);
 		Arrays.fill(committedWorkers, false);
