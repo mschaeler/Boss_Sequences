@@ -1112,8 +1112,9 @@ public class HungarianExperiment {
 	 * (2) Hungarian implementation from Kevin Stern
 	 * (3) Dense global cost matrix
 	 * (4) min(row_min,column_min) bound on the local cost matrix: O(n³)
+	 * @return 
 	 */
-	public void run_solution(){
+	public double[] run_solution(){
 		//Check config (1) Normalized vectors to unit length
 		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
 			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
@@ -1188,6 +1189,7 @@ public class HungarianExperiment {
 		String experiment_name = "";//default experiment, has no special name
 		if(VERBOSE)
 			print_results(experiment_name, run_times);
+		return run_times;
 	}
 	
 	public void run_baseline_zick_zack(){
@@ -1256,13 +1258,14 @@ public class HungarianExperiment {
 			print_results(experiment_name, run_times);
 	}
 	
-	public void run_zick_zack(){
+	public double[] run_zick_zack(){
 		//Check config (1) Normalized vectors to unit length
 		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
 			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
 		}
 		//Ensure config (2) Hungarian implementation from Kevin Stern
-		this.solver = new HungarianKevinStern(k);
+		HungarianKevinSternAlmpified solver = new HungarianKevinSternAlmpified(k);//XXX I am overwriting this.solver - not so readable I know
+		this.solver = solver;
 		
 		// (3) Dense global cost matrix - compute once
 		if(dense_global_matrix_buffer==null) {//XXX Has extra runtime measurement inside method
@@ -1321,7 +1324,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = this.solver.solve(cost_matrix, threshold);
+						double cost = solver.solve(cost_matrix, threshold, k_buffer, true);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1377,7 +1380,7 @@ public class HungarianExperiment {
 						}
 
 						double cost_copy = this.solver.solve(cost_matrix_copy, threshold);
-						double cost = this.solver.solve(cost_matrix, threshold);
+						double cost = solver.solve(cost_matrix, threshold);
 						if(!is_equal(cost, cost_copy)) {
 							System.err.println("cost!=cost_copy "+cost+" "+cost_copy);
 						}
@@ -1387,7 +1390,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = this.solver.solve(cost_matrix, threshold);
+						double cost = solver.solve(cost_matrix, threshold, k_buffer, true);//FIXME must be false, but algo does not work correctly with this.
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1395,41 +1398,6 @@ public class HungarianExperiment {
 						}//else keep it zero
 					}
 				}
-				/*for(;column<alignment_matrix[0].length;column++) {
-					for(int i=0;i<k;i++){//local cost matrix of size k*k
-						double[] line_cost_matrix = cost_matrix[i];
-						System.arraycopy(line_cost_matrix, 1, line_cost_matrix, 0, k-1);
-						line_cost_matrix[k-1] = global_cost_matrix_buffer[line+i][column+k-1];
-					}
-					//That's the important line
-					double cost = this.solver.solve(cost_matrix, threshold);
-					
-					/*if(SAFE_MODE){
-						double[][] cost_matrix_copy = new double[k][k];
-						for(int i=0;i<this.k;i++) {
-							for(int j=0;j<this.k;j++) {
-								cost_matrix_copy[i][j] = global_cost_matrix_buffer[line+i][column+j];
-							}
-						}
-						for(int i=0;i<this.k;i++) {
-							for(int j=0;j<this.k;j++) {
-								if(cost_matrix_copy[i][j] != cost_matrix[i][j]) {
-									System.err.println("cost_matrix_copy[i][j] != cost_matrix[i][j]");
-								}
-							}
-						}
-						double cost_copy = this.solver.solve(cost_matrix_copy, threshold);
-						if(cost!=cost_copy) {
-							System.err.println("cost!=cost_copy");
-						}
-					}
-					
-					//normalize costs: Before it was distance. Now it is similarity.
-					double normalized_similarity = 1.0 - (cost / (double)k);
-					if(normalized_similarity>=threshold) {
-						alignment_matrix_line[column] = normalized_similarity;
-					}//else keep it zero
-				}*/
 			}
 			stop = System.currentTimeMillis();
 			run_times[p] = (stop-start);
@@ -1439,9 +1407,11 @@ public class HungarianExperiment {
 		String experiment_name = "";//default experiment, has no special name
 		//if(VERBOSE)
 			print_results(experiment_name, run_times);
+		System.out.println(solver.get_statistics());
+		return run_times;
 	}
 
-	public void run_baseline(){
+	public double[] run_baseline(){
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
 			this.solver = new StupidSolver(k);
@@ -1488,6 +1458,7 @@ public class HungarianExperiment {
 		String experiment_name = "";//default experiment, has no special name
 		//if(VERBOSE)
 			print_results(experiment_name, run_times);
+		return run_times;
 	}
 
 	void print_results(String experiment_name, double[] run_times) {
