@@ -116,7 +116,9 @@ public class HungarianKevinSternAlmpified extends Solver{
 			for (int j = 0; j < dim; j++) {
 				if (costMatrix[w][j] == col_minima[j]) {
 					labelByJob[j] = costMatrix[w][j];
-					//There may be multiple minima, so I should not break 
+					if (matchJobByWorker[w] == -1 && matchWorkerByJob[j] == -1) {
+						match(w, j);//greedily match them
+					} 
 				}
 			}
 		}
@@ -149,7 +151,7 @@ public class HungarianKevinSternAlmpified extends Solver{
 		//un_match(worker, new_job);
 
 		computeInitialFeasibleSolution(col_minima);
-		greedyMatch();
+		//greedyMatch();
 		
 		int w = fetchUnmatchedWorker();
 		while (w < dim) {

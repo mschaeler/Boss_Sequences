@@ -32,6 +32,7 @@ public class HungarianExperiment {
 	Solver solver = null;
 	
 	final double[] k_buffer;
+	double col_sum;
 	
 	//final double[][] cost_matrix_buffer;
 	
@@ -771,6 +772,23 @@ public class HungarianExperiment {
 		}
 	}
 	
+	private double get_row_sum(final double[][] cost_matrix) {
+		double row_sum = 0;
+		for(int i=0;i<this.k;i++) {
+			final double[] line = cost_matrix[i];
+			double row_min = line[0];
+			for(int j=1;j<this.k;j++) {
+				final double val = line[j];
+				if(val<row_min) {
+					row_min = val;
+				}
+			}
+			row_sum += row_min;
+		}
+		
+		return row_sum;
+	}
+	
 	private double get_column_row_sum(final double[][] cost_matrix) {
 		double row_sum = 0;
 		Arrays.fill(this.k_buffer, Double.MAX_VALUE);
@@ -788,7 +806,7 @@ public class HungarianExperiment {
 			}
 			row_sum += row_min;
 		}
-		double col_sum = sum(k_buffer);
+		col_sum = sum(k_buffer);
 		double min_cost = Math.max(row_sum, col_sum);		
 		
 		return min_cost;
@@ -1356,7 +1374,11 @@ public class HungarianExperiment {
 						}
 					}
 					
-					lb_cost = get_column_row_sum(cost_matrix);
+					lb_cost = get_row_sum(cost_matrix);
+					min_col(cost_matrix, replace_position);
+					lb_cost = Math.min(lb_cost, this.col_sum);
+					
+					//lb_cost = get_column_row_sum(cost_matrix);
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
@@ -1379,6 +1401,24 @@ public class HungarianExperiment {
 			print_results(experiment_name, run_times);
 		System.out.println(solver.get_statistics());
 		return run_times;
+	}
+
+	private void min_col(final double[][] cost_matrix, final int replace_position) {
+		this.col_sum-=this.k_buffer[replace_position];
+		
+		int row = 0;
+		double min = cost_matrix[row][replace_position];
+		row++;
+		
+		for(;row<k;row++) {
+			double val = cost_matrix[row][replace_position];
+			if(val < min) {
+				min = val;
+			}
+		}
+		
+		this.k_buffer[replace_position] = min;
+		this.col_sum+=min;
 	}
 
 	public double[] run_baseline(){
