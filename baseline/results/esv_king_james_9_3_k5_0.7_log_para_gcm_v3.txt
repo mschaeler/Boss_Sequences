@@ -7,20 +7,14 @@ Vector Size: 300
 Normalized vector storage check
 Index Trained: 1
 Ntotal: 15
-Sliding Window Computation time: 4.5212e-05
-Out of dictionary words: 10
-K: 15
-NB: 15
-Faiss Search Time: 0.0207703
-size of I: 225
-Size of valid edges: 227
-Main Loop Time: 0.00512101
+Sliding Window Computation time: 1.1072e-05
+Main Loop Time: 0.00225102
 Number of Graph Matching Computed: 441
 Number of Zero Entries Cells: 409
 Number of Pruned Cells: 0
 Number of Estimated Cells Above Threshold: 0
 Number of Cells Above Threshold: 0
-Env Time: 0.00319386
-Dataloader Time: 0.0655772
-FaissIndex Time: 0.0177004
-Algorithm Time: 0.0263901
+Env Time: 0.00043654
+Dataloader Time: 0.0299794
+FaissIndex Time: 0.0233788
+Algorithm Time: 0.00235204

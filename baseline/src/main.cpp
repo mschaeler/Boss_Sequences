@@ -33,7 +33,7 @@
 #include <faiss/utils/distances.h>
 #include <thread>
 #include <future>
-#include <omp.h>
+// #include <omp.h>
 #include <regex>
 #include "thread_pool.hpp"
 #include "../modules/timing.h"
@@ -364,11 +364,11 @@ class DataLoader {
 */
 class FaissIndexCPU {
 	private:
-		faiss::IndexFlatIP *index;
 		std::unordered_map<int, vector<float>> normalized;
 		vector<int> dictionary;
 	
 	public:
+		faiss::IndexFlatIP *index;
 		FaissIndexCPU(string path, DataLoader *dl, std::unordered_set<int> validSet) {
 			string indexPath = path + "faiss.index";
 			int d = 300;
@@ -1396,55 +1396,55 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	 * @todo: Check the correctness in terms of getting the IDS from the dictionary
 	*/
 	// for all tokens between the two texts, do a faiss similarity search and cache the edges
-	int nq = 0;
-	int i = 0;
-	vector<float> vxq;
-	for (auto it = wordSet.begin(); it != wordSet.end(); it++) {
-		int tq = *it;
-		// handle out of dictionary words
-		if (std::find(dictionary.begin(), dictionary.end(), tq) == dictionary.end()) {
-			i += 1;
-			validedges[key(tq, tq)] = 1.0;
-		} else {
-			// vector<float> vec = db->get_normalized_vector(tq);
-			vector<float> vec = dl->get_vector(tq);
-			if (vec.size() == 0) {
-				cerr << "Vector should not be empty" << endl;
-			}
-			vxq.insert(vxq.end(), vec.begin(), vec.end());
-			nq += 1;
-		}
-	}
+	// int nq = 0;
+	// int i = 0;
+	// vector<float> vxq;
+	// for (auto it = wordSet.begin(); it != wordSet.end(); it++) {
+	// 	int tq = *it;
+	// 	// handle out of dictionary words
+	// 	if (std::find(dictionary.begin(), dictionary.end(), tq) == dictionary.end()) {
+	// 		i += 1;
+	// 		validedges[key(tq, tq)] = 1.0;
+	// 	} else {
+	// 		// vector<float> vec = db->get_normalized_vector(tq);
+	// 		vector<float> vec = dl->get_vector(tq);
+	// 		if (vec.size() == 0) {
+	// 			cerr << "Vector should not be empty" << endl;
+	// 		}
+	// 		vxq.insert(vxq.end(), vec.begin(), vec.end());
+	// 		nq += 1;
+	// 	}
+	// }
 
-	cout << "Out of dictionary words: " << i << endl;
-	// get the k nearest neighbours for each word, here set k = nq. 
-	// @todo: change to range search with radius = theta
-	std::chrono::time_point<std::chrono::high_resolution_clock> faiss_search_start, faiss_search_end;
-	std::chrono::duration<double> faiss_search_elapsed;
-	double faiss_search_time = 0.0;
-	faiss_search_start = std::chrono::high_resolution_clock::now();
-	tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, nq, 300);
-	faiss_search_end = std::chrono::high_resolution_clock::now();
-	faiss_search_elapsed = faiss_search_end - faiss_search_start;
-	faiss_search_time = faiss_search_elapsed.count();
-	cout << "Faiss Search Time: " << faiss_search_time << endl;
-	vector<idx_t> I = std::get<0>(rt);
-	vector<float> D = std::get<1>(rt);
-	cout << "size of I: " << I.size() << endl;
-	int cur = 0;
-	for (vector<idx_t>::iterator it = I.begin(); it != I.end(); it++) {
-		int tq_cur = I[cur - (cur % nq)];
-		int tq = dictionary[tq_cur];
-		int word = dictionary[*it];
-		float fsim = D[cur];
-		double sim = static_cast<double>(fsim);
-		if (sim > 0.0) {
-			validedges[key(tq, word)] = sim;
-		}
-		cur += 1;
-	}
+	// cout << "Out of dictionary words: " << i << endl;
+	// // get the k nearest neighbours for each word, here set k = nq. 
+	// // @todo: change to range search with radius = theta
+	// std::chrono::time_point<std::chrono::high_resolution_clock> faiss_search_start, faiss_search_end;
+	// std::chrono::duration<double> faiss_search_elapsed;
+	// double faiss_search_time = 0.0;
+	// faiss_search_start = std::chrono::high_resolution_clock::now();
+	// tuple<vector<idx_t>, vector<float>> rt = faissIndex->kNNSearch(nq, vxq, faissIndex->index->ntotal, 300);
+	// faiss_search_end = std::chrono::high_resolution_clock::now();
+	// faiss_search_elapsed = faiss_search_end - faiss_search_start;
+	// faiss_search_time = faiss_search_elapsed.count();
+	// cout << "Faiss Search Time: " << faiss_search_time << endl;
+	// vector<idx_t> I = std::get<0>(rt);
+	// vector<float> D = std::get<1>(rt);
+	// cout << "size of I: " << I.size() << endl;
+	// int cur = 0;
+	// for (vector<idx_t>::iterator it = I.begin(); it != I.end(); it++) {
+	// 	int tq_cur = I[cur - (cur % nq)];
+	// 	int tq = dictionary[tq_cur];
+	// 	int word = dictionary[*it];
+	// 	float fsim = D[cur];
+	// 	double sim = static_cast<double>(fsim);
+	// 	if (sim > 0.0) {
+	// 		validedges[key(tq, word)] = sim;
+	// 	}
+	// 	cur += 1;
+	// }
 
-	cout << "Size of valid edges: " << validedges.size() << endl;
+	// cout << "Size of valid edges: " << validedges.size() << endl;
 
 	// for each set in text1Sets, we compute the k-width window and compute the alignment matrix
 	std::chrono::time_point<std::chrono::high_resolution_clock> bs_search_start, bs_search_end;
@@ -1490,47 +1490,47 @@ void baseline(Environment *env, DataLoader *dl, FaissIndexCPU *faissIndex, int k
 	// }
 
 	// // Global Cost Matrix 
-	// for (int set1Id : text1Sets) {
-	// 	vector<int> set1Tokens = sets[set1Id];
-	// 	for (int set2Id : text2Sets) {
-	// 		vector<int> set2Tokens = sets[set2Id];
-	// 		// compute the alignment matrix if not computed previously
-	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
-	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
-	// 			A->computeAlignment(k);
-	// 			// A->printAMatrix();
-	// 			// results[key(set1Id, set2Id)] = A;
-	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
-	// 			numberOfZeroEntries += A->zeroCells();
-	// 		}
-	// 	}
-	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
-	// 	counter += 1;
-	// }
-
-	// // Global Cost Matrix with Pruning
 	for (int set1Id : text1Sets) {
 		vector<int> set1Tokens = sets[set1Id];
 		for (int set2Id : text2Sets) {
 			vector<int> set2Tokens = sets[set2Id];
 			// compute the alignment matrix if not computed previously
 			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				// GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
-				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl, k);
-				A->computeAlignmentWithPruning_precomputed(k, 2);
+				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
+				A->computeAlignment(k);
 				// A->printAMatrix();
 				// results[key(set1Id, set2Id)] = A;
 				numberOfGraphMatchingComputed += A->get_matrix_size();
 				numberOfZeroEntries += A->zeroCells();
-				pruned_cells += A->prunedCount();
-				pair<int, int> count_est = A->getEstimateCounts();
-				numCellsAboveThresoldEstimate += count_est.first;
-				numCellsAboveThresold += count_est.second;
 			}
 		}
 		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 		counter += 1;
 	}
+
+	// // Global Cost Matrix with Pruning
+	// for (int set1Id : text1Sets) {
+	// 	vector<int> set1Tokens = sets[set1Id];
+	// 	for (int set2Id : text2Sets) {
+	// 		vector<int> set2Tokens = sets[set2Id];
+	// 		// compute the alignment matrix if not computed previously
+	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
+	// 			// GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
+	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl, k);
+	// 			A->computeAlignmentWithPruning_precomputed(k, 2);
+	// 			// A->printAMatrix();
+	// 			// results[key(set1Id, set2Id)] = A;
+	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
+	// 			numberOfZeroEntries += A->zeroCells();
+	// 			pruned_cells += A->prunedCount();
+	// 			pair<int, int> count_est = A->getEstimateCounts();
+	// 			numCellsAboveThresoldEstimate += count_est.first;
+	// 			numCellsAboveThresold += count_est.second;
+	// 		}
+	// 	}
+	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+	// 	counter += 1;
+	// }
 	bs_search_end = std::chrono::high_resolution_clock::now();
 	bs_search_elapsed = bs_search_end - bs_search_start;
 	bs_search_time = bs_search_elapsed.count();

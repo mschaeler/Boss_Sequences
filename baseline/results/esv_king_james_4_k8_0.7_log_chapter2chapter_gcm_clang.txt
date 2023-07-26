@@ -1,0 +1,15 @@
+creating environment with lakes: /root/data/en/king_james_bible_chapter/4/, /root/data/en/esv_chapter/4/
+1 text1_files listed
+1 text2_files listed
+Inverted Index Size: 687
+Words: 273
+Sliding Window Computation time: 0.000130446
+Main Loop Time: 3.52241
+Number of Graph Matching Computed: 260610
+Number of Zero Entries Cells: 259928
+Number of Pruned Cells: 0
+Number of Estimated Cells Above Threshold: 0
+Number of Cells Above Threshold: 0
+Env Time: 0.000903613
+Dataloader Time: 0.0397068
+Algorithm Time: 3.52281
