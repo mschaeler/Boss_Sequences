@@ -763,7 +763,7 @@ class GlobalAMatrix {
 		int num_cells_geq_threshold = 0;
 
 	public:
-		GlobalAMatrix(vector<int>* _set1Tokens, vector<int>* _set2Tokens, double _theta, DataLoader* _dl) {
+		GlobalAMatrix(vector<int>* _set1Tokens, vector<int>* _set2Tokens, double _theta, DataLoader* _dl, int k) {
 			set1Tokens = _set1Tokens;
 			set2Tokens = _set2Tokens;
 			theta = _theta;
@@ -778,53 +778,57 @@ class GlobalAMatrix {
 				}
 				costMatrix.push_back(temp);
 			}
+            width = set1Tokens->size() - k + 1;
+			height = set2Tokens->size() - k + 1;
+			alignmentMatrix = new double[width * height];
 		}
 
 
-		GlobalAMatrix(vector<int>* _set1Tokens, vector<int>* _set2Tokens, double _theta, DataLoader* _dl, int k) : 
-			rowStats(_set1Tokens->size(), std::vector<std::pair<double, double>>(_set2Tokens->size())), colStats(_set1Tokens->size(), std::vector<std::pair<double, double>>(_set2Tokens->size())),
-			set1Tokens(_set1Tokens), set2Tokens(_set2Tokens), theta(_theta), dl(_dl) {
-			/**
-			 * @todo : How to populate colStats on the fly?
-			*/
-			// calculate the cost matrix
-			for (int i = 0; i < set1Tokens->size(); i++) {
-				vector<double> temp;
-				int word1 = set1Tokens->at(i);
-				double currMin = std::numeric_limits<double>::infinity();
-				double currMax = 0.0;
-				for (int j = 0; j < set2Tokens->size(); j++) {
-					int word2 = set2Tokens->at(j);
-					double sim = dl->calculate_similarity(word1, word2);
-					temp.push_back(0.0 - sim);
-					// handle the min update:
-					if (currMin > sim) {
-						currMin = sim;
-						int start_index = max(0, j - k + 1);
-						for (int s = start_index; s <= j; s++) {
-							rowStats[i][s].first = currMin;
-						}
-					}
+		// GlobalAMatrix(vector<int>* _set1Tokens, vector<int>* _set2Tokens, double _theta, DataLoader* _dl, int k) : 
+		// 	rowStats(_set1Tokens->size(), std::vector<std::pair<double, double>>(_set2Tokens->size())), colStats(_set1Tokens->size(), std::vector<std::pair<double, double>>(_set2Tokens->size())),
+		// 	set1Tokens(_set1Tokens), set2Tokens(_set2Tokens), theta(_theta), dl(_dl) {
+		// 	/**
+		// 	 * @todo : How to populate colStats on the fly?
+		// 	*/
+		// 	// calculate the cost matrix
+		// 	for (int i = 0; i < set1Tokens->size(); i++) {
+		// 		vector<double> temp;
+		// 		int word1 = set1Tokens->at(i);
+		// 		double currMin = std::numeric_limits<double>::infinity();
+		// 		double currMax = 0.0;
+		// 		for (int j = 0; j < set2Tokens->size(); j++) {
+		// 			int word2 = set2Tokens->at(j);
+		// 			double sim = dl->calculate_similarity(word1, word2);
+		// 			temp.push_back(0.0 - sim);
+		// 			// handle the min update:
+		// 			if (currMin > sim) {
+		// 				currMin = sim;
+		// 				int start_index = max(0, j - k + 1);
+		// 				for (int s = start_index; s <= j; s++) {
+		// 					rowStats[i][s].first = currMin;
+		// 				}
+		// 			}
 
-					// handle the max update:
-					if (sim > currMax) {
-						currMax = sim;
-						int start_index = max(0, j - k + 1);
-						for (int s = start_index; s <= j; s++) {
-							rowStats[i][s].second = currMax;
-						}
-					}
-				}
-				costMatrix.push_back(temp);
-			}
-		}
+		// 			// handle the max update:
+		// 			if (sim > currMax) {
+		// 				currMax = sim;
+		// 				int start_index = max(0, j - k + 1);
+		// 				for (int s = start_index; s <= j; s++) {
+		// 					rowStats[i][s].second = currMax;
+		// 				}
+		// 			}
+		// 		}
+		// 		costMatrix.push_back(temp);
+		// 	}
+        //     width = set1Tokens->size() - k + 1;
+		// 	height = set2Tokens->size() - k + 1;
+		// 	alignmentMatrix = new double[width * height];
+		// }
 
 		void computeAlignment(int k) {
 			int rows = costMatrix.size();
 			int cols = costMatrix[0].size();
-			width = set1Tokens->size() - k + 1;
-			height = set2Tokens->size() - k + 1;
-			alignmentMatrix = new double[width * height];
+            HungarianAlgorithm HungAlgo;
 			for (int i = 0; i <= rows - k; i++) {
 				for (int j = 0; j <= cols - k; j++) {
 					vector<vector<double>> currWindow(k, vector<double>(k));
@@ -833,7 +837,6 @@ class GlobalAMatrix {
 							currWindow[m][n] = costMatrix[i + m][j + n];
 						}
 					}
-					HungarianAlgorithm HungAlgo;
 					// HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
 					vector<int> assignment;
 					double sim;
@@ -860,9 +863,6 @@ class GlobalAMatrix {
 		void computeAlignmentWithPruning_precomputed(int k, int pruning_method) {
 			int rows = costMatrix.size();
 			int cols = costMatrix[0].size();
-			width = set1Tokens->size() - k + 1;
-			height = set2Tokens->size() - k + 1;
-			alignmentMatrix = new double[width * height];
 			for (int i = 0; i <= rows - k; i++) {
 				for (int j = 0; j <= cols - k; j++) {
 					vector<vector<double>> currWindow(k, vector<double>(k));
@@ -889,7 +889,7 @@ class GlobalAMatrix {
 						lb_cost = row_min_sum;
 					}
 
-					double est_normalized_sim = 1 - (lb_cost / static_cast<double>(k));
+					double est_normalized_sim = - (lb_cost / static_cast<double>(k));
 					if (currWindow.size() == 0) {
 						sim = 0.0;
 					} else if (est_normalized_sim > theta) {
@@ -916,9 +916,7 @@ class GlobalAMatrix {
 		void computeAlignmentWithPruning(int k, int pruning_method) {
 			int rows = costMatrix.size();
 			int cols = costMatrix[0].size();
-			width = set1Tokens->size() - k + 1;
-			height = set2Tokens->size() - k + 1;
-			alignmentMatrix = new double[width * height];
+            HungarianAlgorithm HungAlgo;
 			for (int i = 0; i <= rows - k; i++) {
 				for (int j = 0; j <= cols - k; j++) {
 					vector<vector<double>> currWindow(k, vector<double>(k));
@@ -929,7 +927,7 @@ class GlobalAMatrix {
 						}
 					}
 					// HungarianAlgorithm HungAlgo;
-					HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
+					// HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
 					vector<int> assignment;
 					double sim;
 					double lb_cost;
@@ -941,13 +939,14 @@ class GlobalAMatrix {
 						lb_cost = get_column_row_sum(currWindow);
 					}
 
-					double est_normalized_sim = 1 - (lb_cost / static_cast<double>(k));
+					double est_normalized_sim = - (lb_cost / static_cast<double>(k));
 					if (currWindow.size() == 0) {
 						sim = 0.0;
 					} else if (est_normalized_sim > theta) {
 						// sim = est_normalized_sim;
 						num_cells_geq_threshold_estimate += 1;
-						double cost = HungAlgoStern->solve(currWindow, theta);
+						// double cost = HungAlgoStern->solve(currWindow, theta);
+                        double cost = HungAlgo.Solve(currWindow, assignment);
 						sim = -cost/k;
 						if (sim >= theta) {
 							alignmentMatrix[i + j * width] = sim;
@@ -958,6 +957,7 @@ class GlobalAMatrix {
 						}
 					} else {
 						num_cells_pruned += 1;
+						zero_entries += 1;
 					}
 					
 				}
@@ -1052,6 +1052,10 @@ class GlobalAMatrix {
 			}
 		}
 
+		vector<vector<double>> getCostMatrix() {
+			return costMatrix;
+		}
+
 };
 
 
@@ -1062,18 +1066,18 @@ class AMatrix {
 		double* data; // double* matrix 1-D representation of a matrix: matrix[i + j*width] = matrix[i][j].. matrix[width*height]... delete [] matrix;
 		vector<vector<int>> *set1Windows;
 		vector<vector<int>> *set2Windows;
-		unordered_map<size_t, double> validEdges;
+		// unordered_map<size_t, double> validEdges;
 		double theta;
 		int zero_entries = 0;
 		DataLoader *dl;
 	
 	public:
-		AMatrix(vector<vector<int>>* Ws, vector<vector<int>>* Wt, unordered_map<size_t, double> validedges, double threshold, DataLoader *_dl) {
+		AMatrix(vector<vector<int>>* Ws, vector<vector<int>>* Wt, double threshold, DataLoader *_dl) {
 			width = Ws->size();
 			height = Wt->size();
 			set1Windows = Ws;
 			set2Windows = Wt;
-			validEdges = validedges;
+			// validEdges = validedges;
 			theta = threshold;
 			data = new double[width * height];
 			dl = _dl;
@@ -1090,11 +1094,7 @@ class AMatrix {
 				for (j = 0; j < nsize; ++j) {
 					vector<int> set1_tokens = set1Windows->at(i);
 					vector<int> set2_tokens = set2Windows->at(j);
-					if (set1_tokens.size() <= 10) {
-						m = new ValidMatrix(set1_tokens, set2_tokens, dl);
-					} else {
-						m = new ValidMatrix(set1_tokens, set2_tokens, validEdges);
-					}
+                    m = new ValidMatrix(set1_tokens, set2_tokens, dl);
 					sim = m->solveQ(set1_tokens.size());
 					// sim = 1.0;
 					if (sim >= theta) {
@@ -1124,6 +1124,76 @@ class AMatrix {
 		}
 };
 
+struct cmp_decreasing {
+	bool operator() (pair<double, int> lhs, pair<double, int> rhs) const {
+		return std::get<0>(lhs) >= std::get<0>(rhs);
+	}
+};
+
+class IndexStructures{
+	private:
+		vector<int>* set1Tokens; // query tokens
+		vector<int>* set2Tokens; // candidate tokens
+		DataLoader *dl;
+		int k;
+		std::vector<std::vector<double>> costMatrix;
+		std::unordered_map<int, std::vector<std::vector<int>>> slidingWindowInvertedIndex;
+		std::unordered_map<int, std::set<pair<double, int>, cmp_decreasing>> tokensSimIndex;
+
+	public:
+		IndexStructures(vector<int>* _set1Tokens, vector<int>* _set2Tokens, DataLoader* _dl, int _k) : 
+			set1Tokens(_set1Tokens), set2Tokens(_set2Tokens), dl(_dl), k(_k) 
+		{
+			// compute the tokenSimIndex
+			for (vector<int>::iterator it1 = set1Tokens->begin(); it1 != set1Tokens->end(); ++it1) {
+				int word1 = *it1;
+				for (vector<int>::iterator it2 = set2Tokens->begin(); it2 != set2Tokens->end(); ++it2) {
+					int word2 = *it2;
+					double sim = dl->calculate_similarity(word1, word2);
+					tokensSimIndex[word1].insert(make_pair(sim, word2));
+				}
+			}
+
+			// compute slidingWindowInvertedIndex
+			vector<vector<int>> set1SlidingWindows = slidingWindows(*set1Tokens, k);
+			vector<vector<int>> set2SlidingWindows = slidingWindows(*set2Tokens, k);
+
+			for (auto it1 = set1SlidingWindows.begin(); it1 != set1SlidingWindows.end(); ++it1) {
+				vector<int> currWindow = *it1;
+				for (int t : currWindow) {
+					slidingWindowInvertedIndex[t].push_back(currWindow);
+				}
+			}
+
+			for (auto it2 = set2SlidingWindows.begin(); it2 != set2SlidingWindows.end(); ++it2) {
+				vector<int> currWindow = *it2;
+				for (int t : currWindow) {
+					slidingWindowInvertedIndex[t].push_back(currWindow);
+				}
+			}
+		}
+
+		void reportStats() {
+			std::cout << "Index Structure Statistics" << std::endl;
+			std::cout << "Sliding Window Inverted Index" << std::endl;
+			int max_len = 0;
+			int min_len = std::numeric_limits<int>::max();
+			int sum = 0;
+			unordered_map<int, vector<vector<int>>>::iterator it;
+			for (it = slidingWindowInvertedIndex.begin(); it != slidingWindowInvertedIndex.end(); ++it) {
+				int curr_len = it->second.size();
+				max_len = max(max_len, curr_len);
+				min_len = min(min_len, curr_len);
+				sum += curr_len;
+			}
+			int average_len = static_cast<int>(sum / slidingWindowInvertedIndex.size());
+			std::cout << "Maximum Length: " << max_len << std::endl;
+			std::cout << "Minimum Length: " << min_len << std::endl;
+			std::cout << "Average Length: " << average_len << std::endl;
+
+		}
+
+};
 
 void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 
@@ -1141,7 +1211,7 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	int numCellsAboveThresoldEstimate = 0;
 	int numCellsAboveThresold = 0;
 	
-	std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
+	// std::unordered_map<size_t, AMatrix*> results; // key(text1SetId, text2SetId) --> AlignmentMatrix
 	std::chrono::time_point<std::chrono::high_resolution_clock> sliding_window_start, sliding_window_end;
 	std::chrono::duration<double> sliding_window_elapsed;
 	double slidingWindowTime = 0.0;
@@ -1215,17 +1285,17 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 
 	// Local Cost Matrix
 	// for (int set1Id : text1Sets) {
-	// 	vector<vector<int>> set1Windows = kWidthWindows[set1Id];
+	// 	vector<vector<int>> &set1Windows = kWidthWindows[set1Id];
 	// 	for (int set2Id : text2Sets) {
-	// 		vector<vector<int>> set2Windows = kWidthWindows[set2Id];
+	// 		vector<vector<int>> &set2Windows = kWidthWindows[set2Id];
 	// 		// compute the alignment matrix if not computed previously
-	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
-	// 			AMatrix *A = new AMatrix(&set1Windows, &set2Windows, validedges, theta, dl);
+	// 		// if (results.find(key(set1Id, set2Id)) == results.end()) {
+	// 			AMatrix *A = new AMatrix(&set1Windows, &set2Windows, theta, dl);
 	// 			A->computeAlignment();
-	// 			results[key(set1Id, set2Id)] = A;
+	// 			// results[key(set1Id, set2Id)] = A;
 	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
 	// 			numberOfZeroEntries += A->zeroCells();
-	// 		}
+	// 		// }
 	// 	}
 	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 	// 	counter += 1;
@@ -1250,23 +1320,23 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	// }
 
 	// // Global Cost Matrix 
-	for (int set1Id : text1Sets) {
-		vector<int> set1Tokens = sets[set1Id];
-		for (int set2Id : text2Sets) {
-			vector<int> set2Tokens = sets[set2Id];
-			// compute the alignment matrix if not computed previously
-			if (results.find(key(set1Id, set2Id)) == results.end()) {
-				GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
-				A->computeAlignment(k);
-				// A->printAMatrix();
-				// results[key(set1Id, set2Id)] = A;
-				numberOfGraphMatchingComputed += A->get_matrix_size();
-				numberOfZeroEntries += A->zeroCells();
-			}
-		}
-		// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
-		counter += 1;
-	}
+	// for (int set1Id : text1Sets) {
+	// 	vector<int> &set1Tokens = sets[set1Id];
+	// 	for (int set2Id : text2Sets) {
+	// 		vector<int> &set2Tokens = sets[set2Id];
+	// 		// compute the alignment matrix if not computed previously
+	// 		// if (results.find(key(set1Id, set2Id)) == results.end()) {
+	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl, k);
+	// 			A->computeAlignment(k);
+	// 			// A->printAMatrix();
+	// 			// results[key(set1Id, set2Id)] = A;
+	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
+	// 			numberOfZeroEntries += A->zeroCells();
+	// 		// }
+	// 	}
+	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
+	// 	counter += 1;
+	// }
 
 	// // Global Cost Matrix with Pruning
 	// for (int set1Id : text1Sets) {
@@ -1274,10 +1344,11 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	// 	for (int set2Id : text2Sets) {
 	// 		vector<int> set2Tokens = sets[set2Id];
 	// 		// compute the alignment matrix if not computed previously
-	// 		if (results.find(key(set1Id, set2Id)) == results.end()) {
+	// 		// if (results.find(key(set1Id, set2Id)) == results.end()) {
 	// 			// GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl);
 	// 			GlobalAMatrix* A = new GlobalAMatrix(&set1Tokens, &set2Tokens, theta, dl, k);
-	// 			A->computeAlignmentWithPruning_precomputed(k, 2);
+	// 			// A->computeAlignmentWithPruning_precomputed(k, 2);
+    //             A->computeAlignmentWithPruning(k, 1);
 	// 			// A->printAMatrix();
 	// 			// results[key(set1Id, set2Id)] = A;
 	// 			numberOfGraphMatchingComputed += A->get_matrix_size();
@@ -1286,11 +1357,23 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	// 			pair<int, int> count_est = A->getEstimateCounts();
 	// 			numCellsAboveThresoldEstimate += count_est.first;
 	// 			numCellsAboveThresold += count_est.second;
-	// 		}
+	// 		// }
 	// 	}
 	// 	// cout << "Done with: " << counter << " / " << text1Sets.size() << endl;
 	// 	counter += 1;
 	// }
+
+	// // Computing Index Structure
+	cout << "KWidthWindows: " << kWidthWindows.size() << endl;
+	int set1ID = *text1Sets.begin();
+	int set2ID = *text2Sets.begin();
+	vector<int>& set1Tokens = sets[set1ID];
+	vector<int>& set2Tokens = sets[set2ID];
+	IndexStructures* indexStruct = new IndexStructures(&set1Tokens, &set2Tokens, dl, k);
+	indexStruct->reportStats();
+
+
+
 	bs_search_end = std::chrono::high_resolution_clock::now();
 	bs_search_elapsed = bs_search_end - bs_search_start;
 	bs_search_time = bs_search_elapsed.count();

@@ -20,10 +20,10 @@ CHAPTER_PARAS = {
 
 logfolder_para2para = './results/esv_king_james_{0}_{1}_k{2}_0.7_log_para_gcm_clang.txt'
 logfolder_para2chapter = './results/esv_king_james_{0}_{1}_{2}_k{3}_0.7_log_para2chapter_gcm_clang.txt'
-logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_gcm_clang.txt'
+logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2chapter_gcm_rowsum_precomp_clang.txt'
 results_para2para = './para2para_k{0}_gcm_clang.csv'
 results_para2chapter = './para2chapter_k{0}_gcm_clang.csv'
-results_chapter2chapter = './chapter2chapter_k{0}_gcm_clang.csv'
+results_chapter2chapter = './chapter2chapter_k{0}_gcm_rowsum_precmop_clang.csv'
 
 
 def get_data(fileloc):
@@ -155,7 +155,7 @@ def baseline_results_to_csv(granularity, k):
 
 if __name__ == '__main__':
     for gran in ['chapter2chapter']:
-        for k in [3, 4, 5, 6, 7, 8]:
+        for k in [3]:
             print('Experiment for gran:{0}\tk:{1}'.format(gran, k))
             baseline_runner(gran, 0.7, k)
             baseline_results_to_csv(gran, k)

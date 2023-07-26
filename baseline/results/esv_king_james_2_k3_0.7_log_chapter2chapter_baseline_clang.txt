@@ -3,13 +3,13 @@ creating environment with lakes: /root/data/en/king_james_bible_chapter/2/, /roo
 1 text2_files listed
 Inverted Index Size: 841
 Words: 338
-Sliding Window Computation time: 0.000201617
-Main Loop Time: 1.39486
+Sliding Window Computation time: 0.000196539
+Main Loop Time: 2.67768
 Number of Graph Matching Computed: 621492
 Number of Zero Entries Cells: 618410
 Number of Pruned Cells: 0
 Number of Estimated Cells Above Threshold: 0
 Number of Cells Above Threshold: 0
-Env Time: 0.00171965
-Dataloader Time: 0.05205
-Algorithm Time: 1.39666
+Env Time: 0.00126188
+Dataloader Time: 0.0434183
+Algorithm Time: 2.67825
