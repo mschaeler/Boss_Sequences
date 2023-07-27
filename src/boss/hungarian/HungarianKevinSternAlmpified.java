@@ -150,7 +150,7 @@ public class HungarianKevinSternAlmpified extends Solver{
 		//int worker = matchWorkerByJob[new_job];
 		//un_match(worker, new_job);
 
-		computeInitialFeasibleSolution(col_minima);
+		computeInitialFeasibleSolution(col_minima);//This is the difference.
 		//greedyMatch();
 		
 		int w = fetchUnmatchedWorker();
