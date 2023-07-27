@@ -33,8 +33,8 @@ public class SemanticTest {
 		final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.7;
 		
-		//MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
-		MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		//ArrayList<Book> books = ImporterAPI.get_all_german_books();

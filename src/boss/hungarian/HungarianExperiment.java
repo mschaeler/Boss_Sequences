@@ -1656,6 +1656,63 @@ public class HungarianExperiment {
 		}
 	    
 	}
+	
+	public double[] run_candidates_min_matrix() {
+		//XXX Assume book granularity for now
+		//Check config (1) Normalized vectors to unit length
+		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
+			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
+		}
+		//Ensure config (2) Hungarian implementation from Kevin Stern
+		this.solver = new HungarianKevinStern(k);
+		
+		// (3) Dense global cost matrix - compute once
+		if(dense_global_matrix_buffer==null) {//XXX Has extra runtime measurement inside method
+			create_dense_matrix();
+		}
+		
+		System.out.println("HungarianExperiment.run_candidates_min_matrix() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+		
+		final int[] inverted_index = create_inverted_index(this.raw_paragraphs_b1, dense_global_matrix_buffer);
+		
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
+			
+			boolean[] candidates = new boolean[alignment_matrix[0].length];
+			
+			for(int line=0;line<alignment_matrix.length;line++) {
+				int[] window_p2 = k_windows_p2[line];
+				for(int id : window_p2) {
+					//TODO Umweg über 2 inverted indexes? -> ja
+					//Allow ranges?
+					int[] ids_where_sim_id_token_exeeds_t = inverted_index[id];
+					for(int other_id : ) {//reduce to set
+						
+					}
+				}
+			}
+		}
+		
+		return run_times;
+	}
+
+	private ArrayList<int[]> create_inverted_index(ArrayList<int[]> raw_paragraphs_b12, double[][] matrix) {
+		ArrayList<int[]> inverted_indexes = new ArrayList<int[]>(matrix.length);
+		for(double[] line : matrix) {
+			int[] inverted_index = new int[matrix.length];
+			//TODO
+			inverted_indexes.add(inverted_index);
+		}
+		
+		return inverted_indexes;
+	}
 
 	static void out(ArrayList<int[]> set_ids, ArrayList<int[][]> k_with_window_set_ids) {
 		for(int paragraph=0;paragraph<set_ids.size();paragraph++) {
