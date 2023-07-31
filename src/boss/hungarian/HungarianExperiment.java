@@ -1722,19 +1722,109 @@ public class HungarianExperiment {
 							}
 						}
 						
-						//That's the important line
-						double cost = this.solver.solve(cost_matrix, threshold);
-						//normalize costs: Before it was distance. Now it is similarity.
-						double normalized_similarity = 1.0 - (cost / (double)k);
-						if(normalized_similarity>=threshold) {
-							alignment_matrix_line[column] = normalized_similarity;
-						}//else keep it zero
+						// (4) compute the bound
+						final double lb_cost = get_column_row_sum(cost_matrix);
+						final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
+						if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+							//That's the important line
+							double cost = this.solver.solve(cost_matrix, threshold);
+							//normalize costs: Before it was distance. Now it is similarity.
+							double normalized_similarity = 1.0 - (cost / (double)k);
+							if(normalized_similarity>=threshold) {
+								alignment_matrix_line[column] = normalized_similarity;
+							}//else keep it zero
+						}
 					}//else safe mode
 					if(SAFE_MODE) {
 						safe_mode_run_candidates(k_windows_p1, k_windows_p2, line, column, cost_matrix ,is_candidate);
 					}
 				}
 				
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = stop-start;
+		}
+		
+		
+		String experiment_name = "Candidates min(local_matrix)";//default experiment, has no special name
+		//if(VERBOSE)
+			print_results(experiment_name, run_times);
+		
+		return run_times;
+	}
+	
+	public double[] run_candidates_min_matrix_2() {
+		//XXX Assume book granularity for now
+		//Check config (1) Normalized vectors to unit length
+		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
+			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
+		}
+		//Ensure config (2) Hungarian implementation from Kevin Stern
+		this.solver = new HungarianKevinStern(k);
+		
+		// (3) Dense global cost matrix - compute once
+		if(dense_global_matrix_buffer==null) {//XXX Has extra runtime measurement inside method
+			create_dense_matrix();
+		}
+		
+		System.out.println("HungarianExperiment.run_candidates_min_matrix() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+		
+		/**
+		 * inverted_index.get(i) -> index for paragraph token_id
+		 * inverted_index.get(i)[token_id] -> some other_token_id with sim(token_id, other_token_id) > threshold 
+		 */
+		final ArrayList<int[]> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final ArrayList<ArrayList<int[]>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
+		
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
+								
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+				final boolean[] already_checked = new boolean[alignment_matrix[0].length];
+				
+				//Create candidates: the window of p2 is fixed
+				final int[] window_p1 = k_windows_p1[line];
+				for(int id : window_p1) {
+					final ArrayList<int[]> token_index = inverted_window_index.get(id);
+					final int[] index = token_index.get(p);
+					for(int column : index) {
+						if(!already_checked[column]) {//hopefully not computed before
+							already_checked[column] = true;
+							//get local cost matrix
+							for(int i=0;i<this.k;i++) {
+								final int set_id_window_p1 = k_windows_p1[line][i];
+								for(int j=0;j<this.k;j++) {
+									final int set_id_window_p2 = k_windows_p2[column][j];
+									double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+									cost_matrix[i][j] = dist;
+								}
+							}
+							// (4) compute the bound
+							final double lb_cost = get_column_row_sum(cost_matrix);
+							final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
+							if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+								//That's the important line
+								double cost = this.solver.solve(cost_matrix, threshold);
+								//normalize costs: Before it was distance. Now it is similarity.
+								double normalized_similarity = 1.0 - (cost / (double)k);
+								if(normalized_similarity>=threshold) {
+									alignment_matrix_line[column] = normalized_similarity;
+								}//else keep it zero
+							}
+						}
+					}
+				}
 			}
 			stop = System.currentTimeMillis();
 			run_times[p] = stop-start;

@@ -52,7 +52,8 @@ public class SemanticTest {
 				//run_times=he.run_baseline();
 				//he.run_baseline_zick_zack();
 				//run_times=he.run_zick_zack();
-				run_times=he.run_candidates_min_matrix();
+				//run_times=he.run_candidates_min_matrix();
+				run_times=he.run_candidates_min_matrix_2();
 				//run_times=he.run_solution();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
