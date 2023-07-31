@@ -132,7 +132,7 @@ public class HungarianExperiment {
 	 * The main difference to the run() method below is the way how we compute the similarity (or distance) of two k-width windows. 
 	 * Normally we use the assignment problem. Here, we average the vectors in one k-width window to kind of represent the average semantics....
 	 */
-	public void run_idea_nikolaus() {
+	void run_idea_nikolaus() {
 		System.out.println("HungarianExperiment.run_idea_nikolaus() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
@@ -837,7 +837,7 @@ public class HungarianExperiment {
 	}
 
 	static double[][] dense_global_matrix_buffer = null;
-	public void run_baseline_global_matrix_dense(){
+	void run_baseline_global_matrix_dense(){
 		System.out.println("HungarianExperiment.run_baseline_global_matrix_dense() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
 		if(this.solver==null) {
@@ -913,7 +913,7 @@ public class HungarianExperiment {
 	/**
 	 * We use a sparse matrix for the pair-wise token similarities. The idea is to avoid excessive re computations of distances.
 	 */
-	public void run_baseline_global_matrix_sparse(){
+	void run_baseline_global_matrix_sparse(){
 		System.out.println("HungarianExperiment.run_baseline_global_matrix_dense() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
 		if(this.solver==null) {
@@ -1050,7 +1050,7 @@ public class HungarianExperiment {
 	}
 
 	
-	public void test_hungarian_implementations(){
+	void test_hungarian_implementations(){
 		System.out.println("HungarianExperiment.test_hunagrian_implementations() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold);
 		final double[][] cost_matrix = new double[k][k];
 		this.solver = new StupidSolver(k);
@@ -1210,7 +1210,7 @@ public class HungarianExperiment {
 		return run_times;
 	}
 	
-	public void run_baseline_zick_zack(){
+	void run_baseline_zick_zack(){
 		if(this.solver==null) {
 			System.err.println("Solver is null: Using StupidSolver");
 			this.solver = new StupidSolver(k);
@@ -1579,8 +1579,7 @@ public class HungarianExperiment {
 	public static final int SIM_FUNCTION = COSINE;
 	
 	@SuppressWarnings("unused")
-	public
-	final static double dist(final int set_id1, final int set_id2, final double[] vec_1, final double[] vec_2) {
+	public static double dist(final int set_id1, final int set_id2, final double[] vec_1, final double[] vec_2) {
 		if(set_id1==set_id2) {
 			return EQUAL;
 		}else if(vec_1==null || vec_2==null){//may happen e.g., for stop words
@@ -1676,42 +1675,190 @@ public class HungarianExperiment {
 		
 		double[] run_times = new double[num_paragraphs];
 		
-		final int[] inverted_index = create_inverted_index(this.raw_paragraphs_b1, dense_global_matrix_buffer);
+		/**
+		 * inverted_index.get(i) -> index for paragraph token_id
+		 * inverted_index.get(i)[token_id] -> some other_token_id with sim(token_id, other_token_id) > threshold 
+		 */
+		final ArrayList<int[]> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final ArrayList<ArrayList<int[]>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
 		
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			
 			//Allocate space for the alignment matrix
 			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
 			final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
 			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
-			
-			boolean[] candidates = new boolean[alignment_matrix[0].length];
+						
+			final boolean[] candidates = new boolean[alignment_matrix[0].length];
 			
 			for(int line=0;line<alignment_matrix.length;line++) {
-				int[] window_p2 = k_windows_p2[line];
-				for(int id : window_p2) {
-					//TODO Umweg über 2 inverted indexes? -> ja
-					//Allow ranges?
-					int[] ids_where_sim_id_token_exeeds_t = inverted_index[id];
-					for(int other_id : ) {//reduce to set
-						
+				Arrays.fill(candidates, false);//no candidate so far
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+				
+				//Create candidates: the window of p2 is fixed
+				final int[] window_p1 = k_windows_p1[line];
+				for(int id : window_p1) {
+					final ArrayList<int[]> token_index = inverted_window_index.get(id);
+					final int[] index = token_index.get(p);
+					for(int pos : index) {
+						candidates[pos] = true;
 					}
 				}
+						
+				//Validate candidates
+				for(int column=0;column<candidates.length;column++) {
+					boolean is_candidate = candidates[column];
+					if(is_candidate){
+						//get local cost matrix
+						for(int i=0;i<this.k;i++) {
+							final int set_id_window_p1 = k_windows_p1[line][i];
+							for(int j=0;j<this.k;j++) {
+								final int set_id_window_p2 = k_windows_p2[column][j];
+								double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+								cost_matrix[i][j] = dist;
+							}
+						}
+						
+						//That's the important line
+						double cost = this.solver.solve(cost_matrix, threshold);
+						//normalize costs: Before it was distance. Now it is similarity.
+						double normalized_similarity = 1.0 - (cost / (double)k);
+						if(normalized_similarity>=threshold) {
+							alignment_matrix_line[column] = normalized_similarity;
+						}//else keep it zero
+					}//else safe mode
+					if(SAFE_MODE) {
+						safe_mode_run_candidates(k_windows_p1, k_windows_p2, line, column, cost_matrix ,is_candidate);
+					}
+				}
+				
 			}
+			stop = System.currentTimeMillis();
+			run_times[p] = stop-start;
 		}
+		
+		
+		String experiment_name = "Candidates min(local_matrix)";//default experiment, has no special name
+		//if(VERBOSE)
+			print_results(experiment_name, run_times);
 		
 		return run_times;
 	}
-
-	private ArrayList<int[]> create_inverted_index(ArrayList<int[]> raw_paragraphs_b12, double[][] matrix) {
-		ArrayList<int[]> inverted_indexes = new ArrayList<int[]>(matrix.length);
-		for(double[] line : matrix) {
-			int[] inverted_index = new int[matrix.length];
-			//TODO
-			inverted_indexes.add(inverted_index);
+	
+	void safe_mode_run_candidates(int[][] k_windows_p1, int[][] k_windows_p2, int line, int column, double[][] cost_matrix, boolean is_candidate) {
+		//get local cost matrix
+		for(int i=0;i<this.k;i++) {
+			final int set_id_window_p1 = k_windows_p1[line][i];
+			for(int j=0;j<this.k;j++) {
+				final int set_id_window_p2 = k_windows_p2[column][j];
+				double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+				cost_matrix[i][j] = dist;
+			}
 		}
+		double cost_safe = solver.solve(cost_matrix);
+		double sim_safe = 1-cost_safe;
+		if(sim_safe>=threshold) {
+			if(!is_candidate) {
+				System.err.println("sim_safe>=threshold, but !is_candidate at w_1="+Arrays.toString(k_windows_p1[line])+" and w_2="+Arrays.toString(k_windows_p2[column])+"(line="+line+",column="+column+")");
+			}
+		}
+		/*if(sim_safe<threshold) {
+			if(is_candidate) {
+				System.err.println("Loose bound");
+			}
+		}*/
+	}
+
+	/**
+	 * indexes.get(token_id)[paragraph]-> int[] of position with token having sim(token_id, some token) > threshold
+	 * @param k_with_windows_b12
+	 * @return
+	 */
+	private ArrayList<ArrayList<int[]>> create_inverted_window_index(final ArrayList<int[][]> k_with_windows, ArrayList<int[]> neihborhood_indexes) {
+		System.out.println("ArrayList<ArrayList<int[]>> create_inverted_window_index() BEGIN");
+		double start = System.currentTimeMillis();
+		ArrayList<ArrayList<int[]>> indexes = new ArrayList<ArrayList<int[]>>();
+		//For each token
+		for(int token_id = 0;token_id<neihborhood_indexes.size();token_id++) {
+			//Create the list of occurrences for token: token_id
+			final int[] neihborhood_index = neihborhood_indexes.get(token_id);
+			ArrayList<int[]> occurences_per_paragraph = new ArrayList<int[]>(k_with_windows.size());
+			
+			//For each windowed paragraph: Inspect whether one of the tokens in neihborhood_indexes is in the windows
+			for(int paragraph=0;paragraph<k_with_windows.size();paragraph++) {
+				int[][] windows = k_with_windows.get(paragraph);
+				ArrayList<Integer> index_this_paragraph = new ArrayList<Integer>();
+				for(int pos=0;pos<windows.length;pos++) {
+					int[] curr_window = windows[pos];
+					if(is_in(neihborhood_index, curr_window)) {
+						index_this_paragraph.add(pos);
+					}
+				}
+				int[] temp = new int[index_this_paragraph.size()];
+				for(int i=0;i<index_this_paragraph.size();i++) {
+					temp[i] = index_this_paragraph.get(i);
+				}
+				occurences_per_paragraph.add(temp);
+			}
+			indexes.add(occurences_per_paragraph);
+		}
+		System.out.println("ArrayList<ArrayList<int[]>> create_inverted_window_index() END in\t"+(System.currentTimeMillis()-start));
+		return indexes;
+	}
+
+	//TODO exploit running window property: Maybe order ids by frequency
+	private boolean is_in(int[] neihborhood_index, int[] curr_window) {
+		for(int neighbor : neihborhood_index) {
+			for(int t : curr_window) {
+				if(t==neighbor) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * inverted_index.get(i) -> index for paragraph token_id
+	 * inverted_index.get(i)[token_id] -> some other_token_id with sim(token_id, other_token_id) > threshold 
+	 */
+	private ArrayList<int[]> create_neihborhood_index(final double[][] matrix) {
+		System.out.println("create_neihborhood_index() BEGIN");
+		double start = System.currentTimeMillis();
 		
-		return inverted_indexes;
+		ArrayList<int[]> indexes = new ArrayList<int[]>(matrix.length);
+		for(final double[] line : matrix) {
+			ArrayList<Integer> index = new ArrayList<Integer>(line.length);//TODO remove double effort?
+			for(int id=0;id<line.length;id++) {
+				final double dist = line[id];
+				final double sim = 1 - dist;
+				if(sim>=threshold){
+					index.add(id);
+				}
+			}
+			int[] index_arr = new int[index.size()];
+			for(int i=0;i<index_arr.length;i++) {
+				index_arr[i] = index.get(i);
+			}
+			indexes.add(index_arr);
+		}
+		System.out.println("create_neihborhood_index() END in\t"+(System.currentTimeMillis()-start));
+		if(LOGGING_MODE) {
+			System.out.println("Matrix size: "+matrix.length);
+			ArrayList<Integer> counts = new ArrayList<Integer>(matrix.length);
+			for(int[] index : indexes) {
+				counts.add(index.length);
+				//System.out.println(index.length);
+			}
+			Collections.sort(counts);
+			for(int count : counts) {
+				System.out.println(count);
+			}
+		}
+		return indexes;
 	}
 
 	static void out(ArrayList<int[]> set_ids, ArrayList<int[][]> k_with_window_set_ids) {
