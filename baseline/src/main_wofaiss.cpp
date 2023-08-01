@@ -1130,47 +1130,204 @@ struct cmp_decreasing {
 	}
 };
 
+struct sliding_window_ordering {
+	bool operator() (pair<int, vector<int>> lhs, pair<int, vector<int>> rhs) const {
+		return std::lexicographical_compare(std::get<1>(lhs).begin(), std::get<1>(lhs).end(), std::get<1>(rhs).begin(), std::get<1>(rhs).end());
+	}
+};
+
+// Custom hash function for vector<int>
+struct VectorHash {
+	size_t operator()(const vector<int>& vec) const {
+		size_t hash = 0;
+		for (int num : vec) {
+			hash ^= hash << 1 ^ num;
+		}
+		return hash;
+	}
+};
+
 class IndexStructures{
 	private:
 		vector<int>* set1Tokens; // query tokens
 		vector<int>* set2Tokens; // candidate tokens
 		DataLoader *dl;
 		int k;
+		double theta;
 		std::vector<std::vector<double>> costMatrix;
-		std::unordered_map<int, std::vector<std::vector<int>>> slidingWindowInvertedIndex;
+		// std::unordered_map<int, std::vector<std::vector<int>>> slidingWindowInvertedIndex;
+		std::unordered_map<int, std::set<pair<int, vector<int>>, sliding_window_ordering>> slidingWindowInvertedIndex_v3;
+		std::unordered_map<int, std::vector<pair<int, std::vector<int>>>> slidingWindowInvertedIndex_v2;
 		std::unordered_map<int, std::set<pair<double, int>, cmp_decreasing>> tokensSimIndex;
+		double tokenSimIndexTime = 0.0;
 
 	public:
-		IndexStructures(vector<int>* _set1Tokens, vector<int>* _set2Tokens, DataLoader* _dl, int _k) : 
-			set1Tokens(_set1Tokens), set2Tokens(_set2Tokens), dl(_dl), k(_k) 
+		IndexStructures(vector<int>* _set1Tokens, vector<int>* _set2Tokens, DataLoader* _dl, int _k, double _theta) : 
+			set1Tokens(_set1Tokens), set2Tokens(_set2Tokens), dl(_dl), k(_k), theta(_theta) 
 		{
 			// compute the tokenSimIndex
+			std::chrono::time_point<std::chrono::high_resolution_clock> simstart, simend;
+			std::chrono::duration<double> sim_elapsed;
+			simstart = std::chrono::high_resolution_clock::now();
 			for (vector<int>::iterator it1 = set1Tokens->begin(); it1 != set1Tokens->end(); ++it1) {
 				int word1 = *it1;
 				for (vector<int>::iterator it2 = set2Tokens->begin(); it2 != set2Tokens->end(); ++it2) {
 					int word2 = *it2;
 					double sim = dl->calculate_similarity(word1, word2);
-					tokensSimIndex[word1].insert(make_pair(sim, word2));
+					if (sim >= theta) {
+						tokensSimIndex[word1].insert(make_pair(sim, word2));
+					}
+					// tokensSimIndex[word1].insert(make_pair(sim, word2));
 				}
 			}
+			simend = std::chrono::high_resolution_clock::now();
+			sim_elapsed = simend - simstart;
+			tokenSimIndexTime = sim_elapsed.count();
 
 			// compute slidingWindowInvertedIndex
 			vector<vector<int>> set1SlidingWindows = slidingWindows(*set1Tokens, k);
 			vector<vector<int>> set2SlidingWindows = slidingWindows(*set2Tokens, k);
 
-			for (auto it1 = set1SlidingWindows.begin(); it1 != set1SlidingWindows.end(); ++it1) {
-				vector<int> currWindow = *it1;
+			// for (auto it1 = set1SlidingWindows.begin(); it1 != set1SlidingWindows.end(); ++it1) {
+			// 	vector<int> currWindow = *it1;
+			// 	for (int t : currWindow) {
+			// 		slidingWindowInvertedIndex[t].push_back(currWindow);
+			// 	}
+			// }
+
+			// for (auto it2 = set2SlidingWindows.begin(); it2 != set2SlidingWindows.end(); ++it2) {
+			// 	vector<int> currWindow = *it2;
+			// 	for (int t : currWindow) {
+			// 		slidingWindowInvertedIndex[t].push_back(currWindow);
+			// 	}
+			// }
+
+			for (int j = 0; j < set2SlidingWindows.size(); j++) {
+				vector<int> currWindow = set2SlidingWindows[j];
 				for (int t : currWindow) {
-					slidingWindowInvertedIndex[t].push_back(currWindow);
+					// slidingWindowInvertedIndex_v2[t].push_back(make_pair(j, currWindow));
+					slidingWindowInvertedIndex_v3[t].insert(make_pair(j, currWindow));
+				}
+			}
+		}
+
+		// Function to compute the intersection of two vector<vector<int>>
+		// vector<vector<int>> intersect(const vector<vector<int>>& v1, const vector<vector<int>>& v2) {
+		// 	unordered_set<vector<int>, VectorHash> set1(v1.begin(), v1.end());
+		// 	vector<vector<int>> result;
+
+		// 	for (const auto& v : v2) {
+		// 		if (set1.count(v) > 0) {
+		// 			result.push_back(v);
+		// 		}
+		// 	}
+
+		// 	return result;
+		// }
+		vector<vector<int>> intersect(const vector<vector<int>>& v1, const vector<pair<int, vector<int>>>& v2) {
+			unordered_set<vector<int>, VectorHash> set1(v1.begin(), v1.end());
+			vector<vector<int>> result;
+
+			for (const auto& v : v2) {
+				if (set1.count(v.second) > 0) {
+					result.push_back(v.second);
 				}
 			}
 
-			for (auto it2 = set2SlidingWindows.begin(); it2 != set2SlidingWindows.end(); ++it2) {
-				vector<int> currWindow = *it2;
-				for (int t : currWindow) {
-					slidingWindowInvertedIndex[t].push_back(currWindow);
+			return result;
+		}
+
+
+		// sort functions
+		// static bool compareVectors(const std::vector<int>& v1, const std::vector<int>& v2) {
+		// 	return std::lexicographical_compare(v1.begin(), v1.end(), v2.begin(), v2.end());
+		// }
+
+		// static bool pairComparator(const std::pair<int, std::vector<int>>& p1, const std::pair<int, std::vector<int>>& p2) {
+		// 	return compareVectors(p1.second, p2.second);
+		// }
+		// Function to find candidate windows based on query window and data structures
+		vector<vector<int>> findCandidateWindows(const vector<int>& queryWindow) {
+			vector<vector<int>> candidates;
+
+			for (int token : queryWindow) {
+				// Get the list of similar tokens
+				if (tokensSimIndex.find(token) != tokensSimIndex.end()) {
+					const set<pair<double, int>, cmp_decreasing>& simTokens = tokensSimIndex.at(token);
+
+					for (const auto& simToken : simTokens) {
+						int similarToken = simToken.second;
+
+						// Get the sliding windows for the similar token
+						if (slidingWindowInvertedIndex_v2.find(similarToken) != slidingWindowInvertedIndex_v2.end()) {
+							// const vector<vector<int>>& slidingWindows = slidingWindowInvertedIndex.at(similarToken);
+							const vector<pair<int, vector<int>>>& slidingWindows = slidingWindowInvertedIndex_v2.at(similarToken);
+							// std::sort(slidingWindows.begin(), slidingWindows.end(), [](const auto& p1, const auto& p2) {
+							// 	const auto& v1 = p1.second;
+							// 	const auto& v2 = p2.second;
+							// 	return std::lexicographical_compare(v1.begin(), v1.end(), v2.begin(), v2.end());
+							// });
+							// Compute the intersection of sliding windows & candidates
+							if (!candidates.empty()) {
+								candidates = intersect(candidates, slidingWindows);
+							} else {
+								for (auto t : slidingWindows) {
+									candidates.push_back(t.second);
+								}
+							}
+						}
+					}
 				}
 			}
+
+			return candidates;
+		}
+
+		std::set<std::pair<int, std::vector<int>>, sliding_window_ordering> computeIntersection(const std::set<std::pair<int, std::vector<int>>, sliding_window_ordering>& set1, const std::set<std::pair<int, std::vector<int>>, sliding_window_ordering>& set2) {
+
+			std::set<std::pair<int, std::vector<int>>, sliding_window_ordering> intersection;
+
+			// Ensure that both sets are sorted based on the lexicographical order of the vector<int>
+			// If your sets are not already sorted, you can sort them before computing the intersection.
+
+			// Set intersection requires both sets to be sorted.
+			std::set_intersection(
+				set1.begin(), set1.end(),
+				set2.begin(), set2.end(),
+				std::inserter(intersection, intersection.begin()),
+				[](const auto& p1, const auto& p2) {
+					// Comparator to compare pairs based on the lexicographical order of the vector<int>
+					return std::lexicographical_compare(p1.second.begin(), p1.second.end(),
+														p2.second.begin(), p2.second.end());
+				});
+
+			return intersection;
+		}
+		// Function to find candidate windows based on query window and data structures
+		std::set<pair<int, vector<int>>, sliding_window_ordering> getCandidates(const vector<int>& queryWindow) {
+			std::set<pair<int, vector<int>>, sliding_window_ordering> candidates;
+			for (int token : queryWindow) {
+				if (tokensSimIndex.find(token) != tokensSimIndex.end()) {
+					const set<pair<double, int>, cmp_decreasing>& simTokens = tokensSimIndex.at(token);
+
+					for (const auto& simToken : simTokens) {
+						int similarToken = simToken.second;
+
+						if (slidingWindowInvertedIndex_v3.find(similarToken) != slidingWindowInvertedIndex_v3.end()) {
+							set<pair<int, vector<int>>, sliding_window_ordering>& slidingWindows = slidingWindowInvertedIndex_v3.at(similarToken);
+
+							if (!candidates.empty()) {
+								candidates = computeIntersection(candidates, slidingWindows);
+							} else {
+								candidates = slidingWindows;
+							}
+
+						}
+					}
+				}
+			}
+
+			return candidates;
 		}
 
 		void reportStats() {
@@ -1179,17 +1336,17 @@ class IndexStructures{
 			int max_len = 0;
 			int min_len = std::numeric_limits<int>::max();
 			int sum = 0;
-			unordered_map<int, vector<vector<int>>>::iterator it;
-			for (it = slidingWindowInvertedIndex.begin(); it != slidingWindowInvertedIndex.end(); ++it) {
+			for (auto it = slidingWindowInvertedIndex_v3.begin(); it != slidingWindowInvertedIndex_v3.end(); ++it) {
 				int curr_len = it->second.size();
 				max_len = max(max_len, curr_len);
 				min_len = min(min_len, curr_len);
 				sum += curr_len;
 			}
-			int average_len = static_cast<int>(sum / slidingWindowInvertedIndex.size());
+			int average_len = static_cast<int>(sum / slidingWindowInvertedIndex_v3.size());
 			std::cout << "Maximum Length: " << max_len << std::endl;
 			std::cout << "Minimum Length: " << min_len << std::endl;
 			std::cout << "Average Length: " << average_len << std::endl;
+			std::cout << "Sim Time: "  << tokenSimIndexTime << std::endl;
 
 		}
 
@@ -1363,14 +1520,20 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	// 	counter += 1;
 	// }
 
-	// // Computing Index Structure
+	// // Candidate Generation 
 	cout << "KWidthWindows: " << kWidthWindows.size() << endl;
 	int set1ID = *text1Sets.begin();
 	int set2ID = *text2Sets.begin();
 	vector<int>& set1Tokens = sets[set1ID];
 	vector<int>& set2Tokens = sets[set2ID];
-	IndexStructures* indexStruct = new IndexStructures(&set1Tokens, &set2Tokens, dl, k);
+	IndexStructures* indexStruct = new IndexStructures(&set1Tokens, &set2Tokens, dl, k, theta);
 	indexStruct->reportStats();
+	vector<vector<int>> &set1Windows = kWidthWindows[set1ID];
+	for (vector<int> window : set1Windows) {
+		// vector<vector<int>> candidates = indexStruct->findCandidateWindows(window);
+		set<pair<int, vector<int>>, sliding_window_ordering> candidates = indexStruct->getCandidates(window);
+		cout << candidates.size() << endl;
+	}	
 
 
 

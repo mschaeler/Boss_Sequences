@@ -24,6 +24,42 @@ logfolder_chapter2chapter = './results/esv_king_james_{0}_k{1}_0.7_log_chapter2c
 results_para2para = './para2para_k{0}_gcm_clang.csv'
 results_para2chapter = './para2chapter_k{0}_gcm_clang.csv'
 results_chapter2chapter = './chapter2chapter_k{0}_gcm_rowsum_precmop_clang.csv'
+index_stats_file = './index_stats_k{0}.txt'
+
+
+def index_stats_to_csv():
+    outfile = './index_stats.csv'
+    with open(outfile, 'w') as out:
+        out.write('k, Time, Maximum Length, Average Length, Minimum Length\n')
+        for k in [3, 4, 5, 6, 7, 8]:
+            file = index_stats_file.format(k)
+            f = open(file, 'r')
+            lines = f.readlines()
+            lines = [line.strip() for line in lines]
+            f.close()
+            result_data = {}
+            for line in lines:
+                if line.startswith('Maximum Length:'):
+                    s = line.split(':')
+                    result_data['maximum_length'] = int(s[1].strip())
+                
+                if line.startswith('Minimum Length:'):
+                    s = line.split(':')
+                    result_data['minimum_length'] = int(s[1].strip())
+                
+                if line.startswith('Average Length:'):
+                    s = line.split(':')
+                    result_data['average_length'] = int(s[1].strip())
+                
+                if line.startswith('Main Loop Time:'):
+                    s = line.split(':')
+                    result_data['time'] = float(s[1].strip())
+            out.write('{0}, {1}, {2}, {3}, {4}\n'.format(k, result_data['time'], result_data['maximum_length'], result_data['average_length'], result_data['minimum_length']))
+    out.close()
+        
+    
+
+
 
 
 def get_data(fileloc):
@@ -154,8 +190,10 @@ def baseline_results_to_csv(granularity, k):
         f.close()
 
 if __name__ == '__main__':
-    for gran in ['chapter2chapter']:
-        for k in [3]:
-            print('Experiment for gran:{0}\tk:{1}'.format(gran, k))
-            baseline_runner(gran, 0.7, k)
-            baseline_results_to_csv(gran, k)
+    # for gran in ['chapter2chapter']:
+    #     for k in [3]:
+    #         print('Experiment for gran:{0}\tk:{1}'.format(gran, k))
+    #         baseline_runner(gran, 0.7, k)
+    #         baseline_results_to_csv(gran, k)
+
+    index_stats_to_csv()
