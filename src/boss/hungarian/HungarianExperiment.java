@@ -11,7 +11,9 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 
 import boss.embedding.MatchesWithEmbeddings;
+import boss.test.SemanticTest;
 import boss.util.Histogram;
+import boss.util.HistogramDouble;
 
 public class HungarianExperiment {
 	final int num_paragraphs;
@@ -1027,7 +1029,7 @@ public class HungarianExperiment {
 	
 	private void create_dense_matrix() {
 		double start = System.currentTimeMillis();
-		this.dense_global_matrix_buffer = new double[max_id+1][max_id+1];//This is big....
+		dense_global_matrix_buffer = new double[max_id+1][max_id+1];//This is big....
 		for(int line_id=0;line_id<dense_global_matrix_buffer.length;line_id++) {
 			final double[] vec_1 = this.embedding_vector_index.get(line_id);
 			for(int col_id=line_id+1;col_id<dense_global_matrix_buffer[0].length;col_id++) {//Exploits symmetry
@@ -1038,7 +1040,45 @@ public class HungarianExperiment {
 			}
 		}
 		double stop = System.currentTimeMillis();
-		System.out.println("create_dense_matrix()\t"+(stop-start));
+		double check_sum = sum(dense_global_matrix_buffer);
+		int size = dense_global_matrix_buffer.length*dense_global_matrix_buffer[0].length;
+		
+		System.out.println("create_dense_matrix()\t"+(stop-start)+" check sum=\t"+check_sum+" size="+size);
+		
+		if(LOGGING_MODE) {
+			ArrayList<Double> raw_data = new ArrayList<Double>(size);
+			for(double[] arr : dense_global_matrix_buffer) {
+				for(double d : arr) {
+					raw_data.add(d);
+				}
+			}
+			HistogramDouble hist = new HistogramDouble(raw_data);
+			System.out.println("size\tsum\tmin\tmax");
+			System.out.println(hist.size()+"\t"+hist.sum()+"\t"+hist.get_min()+"\t"+hist.get_max());
+			System.out.println(hist.getStatistics());
+			System.out.println(hist);
+			
+			//Now weights based on occurrence frequency: Works best for Book Granularity
+			raw_data.clear();
+			int[] book_1 = raw_paragraphs_b1.get(0);
+			int[] book_2 = raw_paragraphs_b2.get(0);
+			final double[][] matrix = new double[book_1.length][book_2.length];
+			for(int line = 0; line < book_1.length; line++) {
+				int token_id_1 = book_1[line];
+				double[] vec_1 = embedding_vector_index.get(token_id_1);
+				for(int column = 0; column < book_2.length; column++){
+					int token_id_2 = book_2[column];	
+					double[] vec_2 = embedding_vector_index.get(token_id_2);
+					double dist = dist(token_id_1, token_id_2, vec_1, vec_2);
+					raw_data.add(dist);
+				}
+			}
+			hist = new HistogramDouble(raw_data);
+			System.out.println("size\tsum\tmin\tmax");
+			System.out.println(hist.size()+"\t"+hist.sum()+"\t"+hist.get_min()+"\t"+hist.get_max());
+			System.out.println(hist.getStatistics());
+			System.out.println(hist);
+		}
 	}
 
 	private int get_key(int set_id_window_p1, int set_id_window_p2) {
@@ -1150,6 +1190,9 @@ public class HungarianExperiment {
 		
 		double[] run_times = new double[num_paragraphs];
 			
+        long count_survived_pruning = 0;
+        long count_computed_cells   = 0;
+		
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
 			start = System.currentTimeMillis();
@@ -1179,11 +1222,13 @@ public class HungarianExperiment {
 					final double lb_cost = get_column_row_sum(cost_matrix);
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+						count_survived_pruning++;
 						//That's the important line
 						double cost = this.solver.solve(cost_matrix, threshold);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
+							count_computed_cells++;
 							alignment_matrix_line[column] = normalized_similarity;
 						}//else keep it zero
 					}
@@ -1201,7 +1246,9 @@ public class HungarianExperiment {
 			}
 			stop = System.currentTimeMillis();
 			run_times[p] = (stop-start);
-			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			int size = alignment_matrix.length*alignment_matrix[0].length;
+			double check_sum = sum(alignment_matrix);
+			System.out.println("P="+p+"\t"+(stop-start)+"\t"+check_sum+"\t"+size+"\t"+count_survived_pruning+"\t"+count_computed_cells);
 			this.alignement_matrixes.add(alignment_matrix);
 		}
 		String experiment_name = "";//default experiment, has no special name
@@ -1376,7 +1423,7 @@ public class HungarianExperiment {
 					
 					lb_cost = get_row_sum(cost_matrix);
 					min_col(cost_matrix, replace_position);
-					lb_cost = Math.min(lb_cost, this.col_sum);
+					lb_cost = Math.max(lb_cost, this.col_sum);//XXX max()
 					
 					//lb_cost = get_column_row_sum(cost_matrix);
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
@@ -1640,8 +1687,11 @@ public class HungarianExperiment {
 			double dotProduct = 0.0;
 		    for (int i = 0; i < vectorA.length; i++) {
 		        dotProduct += vectorA[i] * vectorB[i];
-		    }   
-		    return 1-(dotProduct);
+		    }
+		    double dist = 1-dotProduct;
+		    dist = (dist < 0) ? 0 : dist;
+		    dist = (dist > 1) ? 1 : dist;
+		    return dist;
 		}else{
 			double dotProduct = 0.0;
 		    double normA = 0.0;
@@ -1650,8 +1700,11 @@ public class HungarianExperiment {
 		        dotProduct += vectorA[i] * vectorB[i];
 		        normA += Math.pow(vectorA[i], 2);
 		        normB += Math.pow(vectorB[i], 2);
-		    }   
-		    return 1-(dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)));
+		    }
+		    double dist = 1-(dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)));
+		    dist = (dist < 0) ? 0 : dist;
+		    dist = (dist > 1) ? 1 : dist;
+		    return dist;
 		}
 	    
 	}

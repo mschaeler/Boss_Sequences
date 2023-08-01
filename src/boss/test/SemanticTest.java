@@ -53,8 +53,8 @@ public class SemanticTest {
 				//he.run_baseline_zick_zack();
 				//run_times=he.run_zick_zack();
 				//run_times=he.run_candidates_min_matrix();
-				run_times=he.run_candidates_min_matrix_2();
-				//run_times=he.run_solution();
+				//run_times=he.run_candidates_min_matrix_2();
+				run_times=he.run_solution();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
 				//he.run_baseline_global_matrix_sparse();
@@ -150,7 +150,8 @@ public class SemanticTest {
 		
 		HashMap<Integer, double[]> embedding_vector_index;
 		if(embedding_vector_index_buffer==null) {
-			String file_path = Embedding.get_embedding_path(books.get(0).language,false);
+			boolean ignore_stopwords = false;
+			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords);
 			embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
 		}else{
 			embedding_vector_index = embedding_vector_index_buffer;
