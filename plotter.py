@@ -151,13 +151,13 @@ def plot_heatmap():
 
     A = np.zeros((len(W_S), len(W_T)))
 
-    for i in range(len(W_S)):
-        for j in range(len(W_T)):
-            sim = jaccard_similarity(W_S[i], W_T[j])
-            if (sim >= theta):
-                A[i][j] = sim
+    # for i in range(len(W_S)):
+    #     for j in range(len(W_T)):
+    #         sim = jaccard_similarity(W_S[i], W_T[j])
+    #         if (sim >= theta):
+    #             A[i][j] = sim
             
-    
+    load_matrix_from_text('./baseline/amatrix_log_0.3.txt', A)
     print(A)
 
     labels_ws = ["S_{0}".format(i) for i in range(1, len(W_S) + 1)]
@@ -168,12 +168,23 @@ def plot_heatmap():
     texts = annotate_heatmap(im, valfmt="{x:.1f}")
     fig.tight_layout()
     # plt.show()
-    plt.savefig("jaccard_heatmap.png")
+    plt.savefig("semantic_heatmap_0.3.png")
     plt.cla()
     plt.clf()
 
 
+def load_matrix_from_text(filename, A):
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+    lines = [line.strip() for line in lines]
 
+    for i, line in enumerate(lines):
+        row = line.split(',')
+        del row[-1]
+        row_d = [float(r.strip()) for r in row]
+        A[:, i] = row_d
+    
 
 def get_data(fileloc):
     file = open(fileloc, 'r')
@@ -310,6 +321,6 @@ def plot_sc():
 
 
 if __name__ == "__main__":
-    # plot_heatmap()
+    plot_heatmap()
     # plot_results()
-    plot_sc()
+    # plot_sc()

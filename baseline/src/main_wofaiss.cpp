@@ -20,6 +20,7 @@
 #include <cstring>
 #include <cmath>
 #include <sstream>
+#include <iomanip>
 #include <deque>
 #include <numeric>
 #include <queue>
@@ -1156,10 +1157,21 @@ class IndexStructures{
 		double theta;
 		std::vector<std::vector<double>> costMatrix;
 		// std::unordered_map<int, std::vector<std::vector<int>>> slidingWindowInvertedIndex;
+		std::unordered_map<int, std::set<pair<int, string>>> slidingWindowInvertedIndex_v4;
 		std::unordered_map<int, std::set<pair<int, vector<int>>, sliding_window_ordering>> slidingWindowInvertedIndex_v3;
 		std::unordered_map<int, std::vector<pair<int, std::vector<int>>>> slidingWindowInvertedIndex_v2;
 		std::unordered_map<int, std::set<pair<double, int>, cmp_decreasing>> tokensSimIndex;
+		std::unordered_map<int, std::set<pair<int, vector<int>>, sliding_window_ordering>> cache;
 		double tokenSimIndexTime = 0.0;
+
+		// vector<int> -- > string {1, 2,3} length = 3 --> "001002003"
+		std::string convertToKLengthString(const std::vector<int>& nums, int length) {
+			std::stringstream ss;
+			for (int num : nums) {
+				ss << std::setfill('0') << std::setw(length) << num;
+			}
+			return ss.str();
+		}
 
 	public:
 		IndexStructures(vector<int>* _set1Tokens, vector<int>* _set2Tokens, DataLoader* _dl, int _k, double _theta) : 
@@ -1170,6 +1182,7 @@ class IndexStructures{
 			std::chrono::duration<double> sim_elapsed;
 			simstart = std::chrono::high_resolution_clock::now();
 			for (vector<int>::iterator it1 = set1Tokens->begin(); it1 != set1Tokens->end(); ++it1) {
+				vector<double> temp;
 				int word1 = *it1;
 				for (vector<int>::iterator it2 = set2Tokens->begin(); it2 != set2Tokens->end(); ++it2) {
 					int word2 = *it2;
@@ -1177,8 +1190,10 @@ class IndexStructures{
 					if (sim >= theta) {
 						tokensSimIndex[word1].insert(make_pair(sim, word2));
 					}
+					temp.push_back(0.0 - sim);
 					// tokensSimIndex[word1].insert(make_pair(sim, word2));
 				}
+				costMatrix.push_back(temp);
 			}
 			simend = std::chrono::high_resolution_clock::now();
 			sim_elapsed = simend - simstart;
@@ -1207,6 +1222,7 @@ class IndexStructures{
 				for (int t : currWindow) {
 					// slidingWindowInvertedIndex_v2[t].push_back(make_pair(j, currWindow));
 					slidingWindowInvertedIndex_v3[t].insert(make_pair(j, currWindow));
+					// slidingWindowInvertedIndex_v4[t].insert(make_pair(j, convertToKLengthString(currWindow)));
 				}
 			}
 		}
@@ -1224,6 +1240,7 @@ class IndexStructures{
 
 		// 	return result;
 		// }
+
 		vector<vector<int>> intersect(const vector<vector<int>>& v1, const vector<pair<int, vector<int>>>& v2) {
 			unordered_set<vector<int>, VectorHash> set1(v1.begin(), v1.end());
 			vector<vector<int>> result;
@@ -1291,15 +1308,14 @@ class IndexStructures{
 			// If your sets are not already sorted, you can sort them before computing the intersection.
 
 			// Set intersection requires both sets to be sorted.
-			std::set_intersection(
+			// std::set_intersection(
+			// 	set1.begin(), set1.end(),
+			// 	set2.begin(), set2.end(),
+			// 	std::inserter(intersection, intersection.begin()));
+			std::set_union(
 				set1.begin(), set1.end(),
 				set2.begin(), set2.end(),
-				std::inserter(intersection, intersection.begin()),
-				[](const auto& p1, const auto& p2) {
-					// Comparator to compare pairs based on the lexicographical order of the vector<int>
-					return std::lexicographical_compare(p1.second.begin(), p1.second.end(),
-														p2.second.begin(), p2.second.end());
-				});
+				std::inserter(intersection, intersection.begin()));
 
 			return intersection;
 		}
@@ -1307,9 +1323,10 @@ class IndexStructures{
 		std::set<pair<int, vector<int>>, sliding_window_ordering> getCandidates(const vector<int>& queryWindow) {
 			std::set<pair<int, vector<int>>, sliding_window_ordering> candidates;
 			for (int token : queryWindow) {
-				if (tokensSimIndex.find(token) != tokensSimIndex.end()) {
+				std::set<pair<int, vector<int>>, sliding_window_ordering> candidates_cached;
+				if ((tokensSimIndex.find(token) != tokensSimIndex.end()) && (cache.find(token) == cache.end())) {
 					const set<pair<double, int>, cmp_decreasing>& simTokens = tokensSimIndex.at(token);
-
+					// cout << "Size of similar Tokens: " << simTokens.size() << std::endl;
 					for (const auto& simToken : simTokens) {
 						int similarToken = simToken.second;
 
@@ -1322,12 +1339,36 @@ class IndexStructures{
 								candidates = slidingWindows;
 							}
 
+							if (!candidates_cached.empty()) {
+								candidates_cached = computeIntersection(candidates_cached, slidingWindows);
+							} else {
+								candidates_cached = slidingWindows;
+							}
+
 						}
 					}
+					cache[token] = candidates_cached;
+				} else {
+					candidates = cache[token];
 				}
 			}
 
 			return candidates;
+		}
+
+		double calculateSim(int i, int j, HungarianAlgorithm HungAlgo) {
+			vector<vector<double>> currWindow(k, vector<double>(k));
+			for (int m = 0; m < k; m++) {
+				for (int n = 0; n < k; n++) {
+					currWindow[m][n] = costMatrix[i + m][j + n];
+				}
+			}
+			// HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
+			vector<int> assignment;
+			double cost = HungAlgo.Solve(currWindow, assignment);
+			// double sim;
+			return -cost / k;
+
 		}
 
 		void reportStats() {
@@ -1526,18 +1567,44 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	int set2ID = *text2Sets.begin();
 	vector<int>& set1Tokens = sets[set1ID];
 	vector<int>& set2Tokens = sets[set2ID];
+	HungarianAlgorithm HungAlgo;
+
 	IndexStructures* indexStruct = new IndexStructures(&set1Tokens, &set2Tokens, dl, k, theta);
 	indexStruct->reportStats();
 	vector<vector<int>> &set1Windows = kWidthWindows[set1ID];
-	for (vector<int> window : set1Windows) {
+	int height = kWidthWindows[set2ID].size();
+	int width = set1Windows.size();
+	double* alignmentMatrix = new double[width * height];
+	for (int i = 0; i < set1Windows.size(); i++) {
 		// vector<vector<int>> candidates = indexStruct->findCandidateWindows(window);
-		set<pair<int, vector<int>>, sliding_window_ordering> candidates = indexStruct->getCandidates(window);
-		cout << candidates.size() << endl;
+		set<pair<int, vector<int>>, sliding_window_ordering> candidates = indexStruct->getCandidates(set1Windows[i]);
+		// cout << candidates.size() << endl;
+		for (auto t : candidates) {
+			int j = t.first;
+			double sim = indexStruct->calculateSim(i, j, HungAlgo);
+			alignmentMatrix[i + j * width] = ( sim >= theta) ? sim : 0.0; 
+		}
+
 	}	
 
 
 
 	bs_search_end = std::chrono::high_resolution_clock::now();
+
+	// calculate the number of cells below the threshold
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < height; j++) {
+			if (alignmentMatrix[i + j * width] < theta) {
+				numberOfZeroEntries += 1;
+			}
+		}
+	}
+
+	for (int i = 0; i < width; i++) {
+			for (int j = 0; j < height; j++) {
+				cout << alignmentMatrix[i + j * width] << "," << " \n"[j == height - 1];
+			}
+		}
 	bs_search_elapsed = bs_search_end - bs_search_start;
 	bs_search_time = bs_search_elapsed.count();
 	cout << "Main Loop Time: " << bs_search_time << endl;

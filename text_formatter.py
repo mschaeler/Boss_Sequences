@@ -13,6 +13,7 @@ def load_data(fileloc):
     data = {}
     del lines[0]
     verse = -1
+    all_lines = []
     for line in lines:
         if line.startswith('--'):
             verse = int(line.replace('--', '').strip())
@@ -32,8 +33,20 @@ def load_data(fileloc):
             # print(verse)
             if verse > 0:
                 data[verse].insert(sequence_id - 1,formatted_seq)
-    return data
+                all_lines.extend(formatted_seq)
+    # return data
+    return all_lines
 
+
+
+def write_book(data, outfolder):
+    os.makedirs(outfolder, exist_ok=True)
+    print(outfolder)
+    file_nmae = '1.txt'
+    with open(os.path.join(outfolder, file_nmae), 'w') as out:
+        for word in data:
+            out.write('{0}\n'.format(word.lower()))
+    out.close()
 
 def write_data(data, outfolder):
     os.makedirs(outfolder, exist_ok=True)
@@ -45,6 +58,7 @@ def write_data(data, outfolder):
         for idx, v1 in enumerate(v):
             # outfolder_1 = outfolder + '{0}_{1}'.format(k, idx)
             outfolder_1 = outfolder + '{0}'.format(k)
+            # outfolder_1 = outfolder
             os.makedirs(outfolder_1, exist_ok=True)
             # f = file_name.format(k, idx+1)
             f = file_name.format(k)
@@ -96,8 +110,9 @@ def vectort_test():
 
 
 if __name__ == "__main__":
-    # fileloc = "./data/en/king_james_bible.txt"
-    # data = load_data(fileloc)
-    # outfolder ="/root/data/en/king_james_bible_chapter/"
+    fileloc = "./data/en/esv.txt"
+    data = load_data(fileloc)
+    outfolder ="/root/data/en/esv_book/"
+    write_book(data, outfolder)
     # write_data(data, outfolder)
-    vectort_test()
+    # vectort_test()
