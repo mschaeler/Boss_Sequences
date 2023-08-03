@@ -8,7 +8,11 @@
 #include <string>
 #include <vector>
 #include "HungarianKevinStern.h"
+#include "Hungarian.h"
+#include "PermutationSolver.h"
+#include "Environment.h"
 #include <algorithm>    // std::sort
+#include <chrono>
 
 using namespace std;
 

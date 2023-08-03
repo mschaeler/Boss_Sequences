@@ -3,10 +3,6 @@
 #include <math.h>       /* sqrt */
 #include <algorithm>    // std::sort
 #include <chrono>
-
-#include "Environment.h"
-#include "Hungarian.h"
-#include "PermutationSolver.h"
 #include "Experiment.h"
 
 using namespace std;

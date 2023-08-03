@@ -50,8 +50,10 @@ private:
 
 public:
     Environment(){
-        string text1location = "..//data/en/esv/";
-        string text2location = "..//data/en/king_james_bible/";
+        // string text1location = "../data/en/esv/";
+        // string text2location = "../data/en/king_james_bible/";
+        string text1location = "/root/data/en/esv_book_martin/";
+        string text2location = "/root/data/en/king_james_bible_book_martin/";
 
         //get_files_from_directory(text1location);
 
