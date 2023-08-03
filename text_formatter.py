@@ -34,8 +34,8 @@ def load_data(fileloc):
             if verse > 0:
                 data[verse].insert(sequence_id - 1,formatted_seq)
                 all_lines.extend(formatted_seq)
-    # return data
-    return all_lines
+    return data
+    # return all_lines
 
 
 
@@ -51,17 +51,17 @@ def write_book(data, outfolder):
 def write_data(data, outfolder):
     os.makedirs(outfolder, exist_ok=True)
     print(outfolder)
-    # file_name = '{0}_{1}.txt'
+    file_name = '{0}_{1}.txt'
     # file_name = '{0}/{1}.txt'
-    file_name = '{0}.txt'
+    # file_name = '{0}.txt'
     for k, v in data.items():
         for idx, v1 in enumerate(v):
             # outfolder_1 = outfolder + '{0}_{1}'.format(k, idx)
-            outfolder_1 = outfolder + '{0}'.format(k)
-            # outfolder_1 = outfolder
+            # outfolder_1 = outfolder + '{0}'.format(k)
+            outfolder_1 = outfolder
             os.makedirs(outfolder_1, exist_ok=True)
             # f = file_name.format(k, idx+1)
-            f = file_name.format(k)
+            f = file_name.format(k, idx+1)
             with open(os.path.join(outfolder_1, f), 'a') as out:
                 for word in v1:
                     out.write('{0}\n'.format(word.lower()))
@@ -110,9 +110,9 @@ def vectort_test():
 
 
 if __name__ == "__main__":
-    fileloc = "./data/en/esv.txt"
+    fileloc = "./data/en/king_james_bible.txt"
     data = load_data(fileloc)
-    outfolder ="/root/data/en/esv_book/"
-    write_book(data, outfolder)
-    # write_data(data, outfolder)
+    outfolder ="/root/data/en/king_james_bible_book_martin/"
+    # write_book(data, outfolder)
+    write_data(data, outfolder)
     # vectort_test()

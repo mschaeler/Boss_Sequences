@@ -1356,6 +1356,43 @@ class IndexStructures{
 			return candidates;
 		}
 
+		double sum(const std::vector<double>& vec) {
+			double result = 0.0;
+			for (double val : vec) {
+				result += val;
+			}
+			return result;
+		}
+
+		double get_column_row_sum(vector<vector<double>>& matrix) {
+			int k = matrix.size(); 
+			std::vector<double> k_buffer(k, std::numeric_limits<double>::max());
+			double row_sum = 0;
+
+			for (int i = 0; i < k; ++i) {
+				const std::vector<double>& line = matrix[i];
+				double row_min = std::numeric_limits<double>::max();
+
+				for (int j = 0; j < k; ++j) {
+					const double val = line[j];
+					if (val < row_min) {
+						row_min = val;
+					}
+
+					if (val < k_buffer[j]) {
+						k_buffer[j] = val;
+					}
+				}
+
+				row_sum += row_min;
+			}
+
+			double col_sum = sum(k_buffer);
+			double min_cost = std::max(row_sum, col_sum);
+
+			return min_cost;
+		}
+
 		double calculateSim(int i, int j, HungarianAlgorithm HungAlgo) {
 			vector<vector<double>> currWindow(k, vector<double>(k));
 			for (int m = 0; m < k; m++) {
@@ -1364,10 +1401,16 @@ class IndexStructures{
 				}
 			}
 			// HungarianKevinStern* HungAlgoStern = new HungarianKevinStern(k);
-			vector<int> assignment;
-			double cost = HungAlgo.Solve(currWindow, assignment);
-			// double sim;
-			return -cost / k;
+			double lb_cost = get_column_row_sum(currWindow);
+			double est_normalized_sim = - (lb_cost / static_cast<double>(k));
+			if (est_normalized_sim >= theta) {
+				vector<int> assignment;
+				double cost = HungAlgo.Solve(currWindow, assignment);
+				return -cost / k;
+			} else {
+				// cout << "here" << endl;
+				return 0.0;
+			}
 
 		}
 
@@ -1578,11 +1621,17 @@ void baseline(Environment *env, DataLoader *dl, int k, double theta) {
 	for (int i = 0; i < set1Windows.size(); i++) {
 		// vector<vector<int>> candidates = indexStruct->findCandidateWindows(window);
 		set<pair<int, vector<int>>, sliding_window_ordering> candidates = indexStruct->getCandidates(set1Windows[i]);
-		// cout << candidates.size() << endl;
+		cout << candidates.size() << endl;
 		for (auto t : candidates) {
 			int j = t.first;
-			double sim = indexStruct->calculateSim(i, j, HungAlgo);
-			alignmentMatrix[i + j * width] = ( sim >= theta) ? sim : 0.0; 
+			if (alignmentMatrix[i + j * width] == 0.0) {
+				double sim = indexStruct->calculateSim(i, j, HungAlgo);
+				alignmentMatrix[i + j * width] = ( sim >= theta) ? sim : -1.0; 
+			} else {
+				cout << "already processed" << endl;
+			}
+			// double sim = indexStruct->calculateSim(i, j, HungAlgo);
+			// alignmentMatrix[i + j * width] = ( sim >= theta) ? sim : 0.0; 
 		}
 
 	}	
