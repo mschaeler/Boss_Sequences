@@ -1,0 +1,43 @@
+creating environment with lakes: /root/data/en/king_james_bible_book_martin/, /root/data/en/esv_book_martin/
+167 text1_files listed
+167 text2_files listed
+Token not found in embeddings Syntactic Token->-1
+Token not found in embeddings dared->-1
+Token not found in embeddings disdained->-1
+Token not found in embeddings rods->-1
+Computing global dist matrix [BEGIN]
+Computing global dist matrix Check sum=1.13796e+06 size= 1261129 [DONE] 0.517537
+run_baseline() 
+Experiment k=3 threshold=0.7
+Alignment matrix size 5628 x 5475
+Cost matrix size 1123 x 1123
+run_baseline() time: 14.5787
+run_baseline() [DONE]
+run_baseline() 
+Experiment k=4 threshold=0.7
+Alignment matrix size 5627 x 5474
+Cost matrix size 1123 x 1123
+run_baseline() time: 25.9531
+run_baseline() [DONE]
+run_baseline() 
+Experiment k=5 threshold=0.7
+Alignment matrix size 5626 x 5473
+Cost matrix size 1123 x 1123
+run_baseline() time: 43.5328
+run_baseline() [DONE]
+run_baseline() 
+Experiment k=6 threshold=0.7
+Alignment matrix size 5625 x 5472
+Cost matrix size 1123 x 1123
+run_baseline() time: 63.9631
+run_baseline() [DONE]
+run_baseline() 
+Experiment k=7 threshold=0.7
+Alignment matrix size 5624 x 5471
+Cost matrix size 1123 x 1123
+run_baseline() time: 92.0675
+run_baseline() [DONE]
+run_baseline() 
+Experiment k=8 threshold=0.7
+Alignment matrix size 5623 x 5470
+Cost matrix size 1123 x 1123

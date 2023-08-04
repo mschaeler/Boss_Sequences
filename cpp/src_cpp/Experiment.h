@@ -1,5 +1,6 @@
 //
 // Created by Martin on 28.07.2023.
+// Edited by Pranay on 04.08.2023.
 //
 
 #ifndef PRANAY_TEST_EXPERIMENT_H
@@ -8,7 +9,6 @@
 #include <string>
 #include <vector>
 #include "HungarianKevinStern.h"
-#include "Hungarian.h"
 #include "PermutationSolver.h"
 #include "Environment.h"
 #include <algorithm>    // std::sort
@@ -95,10 +95,8 @@ private:
     const double DOUBLE_PRECISION_BOUND = 0.0001;
     const double MAX_DOUBLE = 10000;
 
-    const int num_paragraphs;
     const int k;
     const double threshold;
-    const int max_id;
 
     const vector<int> book_1;
     const vector<int> book_2;
@@ -177,11 +175,9 @@ private:
     }
 
 public:
-    Experiment(int _num_paragraphs, int _k, double _threshold, int _max_id, vector<int> _book_1, vector<int> _book_2, vector<vector<double>> _cost_matrix) :
-        num_paragraphs(_num_paragraphs)
-        , k(_k)
+    Experiment(int _k, double _threshold, vector<int> _book_1, vector<int> _book_2, vector<vector<double>> _cost_matrix) :
+        k(_k)
         , threshold(_threshold)
-        , max_id(_max_id)
         , book_1(_book_1)
         , book_2(_book_2)
         , global_cost_matrix(_cost_matrix)
@@ -200,7 +196,6 @@ public:
         cout << "run_baseline_safe() " << endl;
         out_config();
 
-        HungarianAlgorithm HungAlgo;
         PermutationSolver ps(k);
         HungarianKevinStern HKS(k);
 
@@ -219,22 +214,8 @@ public:
                 //Create local cost matrix for the Hungarian
                 fill_local_cost_matrix(line,column,cost_matrix);
 
-                double cost = HungAlgo.Solve(cost_matrix,assignment);
                 double cost_safe = ps.solve(cost_matrix);
                 double cost_hks = HKS.solve_cached(cost_matrix, threshold);
-
-                if(cost!=cost_safe){
-                    cout << "sim != sim_by_perm @ row=" << line << " column="<<column << endl;
-                    cout << cost << " vs. "<<cost_safe << endl;
-                    for(vector<double> line : cost_matrix){
-                        for(double d : line){
-                            cout << d << " ";
-                        }
-                        cout << endl;
-                    }
-                    cout << endl;
-                    ps.solve(cost_matrix);
-                }
 
                 if(cost_hks!=cost_safe){
                     cout << "sim != cost_hks @ row=" << line << " column="<<column << endl;
@@ -249,7 +230,7 @@ public:
                     ps.solve(cost_matrix);
                 }
 
-                double normalized_similarity = 1.0 - (cost / (double)k);
+                double normalized_similarity = 1.0 - (cost_hks / (double)k);
                 if(normalized_similarity>=threshold) {
                     alignment_matrix_line.at(column) = normalized_similarity;
                 }//else keep it zero
@@ -258,7 +239,7 @@ public:
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
         cout << "run_baseline_sfae() time: " << time_elapsed.count() << endl;
 
-        cout << " run_baseline() [DONE]" << endl;
+        cout << " run_baseline_safe() [DONE]" << endl;
         return time_elapsed.count();
     }
 
@@ -307,10 +288,10 @@ public:
 
     inline void fill_local_cost_matrix(const int line, const int column, vector<vector<double>>& cost_matrix){
         for(int i=0;i<k;i++) {
-            const int set_id_window_b1 = k_with_windows_b1[line][i];
+            const int token_id_window_b1 = k_with_windows_b1[line][i];
             for(int j=0;j<k;j++) {
-                const int set_id_window_b2 = k_with_windows_b2[column][j];
-                cost_matrix[i][j] = global_cost_matrix[set_id_window_b1][set_id_window_b2];
+                const int token_id_window_b2 = k_with_windows_b2[column][j];
+                cost_matrix[i][j] = global_cost_matrix[token_id_window_b1][token_id_window_b2];
             }
         }
     }
@@ -494,13 +475,13 @@ public:
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
         int size = alignment_matrix.size() * alignment_matrix.at(0).size();
         double check_sum = sum(alignment_matrix);
-        cout << "run_pruning() [DONE]" << endl;
+        cout << "run_pruning_max_matrix_value() [DONE]" << endl;
         cout << "0\t" << time_elapsed.count() << "\t" << size << "\t" << check_sum << "\t" << count_survived_pruning << "\t" << count_computed_cells << endl;
         return time_elapsed.count();
     }
 
     double run_candidates(){
-        cout << "run_pruning_max_matrix_value() " << endl;
+        cout << "run_candidates() " << endl;
         out_config();
 
         HungarianKevinStern HKS(k);
@@ -564,8 +545,8 @@ public:
         return time_elapsed.count();
     }
 
-    double run_pruning(){
-        cout << "run_pruning_max_matrix_value() " << endl;
+    double run_pruning_column_row_sum(){
+        cout << "run_pruning_column_row_sum() " << endl;
         out_config();
 
         HungarianKevinStern HKS(k);
@@ -600,7 +581,7 @@ public:
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
         int size = alignment_matrix.size() * alignment_matrix.at(0).size();
         double check_sum = sum(alignment_matrix);
-        cout << "run_pruning() [DONE]" << endl;
+        cout << "run_pruning_column_row_sum() [DONE]" << endl;
         cout << "0\t" << time_elapsed.count() << "\t" << size << "\t" << check_sum << "\t" << count_survived_pruning << "\t" << count_computed_cells << endl;
         return time_elapsed.count();
     }
@@ -609,7 +590,6 @@ public:
         cout << "run_baseline() " << endl;
         out_config();
 
-        HungarianAlgorithm HungAlgo;
         HungarianKevinStern HKS(k);
 
         vector<vector<double>> cost_matrix(k, vector<double>(k));

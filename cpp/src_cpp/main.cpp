@@ -92,12 +92,12 @@ public:
     }
 
     double dist(const int token1_ID, const int token2_ID) {
-        if(token1_ID==token2_ID) {
-            return 0;
+        if(token1_ID == token2_ID) {
+            return 0.0;
         }
         // if either token doesn't have a vector then similarity is 0
         if ((vectors.find(token1_ID) == vectors.end()) || (vectors.find(token2_ID) == vectors.end())) {
-            return 1;
+            return 1.0;
         }
 
         // we calculate the similarity and cache it
@@ -170,7 +170,6 @@ private:
     int zero_entries = 0;
     DataLoader *dl;
     vector<vector<double>> cost_matrix_buffer;
-    HungarianAlgorithm HungAlgo;
 
 public:
     AMatrix(vector<vector<int>>* Ws, vector<vector<int>>* Wt, int _k, double threshold, DataLoader *_dl) :
@@ -237,8 +236,9 @@ public:
 
     double solve(vector<vector<double>>& cost_matrix) {
         vector<int> assignment;
+        HungarianKevinStern HKS(k);
 
-        double cost = HungAlgo.Solve(cost_matrix, assignment);
+        double cost = HKS.solve_cached(cost_matrix, theta);
         return -cost/k;
         return 1.0;
     }
@@ -387,6 +387,7 @@ vector<vector<double>> get_dist_matrix(vector<int>& raw_book_1, vector<int>& raw
         }
     }
     chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+
     //cout << "Sliding Window Computation time: " << time_elapsed.count() << endl;
 
     double sum = 0;
@@ -445,9 +446,7 @@ vector<vector<double>> get_dist_matrix(vector<int>& raw_book_1, vector<int>& raw
  * @param loader
  * @param theta
  */
-void run_experiments(Environment& env, DataLoader& loader, const double theta){
-    int num_paragraphs = 123;
-    int max_id = 123;
+void run_experiments(Environment& env, DataLoader& loader, const double theta, int type){
 
     set<int> text1Sets = env.getText1SetIds();
     set<int> text2Sets = env.getText2SetIds();
@@ -462,14 +461,21 @@ void run_experiments(Environment& env, DataLoader& loader, const double theta){
     vector<double> run_times;
 
     for(int k : k_s){
-        Experiment exp(num_paragraphs, k, theta, max_id, raw_book_1, raw_book_2, dist_matrix);
+        Experiment exp(k, theta, raw_book_1, raw_book_2, dist_matrix);
         //exp.out_config();
-        //double run_time = exp.run_baseline();
-        //double run_time = exp.run_baseline_safe();
-        //double run_time = exp.run_pruning();
-        //double run_time = exp.run_zick_zack();
-        //double run_time = exp.run_pruning_max_matrix_value();
-        double run_time = exp.run_candidates();
+        double run_time;
+
+        if (type == 0) {
+            run_time = exp.run_baseline();
+        } else if (type == 1) {
+            run_time = exp.run_pruning_column_row_sum();
+        } else if (type == 2) {
+            run_time = exp.run_zick_zack();
+        } else if (type == 3) {
+            run_time = exp.run_pruning_max_matrix_value();
+        } else {
+            run_time = exp.run_candidates();
+        }
 
         run_times.push_back(run_time);
     }
@@ -483,24 +489,28 @@ void run_experiments(Environment& env, DataLoader& loader, const double theta){
     cout << endl;
 }
 
-int main() {
-    //load_texts();
-    int k = 3;
-    double theta = 0.7;
+/**
+ * Main Function : Entry Point
+ * @param : 
+*/
+int main(int argc, char const *argv[]) {
+    // parse arguments
+    string text1_location = argv[1];
+    string text2_location = argv[2];
+    double theta = stod(argv[3]);
+    string data_file = argv[4];
+    // 0 : baseline, 1 : pruning_column_row_sum, 2 : zick_zak, 3 : pruning_max_matrix_value, 4 : candidates
+    int type = stoi(argv[5]);
 
-    Environment env;
-    //env.out();
 
-    bool ignore_stopwords = false;
-    string data_file;
-    if(ignore_stopwords) {
-        data_file = "..//data/en/matches.en.min.tsv";
-    }else{
-        data_file = "..//data/en/matches_stopwords.en.min.tsv";
-    }
+    Environment env(text1_location, text2_location);
     DataLoader loader(data_file, &env);
 
-    run_experiments(env, loader, theta);
+    run_experiments(env, loader, theta, type);
+
 
     return 0;
 }
+
+
+
