@@ -53,6 +53,8 @@
 #include <limits>
 #include <iostream>
 
+using namespace std;
+
 class HungarianKevinStern {
 private:
     const int dim;
