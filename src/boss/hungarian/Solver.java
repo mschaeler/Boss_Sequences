@@ -7,4 +7,5 @@ public abstract class Solver {
 	public abstract double solve(double[][] cost_matrix, final double threshold);
 	
 	public abstract String get_name();
+	public abstract int get_deleted_node_assigment();
 }

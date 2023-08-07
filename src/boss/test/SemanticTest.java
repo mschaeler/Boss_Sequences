@@ -1,6 +1,7 @@
 package boss.test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,6 +12,7 @@ import boss.hungarian.HungarianAlgorithmPranayImplementation;
 import boss.hungarian.HungarianAlgorithmWiki;
 import boss.hungarian.HungarianExperiment;
 import boss.hungarian.HungarianKevinStern;
+import boss.hungarian.HungarianKevinSternAlmpified;
 import boss.hungarian.StupidSolver;
 import boss.lexicographic.BasicTokenizer;
 import boss.lexicographic.TokenizedParagraph;
@@ -30,6 +32,7 @@ public class SemanticTest {
 	static final int GRANULARITY_BOOK_TO_BOOK     		= 3;
 	
 	public static void main(String[] args) {
+		
 		final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.7;
 		
@@ -54,11 +57,14 @@ public class SemanticTest {
 				//run_times=he.run_zick_zack();
 				//run_times=he.run_candidates_min_matrix();
 				//run_times=he.run_candidates_min_matrix_2();
-				run_times=he.run_solution();
+				//run_times=he.run_candidates_min_matrix_3();
+				//run_times=he.run_solution();
+				//run_times=he.run_incremental_cell_pruning();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
 				//he.run_baseline_global_matrix_sparse();
 				//he.test_hungarian_implementations();
+				run_times = he.run_check_node_deletion();
 				all_run_times.add(run_times);
 			}
 		}
@@ -82,6 +88,44 @@ public class SemanticTest {
 		for(double threshold = 0.0; threshold<1.0;threshold+=0.1) {
 			no_match_words(embeddings, threshold);	
 		}*/	
+	}
+	
+	public static void test_node_deletion_in_hungarian() {
+		int k = 3;
+		HungarianKevinSternAlmpified HKS = new HungarianKevinSternAlmpified(k);
+		double[][] cost_matrix = {
+				{-0.373873348,	-0.208628434,	-0.178146014}
+				,{-0.43714471,	-0.299635582,	-0.206376232}
+				,{-0.211175627,	-0.42104582,	-0.139257557}
+		};
+		HKS.solve(cost_matrix);
+		int[] assignement = HKS.get_assignment();
+		System.out.println(Arrays.toString(assignement));
+		
+		/*double[][] cost_matrix_d = {
+				{-0.208628434,	-0.178146014}
+				,{-0.299635582,	-0.206376232}
+				,{-0.42104582,	-0.139257557}
+		};*/
+		
+		double[][] cost_matrix_d = {
+				{-0.208628434, -0.299635582,	-0.42104582}
+				,{-0.178146014,	-0.206376232, -0.139257557}
+		};
+		
+		HKS.solve(cost_matrix_d);
+		assignement = HKS.get_assignment();
+		System.out.println(Arrays.toString(assignement));
+		
+		double[][] next_matrix = {
+				{-0.208628434,	-0.178146014,	-1}
+				,{-0.299635582,	-0.206376232,	-0.531359443}
+				,{-0.42104582,	-0.139257557,	-0.229745722}
+
+		};
+		HKS.solve(next_matrix);
+		assignement = HKS.get_assignment();
+		System.out.println(Arrays.toString(assignement));
 	}
 	
 	/*static void prepare_experiment_2(Book b_1, Book b_2) {

@@ -161,11 +161,7 @@ public class HungarianKevinSternAlmpified extends Solver{
 		}
 		//DONE - Collect result
 		
-		double cost = 0;
-		for(w=0; w<matchJobByWorker.length;w++) {
-			cost += org_cost_matrix[w][matchJobByWorker[w]];
-		}
-		
+		double cost = get_cost(org_cost_matrix);
 		return cost;
 	}
 	
@@ -208,11 +204,15 @@ public class HungarianKevinSternAlmpified extends Solver{
 		}
 		//DONE - Collect result
 		
+		double cost = get_cost(org_cost_matrix);
+		
+		return cost;
+	}
+	
+	public final double get_cost(final double[][] org_cost_matrix) {
 		double cost = 0;
-		double cost_2 = 0;
-		for(w=0; w<matchJobByWorker.length;w++) {
+		for(int w=0; w<matchJobByWorker.length;w++) {
 			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
-			cost_2+=org_cost_matrix[w][matchWorkerByJob[w]];
 		}
 		
 		return cost;
@@ -454,5 +454,57 @@ public class HungarianKevinSternAlmpified extends Solver{
 		String s = "#solve\t#phases";
 		s+="\n"+this.solve_counter+"\t"+this.phase_counter;
 		return s;
+	}
+	@Override
+	public int get_deleted_node_assigment() {
+		return matchWorkerByJob[0];
+	}
+	
+	/**
+	 * When moving the window one cell to the right. We delete the first node. 
+	 * The idea now is to use the remaining assignments to jump start the algorithm 
+	 * and to increase the tightness of the bound.
+	 * 
+	 * Unfortunately, the sub assignment is not necessarily optimal as the deleted node
+	 * introduces a constraint, such that different assignment may be optimal to minimize costs.
+	 * 
+	 * The method thus looks for an optimal assignment.
+	 * 
+	 */
+	public final void delete_node(final double[][] cost_matrix){
+		final int free_job = get_deleted_node_assigment();
+		
+		//for each other worker now check whether there is a better assignment: We call this slack
+		double min_slack = Double.POSITIVE_INFINITY;
+		int min_slack_worker = -1;
+		//Find the best new single assignment swap, if there is one
+		for(int worker = 1;worker<dim;worker++) {
+			final int current_job = matchWorkerByJob[worker];//i.e., column
+			final double cur_cost = cost_matrix[current_job][worker];
+			final double alternative_cost = cost_matrix[free_job][worker];
+			 
+			if(cur_cost>alternative_cost) {
+				final double slack = cur_cost-alternative_cost;
+				if(min_slack>slack){
+					min_slack = slack;
+					min_slack_worker = worker;
+				}
+			}
+		}
+		//
+		if(min_slack_worker!=-1) {
+			//This is a trick for the recursive call below
+			match(matchWorkerByJob[min_slack_worker],0);
+			//Here we assign the new position
+			match(free_job, min_slack_worker);
+			
+			//TODO delete_node(cost_matrix);//TODO check ob notwendig
+		}else{
+			return;
+		}
+	}
+
+	public int[] get_assignment() {
+		return matchWorkerByJob;
 	}
 }

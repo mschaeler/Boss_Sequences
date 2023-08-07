@@ -109,4 +109,10 @@ public class HungarianAlgorithmWiki extends Solver{
 	public String get_name() {
 		return "HungarianAlgorithm by Lopatin";
 	}
+	
+	@Override
+	public int get_deleted_node_assigment() {
+		System.err.println("get_deleted_node_assigment() not implemented");
+		return -1;
+	}
 }

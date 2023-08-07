@@ -113,4 +113,10 @@ public class StupidSolver extends Solver{
 	public String get_name() {
 		return this.getClass().getCanonicalName();
 	}
+
+	@Override
+	public int get_deleted_node_assigment() {
+		System.err.println("get_deleted_node_assigment() not implemented");
+		return -1;
+	}
 }

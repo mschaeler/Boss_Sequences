@@ -335,4 +335,9 @@ public class HungarianKevinStern extends Solver{
 	public String get_name() {
 		return "Hungarian Algorithm by Kevin Stern";
 	}
+	
+	@Override
+	public int get_deleted_node_assigment() {
+		return matchWorkerByJob[0];
+	}
 }
