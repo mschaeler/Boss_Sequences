@@ -4,7 +4,7 @@ import argparse
 
 
 
-log_file = './results/esv_king_james_{0}_theta_{1}_method_{2}.txt'
+log_file = './results/esv_king_james_{0}_theta_{1}_method_{2}_v2.txt'
 
 
 #  0 : baseline, 1 : pruning_column_row_sum, 2 : zick_zak, 3 : pruning_max_matrix_value, 4 : candidates

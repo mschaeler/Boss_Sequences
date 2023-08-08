@@ -1,0 +1,35 @@
+creating environment with lakes: /root/data/en/king_james_bible_book_martin/, /root/data/en/esv_book_martin/
+167 text1_files listed
+167 text2_files listed
+Token not found in embeddings Syntactic Token->-1
+Token not found in embeddings dared->-1
+Token not found in embeddings disdained->-1
+Token not found in embeddings rods->-1
+Computing global dist matrix [BEGIN]
+Computing global dist matrix Check sum=1.13796e+06 size= 1261129 [DONE] 0.513314
+run_incremental_cell_pruning() 
+Experiment k=3 threshold=0.7
+run_incremental_cell_pruning() [DONE]
+0	13.866	30813300	91579.2	21661605	121343
+run_incremental_cell_pruning() 
+Experiment k=4 threshold=0.7
+run_incremental_cell_pruning() [DONE]
+0	18.0698	30802198	38573.1	18200529	49653
+run_incremental_cell_pruning() 
+Experiment k=5 threshold=0.7
+run_incremental_cell_pruning() [DONE]
+0	21.0719	30791098	18308.8	12944941	23164
+run_incremental_cell_pruning() 
+Experiment k=6 threshold=0.7
+run_incremental_cell_pruning() [DONE]
+0	28.7569	30780000	17663	12021111	22789
+run_incremental_cell_pruning() 
+Experiment k=7 threshold=0.7
+run_incremental_cell_pruning() [DONE]
+0	32.9458	30768904	17638.8	9955910	22928
+run_incremental_cell_pruning() 
+Experiment k=8 threshold=0.7
+run_incremental_cell_pruning() [DONE]
+0	39.7885	30757810	14558.4	8737622	18634
+k=3	k=4	k=5	k=6	k=7	k=8	
+13.866	18.0698	21.0719	28.7569	32.9458	39.7885	

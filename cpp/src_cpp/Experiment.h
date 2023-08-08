@@ -296,6 +296,21 @@ public:
         }
     }
 
+    double fill_local_cost_matrix_v2(const int line, const int column, vector<vector<double>>& cost_matrix){
+        double min_value = MAX_DOUBLE;
+        for(int i=0;i<k;i++) {
+            const int token_id_window_b1 = k_with_windows_b1[line][i];
+            for(int j=0;j<k;j++) {
+                const int token_id_window_b2 = k_with_windows_b2[column][j];
+                cost_matrix[i][j] = global_cost_matrix[token_id_window_b1][token_id_window_b2];
+                if (j == 0 && cost_matrix[i][j] < min_value) {
+                    min_value = cost_matrix[i][j];
+                }
+            }
+        }
+        return min_value;
+    }
+
     double run_zick_zack(){
         cout << "run_zick_zack() " << endl;
         out_config();
@@ -541,6 +556,78 @@ public:
         int size = alignment_matrix.size() * alignment_matrix.at(0).size();
         double check_sum = sum(alignment_matrix);
         cout << "run_candidates() [DONE]" << endl;
+        cout << "0\t" << time_elapsed.count() << "\t" << size << "\t" << check_sum << "\t" << count_survived_pruning << "\t" << count_computed_cells << endl;
+        return time_elapsed.count();
+    }
+
+
+    double run_incremental_cell_pruning() {
+        cout << "run_incremental_cell_pruning() " << endl;
+        out_config();
+
+        HungarianKevinStern HKS(k);
+        vector<vector<double>> cost_matrix(k, vector<double>(k));
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+
+        long count_survived_pruning = 0;
+        long count_computed_cells = 0;
+        const double MAX_SIM_ADDITION_NEW_NODE = 1.0 / k;
+
+        for (int line = 0; line < alignment_matrix.size(); line++) {
+            vector<double>& alignment_matrix_line = alignment_matrix.at(line);
+            double prior_cell_similarity = 0;
+            bool prior_cell_exact_similarity = false;
+            // compute for the first column == 0
+            count_survived_pruning++;
+            double prev_min_value = fill_local_cost_matrix_v2(line, 0, cost_matrix);
+            double cost = HKS.solve_cached(cost_matrix, threshold);
+            double normalized_similarity = 1.0 - (cost / (double) k);
+            if (normalized_similarity >= threshold) {
+                alignment_matrix_line.at(0) = normalized_similarity;
+            }
+
+            prior_cell_similarity = normalized_similarity;
+            prior_cell_exact_similarity = true;
+            for (int column = 1; column < alignment_matrix[0].size(); column++) {
+                /**
+                 * @todo: change max_sim_addition_new_node to max of incoming edge
+                */
+                double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
+                if (prior_cell_exact_similarity) {
+                    // std::vector<double> leaving_column;
+                    // for (const auto &row : cost_matrix) {
+                    //     leaving_column.push_back(row[0]);
+                    // }
+
+                    // double min_sim_deleted_node = *std::min_element(leaving_column.begin(), leaving_column.end());
+                    double min_sim_deleted_node = prev_min_value;
+                    upper_bound_sim += (min_sim_deleted_node / k);
+                }
+
+                if (upper_bound_sim + DOUBLE_PRECISION_BOUND >= threshold) {
+                    count_survived_pruning++;
+
+                    prev_min_value = fill_local_cost_matrix_v2(line, column, cost_matrix);
+                    double cost = HKS.solve_cached(cost_matrix, threshold);
+                    double normalized_similarity = 1.0 - (cost / (double) k);
+                    if (normalized_similarity >= threshold) {
+                        count_computed_cells++;
+                        alignment_matrix_line.at(column) = normalized_similarity;
+                    }
+
+                    prior_cell_similarity = normalized_similarity;
+                    prior_cell_exact_similarity = true;
+                } else {
+                    prior_cell_similarity = upper_bound_sim;
+                    prior_cell_exact_similarity = false;
+                }
+            }
+        }
+
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+        int size = alignment_matrix.size() * alignment_matrix.at(0).size();
+        double check_sum = sum(alignment_matrix);
+        cout << "run_incremental_cell_pruning() [DONE]" << endl;
         cout << "0\t" << time_elapsed.count() << "\t" << size << "\t" << check_sum << "\t" << count_survived_pruning << "\t" << count_computed_cells << endl;
         return time_elapsed.count();
     }

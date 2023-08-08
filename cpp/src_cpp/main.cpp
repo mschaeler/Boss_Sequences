@@ -473,8 +473,10 @@ void run_experiments(Environment& env, DataLoader& loader, const double theta, i
             run_time = exp.run_zick_zack();
         } else if (type == 3) {
             run_time = exp.run_pruning_max_matrix_value();
-        } else {
+        } else if (type == 4) {
             run_time = exp.run_candidates();
+        } else {
+            run_time = exp.run_incremental_cell_pruning();
         }
 
         run_times.push_back(run_time);
