@@ -109,6 +109,142 @@ public class HungarianKevinStern extends Solver{
 	 *         cost matrix. A matching value of -1 indicates that the corresponding
 	 *         worker is unassigned.
 	 */
+	public double solve_safe(final double[][] org_cost_matrix, double threshold) {
+		//Note, we need to copy the matrix, because we modify the values in between
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		Arrays.fill(matchJobByWorker, -1);
+		Arrays.fill(matchWorkerByJob, -1);
+
+		int w = fetchUnmatchedWorker();
+		while (w < dim) {
+			initializePhase(w);
+			executePhase();
+			w = fetchUnmatchedWorker();
+		}
+		//DONE - Collect result
+		
+		double cost = 0;
+		for(w=0; w<matchJobByWorker.length;w++) {
+			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
+		}
+		
+		return cost;
+	}
+	
+	/**
+	 * Execute the algorithm.
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+	public double solve_inverted_reduce(final double[][] org_cost_matrix, double threshold) {
+		//Note, we need to copy the matrix, because we modify the values in between
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		Arrays.fill(matchJobByWorker, -1);
+		Arrays.fill(matchWorkerByJob, -1);
+		/*
+		 * Heuristics to improve performance: Reduce rows and columns by their smallest
+		 * element, compute an initial non-zero dual feasible solution and create a
+		 * greedy matching from workers to jobs of the cost matrix.
+		 */
+		reduce_inverted();
+		computeInitialFeasibleSolution();
+		greedyMatch();
+
+		int w = fetchUnmatchedWorker();
+		while (w < dim) {
+			initializePhase(w);
+			executePhase();
+			w = fetchUnmatchedWorker();
+		}
+		//DONE - Collect result
+		
+		double cost = 0;
+		double cost_2 = 0;
+		for(w=0; w<matchJobByWorker.length;w++) {
+			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
+			cost_2+=org_cost_matrix[w][matchWorkerByJob[w]];
+		}
+		
+		return cost;
+	}
+	
+	
+	/**
+	 * Execute the algorithm.
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+	public double solve_inj(final double[][] org_cost_matrix, double threshold, double[] col_minima) {
+		//Note, we need to copy the matrix, because we modify the values in between
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		Arrays.fill(matchJobByWorker, -1);
+		Arrays.fill(matchWorkerByJob, -1);
+		/*
+		 * Heuristics to improve performance: Reduce rows and columns by their smallest
+		 * element, compute an initial non-zero dual feasible solution and create a
+		 * greedy matching from workers to jobs of the cost matrix.
+		 */
+		//reduce();
+		computeInitialFeasibleSolution();
+		greedyMatch();
+
+		int w = fetchUnmatchedWorker();
+		while (w < dim) {
+			initializePhase(w);
+			executePhase();
+			w = fetchUnmatchedWorker();
+		}
+		//DONE - Collect result
+		
+		double cost = 0;
+		for(w=0; w<matchJobByWorker.length;w++) {
+			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
+		}
+		
+		return cost;
+	}
+	
+	/**
+	 * Execute the algorithm.
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
 	public double solve(final double[][] org_cost_matrix, double threshold) {
 		//Note, we need to copy the matrix, because we modify the values in between
 		for (int w = 0; w < this.dim; w++) {
@@ -142,15 +278,107 @@ public class HungarianKevinStern extends Solver{
 		//DONE - Collect result
 		
 		double cost = 0;
-		double cost_2 = 0;
 		for(w=0; w<matchJobByWorker.length;w++) {
 			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
-			cost_2+=org_cost_matrix[w][matchWorkerByJob[w]];
 		}
 		
 		return cost;
 	}
 
+	/**
+	 * Execute the algorithm.
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+	public double solve_column_heuristic(final double[][] org_cost_matrix, double threshold) {
+		//Note, we need to copy the matrix, because we modify the values in between
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		Arrays.fill(matchJobByWorker, -1);
+		Arrays.fill(matchWorkerByJob, -1);
+		/*
+		 * Heuristics to improve performance: Reduce rows and columns by their smallest
+		 * element, compute an initial non-zero dual feasible solution and create a
+		 * greedy matching from workers to jobs of the cost matrix.
+		 */
+		reduce_col_only();
+		computeInitialFeasibleSolution();
+		greedyMatch();
+
+		int w = fetchUnmatchedWorker();
+		while (w < dim) {
+			initializePhase(w);
+			executePhase();
+			w = fetchUnmatchedWorker();
+		}
+		//DONE - Collect result
+		
+		double cost = 0;
+		for(w=0; w<matchJobByWorker.length;w++) {
+			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
+		}
+		
+		return cost;
+	}
+	
+	/**
+	 * Execute the algorithm.
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+	public double solve_row_heuristic(final double[][] org_cost_matrix, double threshold) {
+		//Note, we need to copy the matrix, because we modify the values in between
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		Arrays.fill(matchJobByWorker, -1);
+		Arrays.fill(matchWorkerByJob, -1);
+		/*
+		 * Heuristics to improve performance: Reduce rows and columns by their smallest
+		 * element, compute an initial non-zero dual feasible solution and create a
+		 * greedy matching from workers to jobs of the cost matrix.
+		 */
+		reduce_row_only();
+		computeInitialFeasibleSolution();
+		greedyMatch();
+
+		int w = fetchUnmatchedWorker();
+		while (w < dim) {
+			initializePhase(w);
+			executePhase();
+			w = fetchUnmatchedWorker();
+		}
+		//DONE - Collect result
+		
+		double cost = 0;
+		for(w=0; w<matchJobByWorker.length;w++) {
+			cost  +=org_cost_matrix[w][matchJobByWorker[w]];
+		}
+		
+		return cost;
+	}
+	
 	/**
 	 * Execute a single phase of the algorithm. A phase of the Hungarian algorithm
 	 * consists of building a set of committed workers and a set of committed jobs
@@ -275,6 +503,88 @@ public class HungarianKevinStern extends Solver{
 		matchWorkerByJob[j] = w;
 	}
 
+	/**
+	 * Reduce the cost matrix by subtracting the smallest element of each row from
+	 * all elements of the row as well as the smallest element of each column from
+	 * all elements of the column. Note that an optimal assignment for a reduced
+	 * cost matrix is optimal for the original cost matrix.
+	 */
+	protected void reduce_inverted() {
+		double[] min_arr = new double[dim];
+		for (int j = 0; j < dim; j++) {
+			min_arr[j] = Double.POSITIVE_INFINITY;
+		}
+		for (int w = 0; w < dim; w++) {
+			for (int j = 0; j < dim; j++) {
+				if (costMatrix[w][j] < min_arr[j]) {
+					min_arr[j] = costMatrix[w][j];
+				}
+			}
+		}
+		for (int w = 0; w < dim; w++) {
+			for (int j = 0; j < dim; j++) {
+				costMatrix[w][j] -= min_arr[j];//XXX here we indeed modify the matrix
+			}
+		}
+		//rows
+		for (int w = 0; w < dim; w++) {
+			double min = Double.POSITIVE_INFINITY;
+			for (int j = 0; j < dim; j++) {
+				if (costMatrix[w][j] < min) {
+					min = costMatrix[w][j];
+				}
+			}
+			for (int j = 0; j < dim; j++) {
+				costMatrix[w][j] -= min;//XXX here we indeed modify the matrix
+			}
+		}
+	}
+	
+	/**
+	 * Reduce the cost matrix by subtracting the smallest element of each row from
+	 * all elements of the row as well as the smallest element of each column from
+	 * all elements of the column. Note that an optimal assignment for a reduced
+	 * cost matrix is optimal for the original cost matrix.
+	 */
+	protected void reduce_row_only() {
+		for (int w = 0; w < dim; w++) {
+			double min = Double.POSITIVE_INFINITY;
+			for (int j = 0; j < dim; j++) {
+				if (costMatrix[w][j] < min) {
+					min = costMatrix[w][j];
+				}
+			}
+			for (int j = 0; j < dim; j++) {
+				costMatrix[w][j] -= min;//XXX here we indeed modify the matrix
+			}
+		}
+	}
+	
+	/**
+	 * Reduce the cost matrix by subtracting the smallest element of each row from
+	 * all elements of the row as well as the smallest element of each column from
+	 * all elements of the column. Note that an optimal assignment for a reduced
+	 * cost matrix is optimal for the original cost matrix.
+	 */
+	protected void reduce_col_only() {
+		double[] min = new double[dim];
+		for (int j = 0; j < dim; j++) {
+			min[j] = Double.POSITIVE_INFINITY;
+		}
+		for (int w = 0; w < dim; w++) {
+			for (int j = 0; j < dim; j++) {
+				if (costMatrix[w][j] < min[j]) {
+					min[j] = costMatrix[w][j];
+				}
+			}
+		}
+		for (int w = 0; w < dim; w++) {
+			for (int j = 0; j < dim; j++) {
+				costMatrix[w][j] -= min[j];//XXX here we indeed modify the matrix
+			}
+		}
+	}
+	
 	/**
 	 * Reduce the cost matrix by subtracting the smallest element of each row from
 	 * all elements of the row as well as the smallest element of each column from

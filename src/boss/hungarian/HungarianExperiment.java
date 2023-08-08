@@ -32,9 +32,10 @@ public class HungarianExperiment {
 	final HashMap<Integer, double[]> embedding_vector_index;
 	
 	Solver solver = null;
-	Solver solver_baseline;
+	HungarianKevinStern solver_baseline;
 	
-	final double[] k_buffer;
+	final double[] col_minima;
+	final double[] row_minima;
 	double col_sum;
 	
 	//final double[][] cost_matrix_buffer;
@@ -70,7 +71,8 @@ public class HungarianExperiment {
 			this.alignement_matrixes.add(alignment_matrix);
 		}
 		
-		this.k_buffer = new double[k];
+		this.col_minima = new double[k];
+		this.row_minima = new double[k];
 		
 		int max_id = 0;
 		for(int[] p : raw_paragraphs_b1) {
@@ -540,7 +542,7 @@ public class HungarianExperiment {
 	
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
-	static final boolean SAFE_MODE    = false;
+	static final boolean SAFE_MODE    = true;
 	static final boolean LOGGING_MODE = false;
 	
 	static final int USE_COLUMN_SUM = 0;
@@ -777,6 +779,24 @@ public class HungarianExperiment {
 		}
 	}
 	
+	private double get_row_sum(final double[][] current_window, final int offset) {
+		double row_sum = 0;
+		for(int i=0;i<this.k;i++) {
+			final double[] line = current_window[i];
+			double row_min = line[offset+0];
+			for(int j=1;j<this.k;j++) {
+				final double val = line[offset+j];
+				if(val<row_min) {
+					row_min = val;
+				}
+			}
+			row_sum += row_min;
+			row_minima[i] = row_min;
+		}
+		
+		return row_sum;
+	}
+	
 	private double get_row_sum(final double[][] cost_matrix) {
 		double row_sum = 0;
 		for(int i=0;i<this.k;i++) {
@@ -794,9 +814,57 @@ public class HungarianExperiment {
 		return row_sum;
 	}
 	
+	private double get_column_row_sum(final double[][] cost_matrix_window, final int offset) {
+		double row_sum = 0;
+		Arrays.fill(this.col_minima, Double.MAX_VALUE);
+		for(int i=0;i<this.k;i++) {
+			final double[] line = cost_matrix_window[i];
+			double row_min = Double.MAX_VALUE;
+			for(int j=0;j<this.k;j++) {
+				final double val = line[offset+j];
+				if(val<row_min) {
+					row_min = val;
+				}
+				if(val<col_minima[j]) {
+					col_minima[j] = val;
+				}
+			}
+			row_sum += row_min;
+			row_minima[i] = row_min;
+		}
+		col_sum = sum(col_minima);
+		double min_cost = Math.max(row_sum, col_sum);		
+		
+		return min_cost;
+	}
+	
 	private double get_column_row_sum(final double[][] cost_matrix) {
 		double row_sum = 0;
-		Arrays.fill(this.k_buffer, Double.MAX_VALUE);
+		Arrays.fill(this.col_minima, Double.MAX_VALUE);
+		for(int i=0;i<this.k;i++) {
+			final double[] line = cost_matrix[i];
+			double row_min = Double.MAX_VALUE;
+			for(int j=0;j<this.k;j++) {
+				final double val = line[j];
+				if(val<row_min) {
+					row_min = val;
+				}
+				if(val<col_minima[j]) {
+					col_minima[j] = val;
+				}
+			}
+			row_sum += row_min;
+		}
+		col_sum = sum(col_minima);
+		double min_cost = Math.max(row_sum, col_sum);		
+		
+		return min_cost;
+	}
+	
+	private double get_column_row_sum_safe(final double[][] cost_matrix) {
+		double row_sum = 0;
+		double[] k_buffer = new double[k];
+		Arrays.fill(k_buffer, Double.MAX_VALUE);
 		for(int i=0;i<this.k;i++) {
 			final double[] line = cost_matrix[i];
 			double row_min = Double.MAX_VALUE;
@@ -811,7 +879,7 @@ public class HungarianExperiment {
 			}
 			row_sum += row_min;
 		}
-		col_sum = sum(k_buffer);
+		double col_sum = sum(k_buffer);
 		double min_cost = Math.max(row_sum, col_sum);		
 		
 		return min_cost;
@@ -1332,7 +1400,7 @@ public class HungarianExperiment {
 			System.err.println("run_solution(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
 		}
 		//Ensure config (2) Hungarian implementation from Kevin Stern
-		HungarianKevinSternAlmpified solver = new HungarianKevinSternAlmpified(k);//XXX I am overwriting this.solver - not so readable I know
+		HungarianDeep solver = new HungarianDeep(k);//XXX I am overwriting this.solver - not so readable I know
 		this.solver = solver;
 		
 		// (3) Dense global cost matrix - compute once
@@ -1343,13 +1411,11 @@ public class HungarianExperiment {
 		USE_GLOBAL_MATRIX = true;
 		
 		System.out.println("HungarianExperiment.run_zick_zack() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
-		final double[][] cost_matrix = new double[k][k];
-		
 		double[] run_times = new double[num_paragraphs];
 		double lb_cost;
-
-		final double[][] local_matrix = new double[k][];
 		
+		double[][] current_window = new double[k][];
+
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
 			start = System.currentTimeMillis();
@@ -1361,29 +1427,48 @@ public class HungarianExperiment {
 			for(int line=0;line<alignment_matrix.length;line++) {
 				//get the line to get rid of 2D array resolution
 				final double[] alignment_matrix_line = alignment_matrix[line];
+				for(int i=0;i<k;i++) {
+					current_window[i] = global_cost_matrix_buffer[line+i];
+				}
+				
 				int column=0;
 				{	//Initially we really fill the entire cost matrix
-					//Fill local matrix of the current window combination from global matrix
-					//Note it is cost matrix with cosine distance. I.e, not similarity. 
-					for(int i=0;i<this.k;i++) {
-						for(int j=0;j<this.k;j++) {
-							cost_matrix[i][j] = global_cost_matrix_buffer[line+i][column+j];
-						}
-					}
-					
-					lb_cost = get_column_row_sum(cost_matrix);
+					lb_cost = get_column_row_sum(current_window, column);
 					
 					if(SAFE_MODE) {
-						double lb_cost_safe = get_column_row_sum(cost_matrix);
+						final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
+						final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);
+						double[][] cost_matrix_copy = new double[k][k];
+						
+						for(int i=0;i<this.k;i++) {
+							final int set_id_window_p1 = k_windows_p1[line][i];
+							for(int j=0;j<this.k;j++) {
+								final int set_id_window_p2 = k_windows_p2[column][j];
+								double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+								cost_matrix_copy[i][j] = dist;
+							}
+						}
+						
+						double lb_cost_safe = get_column_row_sum_safe(cost_matrix_copy);
 						if(lb_cost!=lb_cost_safe) {
 							System.err.println("lb_cost!=lb_cost_safe "+lb_cost+" "+lb_cost_safe);
+						}
+						double[][] cost_matrix = solver.get_matrix_copy(current_window, column);
+						if(!is_equal(cost_matrix, cost_matrix_copy)) {
+							System.err.println("!is_equal(cost_matrix, cost_matrix_copy) for line="+line+" col="+column);
+						}
+						
+						double cost_copy = solver_baseline.solve(cost_matrix_copy, threshold);
+						double cost = solver.solve(current_window, column, col_minima, row_minima);
+						if(!is_equal(cost, cost_copy)) {
+							System.err.println("cost!=cost_copy "+cost+" "+cost_copy);
 						}
 					}
 					
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve(cost_matrix, threshold, k_buffer);
+						double cost = solver.solve(current_window, column, col_minima, row_minima);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1399,11 +1484,15 @@ public class HungarianExperiment {
 					//Update the cost matrix exploiting the rolling window. I.e., the cost matrix is ring buffer.
 					final int replace_position = (column-1)%k;
 					
+					lb_cost = get_row_sum(current_window, column);
+					min_col(current_window, replace_position, column); 
+					lb_cost = Math.max(lb_cost, this.col_sum);
+					
 					if(SAFE_MODE){
 						final int[][] k_windows_p1 = this.k_with_windows_b1.get(p);
 						final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);
-						
 						double[][] cost_matrix_copy = new double[k][k];
+						
 						for(int i=0;i<this.k;i++) {
 							final int set_id_window_p1 = k_windows_p1[line][i];
 							for(int j=0;j<this.k;j++) {
@@ -1412,23 +1501,32 @@ public class HungarianExperiment {
 								cost_matrix_copy[i][j] = dist;
 							}
 						}
-
-						double cost_copy = this.solver.solve(cost_matrix_copy, threshold);
-						double cost = solver.solve(cost_matrix, threshold);
+						
+						double lb_cost_safe = get_column_row_sum_safe(cost_matrix_copy);
+						if(!is_equal(lb_cost,lb_cost_safe)) {
+							System.err.println("lb_cost!=lb_cost_safe "+lb_cost+" "+lb_cost_safe);
+						}
+						double[][] cost_matrix = solver.get_matrix_copy(current_window, column);
+						if(!is_equal(cost_matrix, cost_matrix_copy)) {
+							System.err.println("!is_equal(cost_matrix, cost_matrix_copy) for line="+line+" col="+column);
+						}
+						
+						double cost_copy = solver_baseline.solve(cost_matrix_copy, threshold);
+						double cost = solver.solve(current_window, column, col_minima, row_minima);
+						if(column==1030) {
+							HungarianKevinSternAlmpified HKSA = new HungarianKevinSternAlmpified(k);
+							HKSA.solve(cost_matrix_copy, threshold, col_minima);
+						}
 						if(!is_equal(cost, cost_copy)) {
-							System.err.println("cost!=cost_copy "+cost+" "+cost_copy);
+							System.err.println("cost!=cost_copy "+cost+" "+cost_copy+" at l="+line+" col="+column);
 						}
 					}
-					
-					lb_cost = get_row_sum(cost_matrix);
-					min_col(cost_matrix, replace_position);//TODO 
-					lb_cost = Math.max(lb_cost, this.col_sum);//XXX max()
 					
 					//lb_cost = get_column_row_sum(cost_matrix);
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve(cost_matrix, threshold, k_buffer);
+						double cost = solver.solve(current_window, column, col_minima, row_minima);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1445,11 +1543,27 @@ public class HungarianExperiment {
 		String experiment_name = "";//default experiment, has no special name
 		//if(VERBOSE)
 			print_results(experiment_name, run_times);
-		System.out.println(solver.get_statistics());
 		return run_times;
 	}
 	
 	
+	private boolean is_equal(double[][] cost_matrix, double[][] cost_matrix_copy) {
+		if(cost_matrix.length!=cost_matrix_copy.length) {
+			return false;
+		}
+		if(cost_matrix[0].length!=cost_matrix_copy[0].length) {
+			return false;
+		}
+		for(int line=0;line<cost_matrix.length;line++) {
+			for(int column=0;column<cost_matrix[0].length;column++) {
+				if(cost_matrix[line][column]!=cost_matrix_copy[line][column]) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	public double[] run_zick_zack(){
 		//Check config (1) Normalized vectors to unit length
 		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
@@ -1507,7 +1621,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve(cost_matrix, threshold, k_buffer);
+						double cost = solver.solve(cost_matrix, threshold, col_minima);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1556,7 +1670,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
 						//That's the important line
-						double cost = solver.solve(cost_matrix, threshold, k_buffer);
+						double cost = solver.solve(cost_matrix, threshold, col_minima);
 						//normalize costs: Before it was distance. Now it is similarity.
 						double normalized_similarity = 1.0 - (cost / (double)k);
 						if(normalized_similarity>=threshold) {
@@ -1577,8 +1691,27 @@ public class HungarianExperiment {
 		return run_times;
 	}
 
+	private void min_col(final double[][] current_window, final int replace_position, final int offset) {
+		this.col_sum-=this.col_minima[replace_position];
+		
+		final int position = offset+k-1;
+		int row = 0;
+		double min = current_window[row][position];
+		row++;
+		
+		for(;row<k;row++) {
+			double val = current_window[row][position];
+			if(val < min) {
+				min = val;
+			}
+		}
+		
+		this.col_minima[replace_position] = min;
+		this.col_sum+=min;
+	}
+	
 	private void min_col(final double[][] cost_matrix, final int replace_position) {
-		this.col_sum-=this.k_buffer[replace_position];
+		this.col_sum-=this.col_minima[replace_position];
 		
 		int row = 0;
 		double min = cost_matrix[row][replace_position];
@@ -1591,7 +1724,7 @@ public class HungarianExperiment {
 			}
 		}
 		
-		this.k_buffer[replace_position] = min;
+		this.col_minima[replace_position] = min;
 		this.col_sum+=min;
 	}
 
@@ -1881,6 +2014,79 @@ public class HungarianExperiment {
 		return run_times;
 	}
 
+	public double[] run_check_hungo_heuristics(){
+		HungarianKevinStern solver = new HungarianKevinStern(k);
+		System.out.println("HungarianExperiment.run_check_hungo_heuristics() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
+		USE_GLOBAL_MATRIX = true;
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		for(int p=0;p<num_paragraphs;p++) {
+			start = System.currentTimeMillis();
+			//Allocate space for the alignment matrix
+			final double[][] alignment_matrix = this.alignement_matrixes.get(p);//get the pre-allocated buffer. Done in Constructor
+			final double[][] global_cost_matrix_buffer = fill_cost_matrix(p);
+			
+			//For each pair of windows
+			for(int line=0;line<alignment_matrix.length;line++) {
+				//get the line to get rid of 2D array resolution
+				final double[] alignment_matrix_line = alignment_matrix[line];
+								
+				for(int column=0;column<alignment_matrix[0].length;column++) {	
+					//Fill local matrix of the current window combination from global matrix
+					//Note it is cost matrix with cosine distance. I.e, not similarity. 
+					for(int i=0;i<this.k;i++) {
+						for(int j=0;j<this.k;j++) {
+							cost_matrix[i][j] = global_cost_matrix_buffer[line+i][column+j];
+						}
+					}
+					//That's the important line
+					double cost = solver.solve(cost_matrix, threshold);
+					double cost_safe = solver.solve_safe(cost_matrix, threshold);
+					double cost_inverted = solver.solve_inverted_reduce(cost_matrix, threshold);
+					double cost_row_only = solver.solve_row_heuristic(cost_matrix, threshold);
+					double cost_col_only = solver.solve_column_heuristic(cost_matrix, threshold);
+					
+					get_column_row_sum(cost_matrix);
+					double cost_inj = solver.solve_inj(global_cost_matrix_buffer, threshold, col_minima); 
+					
+					if(!is_equal(cost_safe,cost)) {
+						System.err.println("cost_safe!=cost:\t"+cost_safe+"\t"+cost+" l="+line+" col="+column);
+					}
+					if(!is_equal(cost_safe,cost_inverted)) {
+						System.err.println("cost_safe!=cost_inverted:\t"+cost_safe+"\t"+cost_inverted+" l="+line+" col="+column);
+					}
+					if(!is_equal(cost_safe,cost_row_only)) {
+						System.err.println("cost_safe!=cost_row_only:\t"+cost_safe+"\t"+cost_row_only+" l="+line+" col="+column);
+					}
+					if(!is_equal(cost_safe,cost_col_only)) {
+						System.err.println("cost_safe!=cost_col_only:\t"+cost_safe+"\t"+cost_col_only+" l="+line+" col="+column);
+					}
+					if(!is_equal(cost_safe,cost_inj)) {
+						System.err.println("cost_safe!=cost_inj:\t"+cost_safe+"\t"+cost_inj+" l="+line+" col="+column);
+					}
+					
+					
+					//normalize costs: Before it was distance. Now it is similarity.
+					double normalized_similarity = 1.0 - (cost / (double)k);
+					if(normalized_similarity>=threshold) {
+						alignment_matrix_line[column] = normalized_similarity;
+					}//else keep it zero
+				}
+			}
+			stop = System.currentTimeMillis();
+			run_times[p] = (stop-start);
+			System.out.println("P="+p+"\t"+(stop-start)+"\tms");
+			this.alignement_matrixes.add(alignment_matrix);
+		}
+		String experiment_name = "";//default experiment, has no special name
+		//if(VERBOSE)
+			print_results(experiment_name, run_times);
+		return run_times;
+	}
+	
 	void print_results(String experiment_name, double[] run_times) {
 		//Print result matrixes
 		
