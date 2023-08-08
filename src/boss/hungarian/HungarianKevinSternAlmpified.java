@@ -166,6 +166,54 @@ public class HungarianKevinSternAlmpified extends Solver{
 	}
 	
 	/**
+	 * Execute the algorithm. The basic idea is to use the optimal assignment after node deletion as heuristics.
+	 * 
+	 * 
+	 * 
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+	public double solve_injected(final double[][] org_cost_matrix, final double threshold) {
+		solve_counter++;//For statistics only
+		//this.costMatrix = org_cost_matrix;
+		for (int w = 0; w < this.dim; w++) {
+			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
+		}
+		
+		
+		Arrays.fill(labelByWorker, 0);
+		Arrays.fill(labelByJob, 0);
+		Arrays.fill(minSlackWorkerByJob, 0);
+		Arrays.fill(minSlackValueByJob, 0);
+		Arrays.fill(committedWorkers, false);
+		Arrays.fill(parentWorkerByCommittedJob, 0);
+		
+		//Arrays.fill(matchJobByWorker, -1);
+		//Arrays.fill(matchWorkerByJob, -1);
+		
+		//Heuristics
+		for(int w=0;w<dim-1;w++) {//Note the dim-1 -> all nodes slide one position to the front
+			matchWorkerByJob[w] = matchWorkerByJob[w+1];
+			matchJobByWorker[w] = matchJobByWorker[w+1];
+		}
+		//For the new (i.e., last) node, we do not know the matching yet. 
+		matchWorkerByJob[dim-1] = -1;
+		matchJobByWorker[dim-1] = -1;
+		
+		int w = fetchUnmatchedWorker();
+		while (w < dim) {
+			initializePhase(w);
+			executePhase();
+			w = fetchUnmatchedWorker();
+		}
+		//DONE - Collect result
+		
+		double cost = get_cost(org_cost_matrix);
+		return cost;
+	}
+	
+	/**
 	 * Execute the algorithm.
 	 * 
 	 * @return the minimum cost matching of workers to jobs based upon the provided
@@ -471,7 +519,7 @@ public class HungarianKevinSternAlmpified extends Solver{
 	 * The method thus looks for an optimal assignment.
 	 * 
 	 */
-	public final void delete_node(final double[][] cost_matrix){
+	public final void delete_node(final double[][] cost_matrix, int rec_depth){
 		final int free_job = get_deleted_node_assigment();
 		
 		//for each other worker now check whether there is a better assignment: We call this slack
@@ -493,12 +541,15 @@ public class HungarianKevinSternAlmpified extends Solver{
 		}
 		//
 		if(min_slack_worker!=-1) {
+			if(rec_depth!=0) {
+				System.out.println(rec_depth);
+			}
 			//This is a trick for the recursive call below
 			match(matchWorkerByJob[min_slack_worker],0);
 			//Here we assign the new position
 			match(free_job, min_slack_worker);
 			
-			//TODO delete_node(cost_matrix);//TODO check ob notwendig
+			delete_node(cost_matrix, rec_depth);//TODO check ob notwendig
 		}else{
 			return;
 		}
