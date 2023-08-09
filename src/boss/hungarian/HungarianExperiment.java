@@ -1766,7 +1766,7 @@ public class HungarianExperiment {
 			final int[][] k_windows_p2 = this.k_with_windows_b2.get(p);	
 			
 			double prior_cell_similarity;
-			boolean prior_cell_exact_similarity;
+			boolean prior_cell_updated_matrix;
 			double prev_min_value;
 			
 			int count_survived_pruning = 0;
@@ -1792,7 +1792,7 @@ public class HungarianExperiment {
 					}//else keep it zero
 					
 					prior_cell_similarity = sim;
-					prior_cell_exact_similarity = true;
+					prior_cell_updated_matrix = true;
 					prev_min_value = max(local_similarity_matrix);
 				}
 				
@@ -1804,7 +1804,7 @@ public class HungarianExperiment {
 					double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
 					//double min_sim_deleted_node = min(k_windows_p1[line], k_windows_p2[column-1][0]);
 					//upper_bound_sim-=min_cost_deleted_node;
-					if(prior_cell_exact_similarity) {
+					if(prior_cell_updated_matrix) {
 						upper_bound_sim-= (prev_min_value / k);
 					}
 					
@@ -1829,15 +1829,13 @@ public class HungarianExperiment {
 								alignment_matrix_line[column] = sim;
 							}//else keep it zero
 							prior_cell_similarity = sim;
-							prior_cell_similarity = sim;
-							prior_cell_exact_similarity = true;
-							prev_min_value = max(local_similarity_matrix);
 						}else{
-							prior_cell_exact_similarity = false;
 							prior_cell_similarity = upper_bound_sim;
 						}
+						prev_min_value = max(local_similarity_matrix);
+						prior_cell_updated_matrix = true;
 					}else{
-						prior_cell_exact_similarity = false;
+						prior_cell_updated_matrix = false;
 						prior_cell_similarity = upper_bound_sim;
 					}
 					
