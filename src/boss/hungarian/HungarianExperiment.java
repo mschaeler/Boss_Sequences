@@ -1767,7 +1767,7 @@ public class HungarianExperiment {
 	}
 	
 	public double[] run_best_full_scan(){
-		this.solver = new HungarianKevinStern(k);
+		HungarianKevinStern solver = new HungarianKevinStern(k);
 		System.out.println("HungarianExperiment.run_best_full_scan() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
 		final double[][] local_similarity_matrix = new double[k][k];
 		
@@ -1798,6 +1798,7 @@ public class HungarianExperiment {
 			int count_cells_exceeding_threshold = 0;
 			
 			double ub_sum;
+			double sim;
 			
 			//For each pair of windows
 			for(int line=0;line<alignment_matrix.length;line++) {
@@ -1815,13 +1816,20 @@ public class HungarianExperiment {
 					ub_sum = sum_bound_similarity(local_similarity_matrix)/k;
 					
 					if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
-						double sim = -this.solver.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
+						sim = -solver.solve_inj(local_similarity_matrix, threshold, col_minima);//Note the minus-trick for the Hungarian
 						sim /= k;
 						if(sim>=threshold) {
 							count_cells_exceeding_threshold++;
 							alignment_matrix_line[column] = sim;
 						}//else keep it zero
 						prior_cell_similarity = sim;
+						if(SAFE_MODE) {
+							double sim_save = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
+							sim_save /= k;
+							if(!is_equal(sim_save, sim)) {
+								System.err.println("!is_equal(sim_save, sim)");
+							}
+						}
 					}else{
 						prior_cell_similarity = ub_sum;
 					}
@@ -1830,16 +1838,17 @@ public class HungarianExperiment {
 					prev_min_value = max(local_similarity_matrix);
 					
 					if(SAFE_MODE) {
-						double sim = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
+						double sim_save = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
 						//normalize 
-						sim /= k;
-						if(prior_cell_similarity+DOUBLE_PRECISION_BOUND<sim) {//not the prior cell
+						sim_save /= k;
+						if(prior_cell_similarity+DOUBLE_PRECISION_BOUND<sim_save) {//not the prior cell
 							System.err.println("sim_prior_cell<sim");
 						}
-						if(ub_sum+DOUBLE_PRECISION_BOUND<sim) {//not the prior cell
+						if(ub_sum+DOUBLE_PRECISION_BOUND<sim_save) {//not the prior cell
 							System.err.println("upper_bound_sim<sim");
 						}
-						prior_cell_similarity=sim;
+	
+						prior_cell_similarity=sim_save;
 						prior_cell_updated_matrix = true;
 						prev_min_value = max(local_similarity_matrix);
 					}
@@ -1875,7 +1884,7 @@ public class HungarianExperiment {
 							if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
 								count_survived_third_pruning++;
 								//That's the important line
-								double sim = -this.solver.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
+								sim = -solver.solve_inj(local_similarity_matrix, threshold, col_minima);//Note the minus-trick for the Hungarian
 								//normalize 
 								sim /= k;
 								
@@ -1884,6 +1893,14 @@ public class HungarianExperiment {
 									alignment_matrix_line[column] = sim;
 								}//else keep it zero
 								prior_cell_similarity = sim;
+								
+								if(SAFE_MODE) {
+									double sim_save = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
+									sim_save /= k;
+									if(!is_equal(sim_save, sim)) {
+										System.err.println("!is_equal(sim_save, sim)");
+									}
+								}
 							}else{
 								prior_cell_similarity = upper_bound_sim;
 							}
@@ -1900,16 +1917,16 @@ public class HungarianExperiment {
 					if(SAFE_MODE) {
 						//Fill local matrix of the current window combination from global matrix
 						fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix); 
-						double sim = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
+						double sim_save = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
 						//normalize 
-						sim /= k;
-						if(prior_cell_similarity+DOUBLE_PRECISION_BOUND<sim) {//not the prior cell
+						sim_save /= k;
+						if(prior_cell_similarity+DOUBLE_PRECISION_BOUND<sim_save) {//not the prior cell
 							System.err.println("sim_prior_cell<sim");
 						}
-						if(upper_bound_sim+DOUBLE_PRECISION_BOUND<sim) {//not the prior cell
+						if(upper_bound_sim+DOUBLE_PRECISION_BOUND<sim_save) {//not the prior cell
 							System.err.println("upper_bound_sim<sim");
 						}
-						prior_cell_similarity=sim;
+						prior_cell_similarity=sim_save;
 						prior_cell_updated_matrix = true;
 						prev_min_value = max(local_similarity_matrix);
 					}
