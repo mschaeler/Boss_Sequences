@@ -49,7 +49,7 @@ import java.util.Arrays;
  */
 
 public class HungarianKevinStern extends Solver{
-	private final double[][] costMatrix;
+	private double[][] costMatrix;
 	private final int rows, cols, dim;
 	private final double[] labelByWorker, labelByJob;
 	private final int[] minSlackWorkerByJob;
@@ -200,27 +200,19 @@ public class HungarianKevinStern extends Solver{
 	 */
 	public double solve_inj(final double[][] org_cost_matrix, double threshold, double[] col_minima) {
 		//Note, we need to copy the matrix, because we modify the values in between
-		for (int w = 0; w < this.dim; w++) {
-			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
-		}
+		costMatrix = org_cost_matrix;
 		
 		Arrays.fill(labelByWorker, 0);
-		Arrays.fill(labelByJob, 0);
-		Arrays.fill(minSlackWorkerByJob, 0);
-		Arrays.fill(minSlackValueByJob, 0);
-		Arrays.fill(committedWorkers, false);
-		Arrays.fill(parentWorkerByCommittedJob, 0);
+		//Arrays.fill(labelByJob, 0);
+		//Arrays.fill(minSlackWorkerByJob, 0);
+		//Arrays.fill(minSlackValueByJob, 0);
+		//Arrays.fill(committedWorkers, false);
+		//Arrays.fill(parentWorkerByCommittedJob, 0);
 		
 		Arrays.fill(matchJobByWorker, -1);
 		Arrays.fill(matchWorkerByJob, -1);
-		/*
-		 * Heuristics to improve performance: Reduce rows and columns by their smallest
-		 * element, compute an initial non-zero dual feasible solution and create a
-		 * greedy matching from workers to jobs of the cost matrix.
-		 */
-		//reduce();
-		computeInitialFeasibleSolution();
-		greedyMatch();
+		
+		computeInitialFeasibleSolution(col_minima);
 
 		int w = fetchUnmatchedWorker();
 		while (w < dim) {
@@ -239,6 +231,24 @@ public class HungarianKevinStern extends Solver{
 	}
 	
 	/**
+	 * Compute an initial feasible solution by assigning zero labels to the workers
+	 * and by assigning to each job a label equal to the minimum cost among its
+	 * incident edges.
+	 */
+	protected void computeInitialFeasibleSolution(final double[] col_minima) {
+		for (int w = 0; w < dim; w++) {
+			for (int j = 0; j < dim; j++) {
+				if (costMatrix[w][j] == col_minima[j]) {
+					labelByJob[j] = costMatrix[w][j];
+					if (matchJobByWorker[w] == -1 && matchWorkerByJob[j] == -1) {
+						match(w, j);//greedily match them
+					} 
+				}
+			}
+		}
+	}
+	
+	/**
 	 * Execute the algorithm.
 	 * 
 	 * @return the minimum cost matching of workers to jobs based upon the provided
@@ -251,12 +261,12 @@ public class HungarianKevinStern extends Solver{
 			this.costMatrix[w] = Arrays.copyOf(org_cost_matrix[w], this.dim);
 		}
 		
-		Arrays.fill(labelByWorker, 0);
-		Arrays.fill(labelByJob, 0);
-		Arrays.fill(minSlackWorkerByJob, 0);
-		Arrays.fill(minSlackValueByJob, 0);
-		Arrays.fill(committedWorkers, false);
-		Arrays.fill(parentWorkerByCommittedJob, 0);
+		Arrays.fill(labelByWorker, 0);//required for heuristics, must be zero edge label
+		//Arrays.fill(labelByJob, 0);
+		//Arrays.fill(minSlackWorkerByJob, 0);
+		//Arrays.fill(minSlackValueByJob, 0);
+		//Arrays.fill(committedWorkers, false);
+		//Arrays.fill(parentWorkerByCommittedJob, 0);
 		
 		Arrays.fill(matchJobByWorker, -1);
 		Arrays.fill(matchWorkerByJob, -1);

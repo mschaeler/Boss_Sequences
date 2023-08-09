@@ -11,7 +11,7 @@ public class BasicTokenizer extends Tokenizer {
 
 	@Override
 	String[] basic_tokenization(String s) {
-		String[] tokenized_paragraph = s.split("\s");
+		String[] tokenized_paragraph = s.split(" ");
 		return tokenized_paragraph;
 	}
 
