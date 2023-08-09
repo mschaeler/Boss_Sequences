@@ -542,7 +542,7 @@ public class HungarianExperiment {
 	
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
-	static final boolean SAFE_MODE    = false;
+	static final boolean SAFE_MODE    = true;
 	static final boolean LOGGING_MODE = false;
 	
 	static final int USE_COLUMN_SUM = 0;
@@ -1860,8 +1860,6 @@ public class HungarianExperiment {
 						System.err.println("column==25");
 					}*/
 					double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
-					//double min_sim_deleted_node = min(k_windows_p1[line], k_windows_p2[column-1][0]);
-					//upper_bound_sim-=min_cost_deleted_node;
 					if(prior_cell_updated_matrix) {
 						upper_bound_sim-= (prev_min_value / k);
 					}
@@ -1869,8 +1867,23 @@ public class HungarianExperiment {
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 						count_survived_pruning++;
 						//Fill local matrix of the current window combination from global matrix
-						fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix); 
-					
+						if(prior_cell_updated_matrix) {
+							//fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix);
+							//FIXME das geht nur, wenn die matrix immer upgedated wird
+							final int replace_position = (column-1)%k;
+							for(int i=0;i<this.k;i++) {
+								final int token_id_1 = k_windows_p1[line][i];
+								final int token_id_2 = k_windows_p2[column][k-1];//Always the new one
+								double sim_rokwn_pair = sim_cached(token_id_1, token_id_2);
+								local_similarity_matrix[i][replace_position] = -sim_rokwn_pair;//Note the minus-trick for the Hungarian
+							}
+							prev_min_value = max(local_similarity_matrix);
+						}else{
+							fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix);
+							prev_min_value = max(local_similarity_matrix);
+						}
+						prior_cell_updated_matrix = true;
+						 
 						double max_sim_new_node = min(local_similarity_matrix);
 						upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
 						upper_bound_sim+=(max_sim_new_node/k);
@@ -1907,8 +1920,6 @@ public class HungarianExperiment {
 						}else{
 							prior_cell_similarity = upper_bound_sim;
 						}
-						prev_min_value = max(local_similarity_matrix);
-						prior_cell_updated_matrix = true;
 					}else{
 						prior_cell_updated_matrix = false;
 						prior_cell_similarity = upper_bound_sim;
@@ -1916,6 +1927,7 @@ public class HungarianExperiment {
 					
 					if(SAFE_MODE) {
 						//Fill local matrix of the current window combination from global matrix
+						
 						fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix); 
 						double sim_save = -solver_baseline.solve(local_similarity_matrix, threshold);//Note the minus-trick for the Hungarian
 						//normalize 
@@ -1928,7 +1940,11 @@ public class HungarianExperiment {
 						}
 						prior_cell_similarity=sim_save;
 						prior_cell_updated_matrix = true;
-						prev_min_value = max(local_similarity_matrix);
+						double prev_min_value_copy = max(local_similarity_matrix);
+						if(prior_cell_updated_matrix && prev_min_value_copy!=prev_min_value) {
+							System.err.println("prev_min_value_copy!=prev_min_value");
+						}
+						prev_min_value = prev_min_value_copy;
 					}
 				}
 			}
