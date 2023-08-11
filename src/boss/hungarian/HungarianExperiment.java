@@ -542,7 +542,7 @@ public class HungarianExperiment {
 	
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
-	static final boolean SAFE_MODE    = true;
+	static final boolean SAFE_MODE    = false;
 	static final boolean LOGGING_MODE = false;
 	
 	static final int USE_COLUMN_SUM = 0;
@@ -1762,6 +1762,27 @@ public class HungarianExperiment {
 		}
 	}
 	
+	final void fill_local_similarity_matrix_incrementally(final int[] k_window_p1, final int[] k_window_p2, final double[][] local_similarity_matrix){
+		final int copy_length = k-1;
+		
+		col_sum-=col_minima[0];
+		System.arraycopy(col_minima, 1, col_minima, 0, copy_length);
+		col_minima[copy_length] = Double.MAX_VALUE;
+		
+		for(int i=0;i<k;i++) {
+			System.arraycopy(local_similarity_matrix[i], 1, local_similarity_matrix[i], 0, copy_length);
+			final int token_id_1 = k_window_p1[i];
+			final int token_id_2 = k_window_p2[copy_length];
+			double sim = sim_cached(token_id_1, token_id_2);
+			local_similarity_matrix[i][copy_length] = -sim;//Note the minus-trick for the Hungarian
+			if(-sim<col_minima[copy_length]) {
+				col_minima[copy_length]=-sim;
+			}
+			
+		}
+		col_sum+=col_minima[copy_length];
+	}
+	
 	final double sim_cached(final int token_id_1, final int token_id_2) {
 		return (token_id_1==token_id_2) ? 1 : 1-dense_global_matrix_buffer[token_id_1][token_id_2]; 
 	}
@@ -1867,27 +1888,20 @@ public class HungarianExperiment {
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 						count_survived_pruning++;
 						//Fill local matrix of the current window combination from global matrix
-						if(prior_cell_updated_matrix) {
-							//fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix);
-							//FIXME das geht nur, wenn die matrix immer upgedated wird
-							final int replace_position = (column-1)%k;
-							for(int i=0;i<this.k;i++) {
-								final int token_id_1 = k_windows_p1[line][i];
-								final int token_id_2 = k_windows_p2[column][k-1];//Always the new one
-								double sim_rokwn_pair = sim_cached(token_id_1, token_id_2);
-								local_similarity_matrix[i][replace_position] = -sim_rokwn_pair;//Note the minus-trick for the Hungarian
-							}
-							prev_min_value = max(local_similarity_matrix);
+						if(prior_cell_updated_matrix && false) {
+							fill_local_similarity_matrix_incrementally(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix);
+							double max_sim_new_node = -col_minima[k-1];
+							upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
+							upper_bound_sim+=(max_sim_new_node/k);
 						}else{
 							fill_local_similarity_matrix(k_windows_p1[line], k_windows_p2[column], local_similarity_matrix);
-							prev_min_value = max(local_similarity_matrix);
+							double max_sim_new_node = min(local_similarity_matrix);
+							upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
+							upper_bound_sim+=(max_sim_new_node/k);
 						}
+						prev_min_value = max(local_similarity_matrix);
 						prior_cell_updated_matrix = true;
 						 
-						double max_sim_new_node = min(local_similarity_matrix);
-						upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
-						upper_bound_sim+=(max_sim_new_node/k);
-						
 						if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 							count_survived_second_pruning++;
 							

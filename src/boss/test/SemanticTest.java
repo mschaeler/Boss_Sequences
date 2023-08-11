@@ -56,12 +56,14 @@ public class SemanticTest {
 				//he.run_baseline_zick_zack();
 				//run_times=he.run_zick_zack();
 				//run_times=he.run_zick_zack_deep();
-				run_times = he.run_check_hungo_heuristics();
+				//run_times = he.run_check_hungo_heuristics();
 				//run_times=he.run_candidates_min_matrix();
 				//run_times=he.run_candidates_min_matrix_2();
 				//run_times=he.run_candidates_min_matrix_3();
 				//run_times=he.run_solution();
 				//run_times=he.run_incremental_cell_pruning();
+				//run_times = he.run_incremental_cell_pruning_pranay();
+				run_times = he.run_best_full_scan();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
 				//he.run_baseline_global_matrix_sparse();
