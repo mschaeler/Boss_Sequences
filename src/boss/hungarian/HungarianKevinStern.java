@@ -54,7 +54,8 @@ public class HungarianKevinStern extends Solver{
 	private final double[] labelByWorker, labelByJob;
 	private final int[] minSlackWorkerByJob;
 	private final double[] minSlackValueByJob;
-	private final int[] matchJobByWorker, matchWorkerByJob;
+	final int[] matchJobByWorker;
+	private final int[] matchWorkerByJob;
 	private final int[] parentWorkerByCommittedJob;
 	private final boolean[] committedWorkers;
 
