@@ -13,6 +13,7 @@ import boss.hungarian.HungarianAlgorithmWiki;
 import boss.hungarian.HungarianExperiment;
 import boss.hungarian.HungarianKevinStern;
 import boss.hungarian.HungarianKevinSternAlmpified;
+import boss.hungarian.Solutions;
 import boss.hungarian.StupidSolver;
 import boss.lexicographic.BasicTokenizer;
 import boss.lexicographic.TokenizedParagraph;
@@ -45,6 +46,18 @@ public class SemanticTest {
 		double[] run_times;
 		
 		for(int k : k_s) {
+			ArrayList<Solutions> solutions = prepare_solution(books,k,threshold);
+			for(Solutions s : solutions) {
+				//run_times = s.run_naive();
+				//run_times = s.run_baseline();
+				run_times = s.run_incremental_cell_pruning();
+				
+				all_run_times.add(run_times);
+			}
+		}
+
+/*		
+		for(int k : k_s) {
 			ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
 			for(HungarianExperiment he : hes) {
 				//he.set_solver(new StupidSolver(k));
@@ -63,7 +76,8 @@ public class SemanticTest {
 				//run_times=he.run_solution();
 				//run_times=he.run_incremental_cell_pruning();
 				//run_times = he.run_incremental_cell_pruning_pranay();
-				run_times = he.run_best_full_scan();
+				//run_times = he.run_best_full_scan();
+				run_times = he.run_baseline_deep();
 				//he.run_pruning();
 				//he.run_baseline_global_matrix_dense();
 				//he.run_baseline_global_matrix_sparse();
@@ -71,7 +85,7 @@ public class SemanticTest {
 				//run_times = he.run_check_node_deletion();
 				all_run_times.add(run_times);
 			}
-		}
+		}*/
 		
 		for(int i=0;i<k_s.length;i++) {
 			System.out.print("k="+k_s[i]+"\t");
@@ -221,6 +235,47 @@ public class SemanticTest {
 				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
 				
 				HungarianExperiment exp = new HungarianExperiment(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
+				ret.add(exp);
+			}
+		}
+		System.out.println("SemanticTest.prepare_experiment() [DONE]");
+		return ret;
+	}
+	
+	static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold) {
+		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		System.out.println("SemanticTest.prepare_experiment() [START]");
+		ArrayList<Solutions> ret = new ArrayList<Solutions>(books.size());
+		
+		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+		ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
+		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
+		
+		HashMap<Integer, double[]> embedding_vector_index;
+		if(embedding_vector_index_buffer==null) {
+			boolean ignore_stopwords = false;
+			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords);
+			embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+		}else{
+			embedding_vector_index = embedding_vector_index_buffer;
+		}
+		
+		//For each pair of books (i,j)
+		for(int i=0;i<tokenized_books.size();i++) {
+			Book tokenized_book_1 = tokenized_books.get(i);
+			for(int j=i+1;j<tokenized_books.size();j++) {
+				Book tokenized_book_2 = tokenized_books.get(j);	
+				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
+				
+				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
+				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
+				
+				get_tokens(tokenized_book_1, tokenized_book_2, raw_book_1, raw_book_2);
+				
+				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
+				
+				Solutions exp = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
 				ret.add(exp);
 			}
 		}

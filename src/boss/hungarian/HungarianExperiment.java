@@ -1851,7 +1851,7 @@ public class HungarianExperiment {
 					/*if(line==9) {
 						System.err.println("line==9");
 					}*/
-					ub_sum = sum_bound_similarity(local_similarity_matrix)/k;
+					ub_sum = sum_bound_similarity(local_similarity_matrix)/(double)k;
 					
 					if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
 						sim = -solver.solve_inj(local_similarity_matrix, threshold, col_minima);//Note the minus-trick for the Hungarian
@@ -1966,7 +1966,7 @@ public class HungarianExperiment {
 			run_times[p] = (stop-start);
 			int size = size(alignment_matrix);
 			double check_sum = sum(alignment_matrix);
-			System.out.println("P="+p+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold);
+			System.out.println("k="+p+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold);
 			this.alignement_matrixes.add(alignment_matrix);
 		}
 		return run_times;
