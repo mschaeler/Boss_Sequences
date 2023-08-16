@@ -50,7 +50,8 @@ public class SemanticTest {
 			for(Solutions s : solutions) {
 				//run_times = s.run_naive();
 				//run_times = s.run_baseline();
-				run_times = s.run_incremental_cell_pruning();
+				//run_times = s.run_incremental_cell_pruning();
+				run_times = s.run_incremental_cell_pruning_deep();
 				
 				all_run_times.add(run_times);
 			}

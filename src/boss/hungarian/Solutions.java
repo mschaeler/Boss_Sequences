@@ -232,6 +232,140 @@ public class Solutions {
 	}
 	//final boolean SAFE_MODE = true;
 	
+	public double[] run_incremental_cell_pruning_deep(){
+		HungarianDeep solver = new HungarianDeep(k);
+		HungarianKevinStern solver_baseline = new HungarianKevinStern(k);
+		
+		System.out.println("Solutions.run_incremental_cell_pruning_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
+		//final double[][] local_similarity_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+		
+		final double MAX_SIM_ADDITION_NEW_NODE = 1.0/k;
+		
+		double stop,start;
+
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = alignement_matrixes;
+		final int[][] k_windows_p1 = k_with_windows_b1;
+		final int[][] k_windows_p2 = k_with_windows_b2;	
+		
+		double prior_cell_similarity;
+		double prev_min_value;
+		
+		int count_survived_pruning = 0;
+		int count_survived_second_pruning = 0;
+		int count_survived_third_pruning = 0;
+		int count_cells_exceeding_threshold = 0;
+		boolean prior_cell_updated_matrix;
+		
+		double ub_sum;
+		double sim;
+		
+		USE_GLOBAL_MATRIX = true;
+		final double[][] global_cost_matrix_book = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime.
+		
+		final double[][] current_lines = new double[k][];
+		
+		start = System.currentTimeMillis();
+		
+		//For each pair of windows
+		for(int line=0;line<alignment_matrix.length;line++) {
+			for(int i=0;i<k;i++) {
+				current_lines[i] = global_cost_matrix_book[line+i];
+			}
+			solver.set_matrix(current_lines);
+			count_survived_pruning++;
+			count_survived_second_pruning++;
+			//get the line to get rid of 2D array resolution
+			final double[] alignment_matrix_line = alignment_matrix[line];
+			
+			int column=0;			
+			{//Here we have no bound
+				ub_sum = sum_bound_similarity(current_lines, column)/(double)k;
+				
+				if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
+					sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
+					sim /= k;
+					if(sim>=threshold) {
+						count_cells_exceeding_threshold++;
+						alignment_matrix_line[column] = sim;
+					}//else keep it zero
+					prior_cell_similarity = sim;
+				}else{
+					prior_cell_similarity = ub_sum;
+				}
+				
+				prev_min_value = max(current_lines, column);
+				prior_cell_updated_matrix = true;
+				
+			}
+			
+			//For all other columns: Here we have a bound
+			for(column=1;column<alignment_matrix[0].length;column++) {		
+				double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
+				if(prior_cell_updated_matrix) {
+					upper_bound_sim-= (prev_min_value / k);
+				}				
+				
+				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+					count_survived_pruning++;  
+					
+					double max_sim_new_node = min(current_lines, column);
+					upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
+					upper_bound_sim+=(max_sim_new_node/k);
+					 
+					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+						count_survived_second_pruning++;
+						
+						ub_sum = sum_bound_similarity(current_lines, column)/k;
+						upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The some bound is not necessarily tighter
+						
+						if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
+							count_survived_third_pruning++;
+							//That's the important line
+							sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
+							//normalize 
+							sim /= k;
+							
+							if(sim>=threshold) {
+								count_cells_exceeding_threshold++;
+								alignment_matrix_line[column] = sim;
+							}//else keep it zero
+							prior_cell_similarity = sim;
+							
+						}else{
+							prior_cell_similarity = upper_bound_sim;
+						}
+					}else{
+						prior_cell_similarity = upper_bound_sim;
+					}
+					prev_min_value = max(current_lines, column);
+					prior_cell_updated_matrix = true;
+				}else{
+					prior_cell_similarity = upper_bound_sim;
+					prior_cell_updated_matrix = false;
+				}
+			}
+		}
+		stop = System.currentTimeMillis();
+		run_times[0] = (stop-start);
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold);
+	
+		return run_times;
+	}
+	
+	private void change_signum(double[][] matrix) {
+		for(double[] arr : matrix) {
+			for(int i=0;i<arr.length;i++) {
+				arr[i] *= -1;
+			}
+		}
+		
+	}
+
 	public double[] run_incremental_cell_pruning(){
 		HungarianKevinStern solver = new HungarianKevinStern(k);
 		HungarianKevinStern solver_baseline = new HungarianKevinStern(k);
@@ -397,6 +531,38 @@ public class Solutions {
 		
 		return -min_cost;
 	}
+	private double sum_bound_similarity(final double[][] current_lines, final int offset) {
+		double row_sum = 0;
+		Arrays.fill(col_maxima, Double.POSITIVE_INFINITY);
+		for(int i=0;i<this.k;i++) {
+			final double[] line = current_lines[i];
+			double row_min = Double.POSITIVE_INFINITY;
+			for(int j=0;j<this.k;j++) {
+				final double val = line[offset+j];
+				if(val<row_min) {
+					row_min = val;
+				}
+				if(val<col_maxima[j]) {
+					col_maxima[j] = val;
+				}
+			}
+			row_sum += row_min;
+		}
+		col_sum = sum(col_maxima);
+		double min_cost = Math.max(row_sum, col_sum);		
+		
+		return -min_cost;
+	}
+	
+	private final double max(final double[][] current_lines, final int offset) {
+		double max = Double.NEGATIVE_INFINITY;//TODO remove this line?
+		for(double[] line : current_lines) {
+			if(max<line[offset+0]) {//similarity of the deleted token
+				max=line[offset+0];
+			}
+		}
+		return -max;
+	}
 	
 	private final double max(final double[][] local_similarity_matrix) {
 		double max = Double.NEGATIVE_INFINITY;//TODO remove this line?
@@ -406,6 +572,16 @@ public class Solutions {
 			}
 		}
 		return -max;
+	}
+	
+	private final double min(final double[][] current_lines, final int offset) {
+		double min = current_lines[0][offset+k-1];
+		for(int line=1;line<k;line++) {
+			if(min>current_lines[line][offset+k-1]) {
+				min=current_lines[line][offset+k-1];
+			}
+		}
+		return -min;
 	}
 	
 	private final double min(final double[][] window) {
@@ -533,6 +709,22 @@ public class Solutions {
 		}
 		
 		return global_cost_matrix;
+	}
+	
+	private double[][] fill_similarity_matrix_deep() {
+		final double[][] matrix = new double[raw_paragraph_b1.length][raw_paragraph_b2.length];
+		
+		for(int line=0;line<raw_paragraph_b1.length;line++) {
+			final int set_id_window_p1 = raw_paragraph_b1[line];
+			final double[] sim_matrix_line = dense_global_matrix_buffer[set_id_window_p1];
+			for(int column=0;column<raw_paragraph_b2.length;column++) {
+				final int set_id_window_p2 = raw_paragraph_b2[column];	
+				final double sim = sim_matrix_line[set_id_window_p2];
+				matrix[line][column] = -sim;//XXX - that is the difference to the method above
+			}
+		}
+
+		return matrix;
 	}
 	
 	private static final double EQUAL = 1;

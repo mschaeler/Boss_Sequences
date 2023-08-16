@@ -109,9 +109,9 @@ public class HungarianDeep extends Solver{
 		Arrays.fill(minSlackValueByJob, 0);
 		Arrays.fill(committedWorkers, false);
 		Arrays.fill(parentWorkerByCommittedJob, 0);
-		
+		*/
 		Arrays.fill(matchJobByWorker, -1);
-		Arrays.fill(matchWorkerByJob, -1);*/
+		Arrays.fill(matchWorkerByJob, -1);
 
 		computeInitialFeasibleSolution(col_minima);//This is the difference.
 		

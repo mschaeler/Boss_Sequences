@@ -542,7 +542,7 @@ public class HungarianExperiment {
 	
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
-	static final boolean SAFE_MODE    = false;
+	static final boolean SAFE_MODE    = true;
 	static final boolean LOGGING_MODE = false;
 	
 	static final int USE_COLUMN_SUM = 0;

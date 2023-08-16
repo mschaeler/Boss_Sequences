@@ -47,7 +47,7 @@ public class Importer {
 				//System.out.println(line);
 				String[] raw_tokens = line.split(FIELD_SEPERATOR,2);
 				if(raw_tokens.length==1){
-					raw_tokens = line.split("\s", 2);//Try alternative field seperator
+					raw_tokens = line.split(" ", 2);//Try alternative field seperator
 				}
 				lines.add(raw_tokens);
 			}
