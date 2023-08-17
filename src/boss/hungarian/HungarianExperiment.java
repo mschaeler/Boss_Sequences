@@ -3044,12 +3044,12 @@ public class HungarianExperiment {
 		final int[][] k_windows_p2 = this.k_with_windows_b2.get(0);	
 		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
 		
-		int count_candidates = 0;
-		int count_survived_sum_bound = 0;
-		int count_cells_exceeding_threshold = 0;
+		count_candidates = 0;
+		count_survived_sum_bound = 0;
+		count_cells_exceeding_threshold = 0;
 		
 		start = System.currentTimeMillis();
-		
+		ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(candidates.length);
 		for(int line=0;line<alignment_matrix.length;line++) {
 			final boolean[] candidates_line = candidates[line];
 			final int[] window_p1 = k_windows_p1[line];
@@ -3080,77 +3080,23 @@ public class HungarianExperiment {
 			if(found_run) {
 				candidates_condensed.add(candidates_line.length-1);
 			}
-			
+			all_candidates.add(candidates_condensed);
+		}
+		double stop_candidates = System.currentTimeMillis();
+		
+		for(int line=0;line<alignment_matrix.length;line++) {
 			//Validate candidates
 			final double[] alignment_matrix_line = alignment_matrix[line];
+			final MyArrayList candidates_condensed = all_candidates.get(line);
+			
 			final int size = candidates_condensed.size();
 			final int[] raw_candidates = candidates_condensed.ARRAY;
 			for(int c=0;c<size;c+=2) {
 				final int run_start = raw_candidates[c];
 				final int run_stop = raw_candidates[c+1];
-				for(int column=run_start;column<=run_stop;column++) {
-					count_candidates++;
-					//get local cost matrix
-					for(int i=0;i<this.k;i++) {
-						final int set_id_window_p1 = k_windows_p1[line][i];
-						for(int j=0;j<this.k;j++) {
-							final int set_id_window_p2 = k_windows_p2[column][j];
-							double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
-							cost_matrix[i][j] = dist;
-						}
-					}
-					// (4) compute the bound
-					final double lb_cost = get_column_row_sum(cost_matrix);
-					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
-					
-					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
-						count_survived_sum_bound++;
-						//That's the important line
-						double cost = this.solver.solve(cost_matrix, threshold);
-						//normalize costs: Before it was distance. Now it is similarity.
-						double normalized_similarity = 1.0 - (cost / (double)k);
-						if(normalized_similarity>=threshold) {
-							count_cells_exceeding_threshold++;
-							alignment_matrix_line[column] = normalized_similarity;
-						}//else keep it zero
-					}
-				}
+				
+				validate_run(line, run_start, run_stop, k_windows_p1, k_windows_p2, cost_matrix, alignment_matrix_line);
 			}
-			/*
-			for(int column=0;column<alignment_matrix[0].length;column++) {
-				boolean is_candidate = candidates_line[column];
-				if(is_candidate){
-					count_candidates++;
-					//get local cost matrix
-					for(int i=0;i<this.k;i++) {
-						final int set_id_window_p1 = k_windows_p1[line][i];
-						for(int j=0;j<this.k;j++) {
-							final int set_id_window_p2 = k_windows_p2[column][j];
-							double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
-							cost_matrix[i][j] = dist;
-						}
-					}
-					
-					// (4) compute the bound
-					final double lb_cost = get_column_row_sum(cost_matrix);
-					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
-					
-					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
-						count_survived_sum_bound++;
-						//That's the important line
-						double cost = this.solver.solve(cost_matrix, threshold);
-						//normalize costs: Before it was distance. Now it is similarity.
-						double normalized_similarity = 1.0 - (cost / (double)k);
-						if(normalized_similarity>=threshold) {
-							count_cells_exceeding_threshold++;
-							alignment_matrix_line[column] = normalized_similarity;
-						}//else keep it zero
-					}
-				}//else safe mode
-				if(SAFE_MODE) {
-					safe_mode_run_candidates(k_windows_p1, k_windows_p2, line, column, cost_matrix ,is_candidate);
-				}
-			}*/
 		}
 		
 		stop = System.currentTimeMillis();
@@ -3158,9 +3104,43 @@ public class HungarianExperiment {
 		
 		int size = size(alignment_matrix);
 		double check_sum = sum(alignment_matrix);
-		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start));
 		
 		return run_times;
+	}
+	
+	long count_candidates;
+	long count_survived_sum_bound;
+	long count_cells_exceeding_threshold;
+	void validate_run(final int line, final int run_start, final int run_stop, final int[][] k_windows_p1, final int[][] k_windows_p2
+			, final double[][] cost_matrix, final double[] alignment_matrix_line) {
+		for(int column=run_start;column<=run_stop;column++) {
+			count_candidates++;
+			//get local cost matrix
+			for(int i=0;i<this.k;i++) {
+				final int set_id_window_p1 = k_windows_p1[line][i];
+				for(int j=0;j<this.k;j++) {
+					final int set_id_window_p2 = k_windows_p2[column][j];
+					double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+					cost_matrix[i][j] = dist;
+				}
+			}
+			// (4) compute the bound
+			final double lb_cost = get_column_row_sum(cost_matrix);
+			final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
+			
+			if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+				count_survived_sum_bound++;
+				//That's the important line
+				double cost = this.solver.solve(cost_matrix, threshold);
+				//normalize costs: Before it was distance. Now it is similarity.
+				double normalized_similarity = 1.0 - (cost / (double)k);
+				if(normalized_similarity>=threshold) {
+					count_cells_exceeding_threshold++;
+					alignment_matrix_line[column] = normalized_similarity;
+				}//else keep it zero
+			}
+		}
 	}
 	
 	private int[][] to_inverted_window_index_ranges(ArrayList<MyArrayList> inverted_window_index) {
