@@ -12,6 +12,7 @@ public class Solutions {
 	private static final boolean SAVE_MODE = false;
 	
 	final int k;
+	final double k_double;
 	final int num_paragraphs;
 	final double threshold;
 	final int max_id;
@@ -34,6 +35,7 @@ public class Solutions {
 	
 	public Solutions(ArrayList<int[]> raw_paragraphs_b1, ArrayList<int[]> raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index) {
 		this.k = k;
+		this.k_double = (double) k;
 		this.threshold = threshold;
 		this.threshold_times_k = threshold * k;
 		this.num_paragraphs = raw_paragraphs_b1.size();
@@ -232,23 +234,20 @@ public class Solutions {
 	}
 	//final boolean SAFE_MODE = true;
 	
+	static final boolean LOGGING_MODE = true;
+	
 	public double[] run_incremental_cell_pruning_deep(){
 		HungarianDeep solver = new HungarianDeep(k);
-		HungarianKevinStern solver_baseline = new HungarianKevinStern(k);
-		
 		System.out.println("Solutions.run_incremental_cell_pruning_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
-		//final double[][] local_similarity_matrix = new double[k][k];
 		
 		double[] run_times = new double[num_paragraphs];
 		
-		final double MAX_SIM_ADDITION_NEW_NODE = 1.0/k;
+		final double MAX_SIM_ADDITION_NEW_NODE = 1.0/k_double;
 		
 		double stop,start;
 
 		//Allocate space for the alignment matrix
 		final double[][] alignment_matrix = alignement_matrixes;
-		final int[][] k_windows_p1 = k_with_windows_b1;
-		final int[][] k_windows_p2 = k_with_windows_b2;	
 		
 		double prior_cell_similarity;
 		double prev_min_value;
@@ -275,20 +274,20 @@ public class Solutions {
 				current_lines[i] = global_cost_matrix_book[line+i];
 			}
 			solver.set_matrix(current_lines);
-			count_survived_pruning++;
-			count_survived_second_pruning++;
+			if(LOGGING_MODE) count_survived_pruning++;
+			if(LOGGING_MODE) count_survived_second_pruning++;
 			//get the line to get rid of 2D array resolution
 			final double[] alignment_matrix_line = alignment_matrix[line];
 			
 			int column=0;			
 			{//Here we have no bound
-				ub_sum = sum_bound_similarity(current_lines, column)/(double)k;
+				ub_sum = sum_bound_similarity(current_lines, column)/k_double;
 				
 				if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
 					sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
-					sim /= k;
+					sim /= k_double;
 					if(sim>=threshold) {
-						count_cells_exceeding_threshold++;
+						if(LOGGING_MODE) count_cells_exceeding_threshold++;
 						alignment_matrix_line[column] = sim;
 					}//else keep it zero
 					prior_cell_similarity = sim;
@@ -305,31 +304,31 @@ public class Solutions {
 			for(column=1;column<alignment_matrix[0].length;column++) {		
 				double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
 				if(prior_cell_updated_matrix) {
-					upper_bound_sim-= (prev_min_value / k);
+					upper_bound_sim-= (prev_min_value / k_double);
 				}				
 				
 				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
-					count_survived_pruning++;  
+					if(LOGGING_MODE) count_survived_pruning++;  
 					
 					double max_sim_new_node = min(current_lines, column);
 					upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
-					upper_bound_sim+=(max_sim_new_node/k);
+					upper_bound_sim+=(max_sim_new_node/k_double);
 					 
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
-						count_survived_second_pruning++;
+						if(LOGGING_MODE) count_survived_second_pruning++;
 						
-						ub_sum = sum_bound_similarity(current_lines, column)/k;
+						ub_sum = sum_bound_similarity(current_lines, column)/k_double;
 						upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The some bound is not necessarily tighter
 						
 						if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
-							count_survived_third_pruning++;
+							if(LOGGING_MODE) count_survived_third_pruning++;
 							//That's the important line
 							sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
 							//normalize 
-							sim /= k;
+							sim /= k_double;
 							
 							if(sim>=threshold) {
-								count_cells_exceeding_threshold++;
+								if(LOGGING_MODE) count_cells_exceeding_threshold++;
 								alignment_matrix_line[column] = sim;
 							}//else keep it zero
 							prior_cell_similarity = sim;

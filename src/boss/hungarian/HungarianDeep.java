@@ -50,7 +50,7 @@ import java.util.Arrays;
 
 public class HungarianDeep extends Solver{
 	private double[][] costMatrix;
-	private final int rows, cols, dim;
+	private final int dim;
 	private final double[] labelByWorker, labelByJob;
 	private final int[] minSlackWorkerByJob;
 	private final double[] minSlackValueByJob;
@@ -74,9 +74,6 @@ public class HungarianDeep extends Solver{
 	 */
 	public HungarianDeep(int k) {
 		this.dim = k;
-		this.rows = k;
-		this.cols = k;
-		//this.costMatrix = new double[this.dim][this.dim];
 		
 		labelByWorker = new double[this.dim];
 		labelByJob = new double[this.dim];
@@ -99,6 +96,7 @@ public class HungarianDeep extends Solver{
 	 *         cost matrix. A matching value of -1 indicates that the corresponding
 	 *         worker is unassigned.
 	 */
+	@Deprecated
 	public double solve(final int start_column, final double[] col_minima) {
 		solve_counter++;//For statistics only
 		this.start_offset = start_column;
@@ -133,10 +131,12 @@ public class HungarianDeep extends Solver{
 	 * incident edges.
 	 */
 	protected void computeInitialFeasibleSolution(final double[] col_minima) {
+		System.arraycopy(col_minima, 0, labelByJob, 0, dim);
+		
 		for (int w = 0; w < dim; w++) {
 			for (int j = 0; j < dim; j++) {
 				if (cost(w,j) == col_minima[j]) {
-					labelByJob[j] = cost(w,j);
+					//labelByJob[j] = cost(w,j);
 					if (matchJobByWorker[w] == -1 && matchWorkerByJob[j] == -1) {
 						match(w, j);//greedily match them
 					} 

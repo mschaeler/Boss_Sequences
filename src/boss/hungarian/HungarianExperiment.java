@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -14,6 +15,7 @@ import boss.embedding.MatchesWithEmbeddings;
 import boss.test.SemanticTest;
 import boss.util.Histogram;
 import boss.util.HistogramDouble;
+import boss.util.MyArrayList;
 
 public class HungarianExperiment {
 	final int num_paragraphs;
@@ -542,7 +544,7 @@ public class HungarianExperiment {
 	
 	
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
-	static final boolean SAFE_MODE    = true;
+	static final boolean SAFE_MODE    = false;
 	static final boolean LOGGING_MODE = false;
 	
 	static final int USE_COLUMN_SUM = 0;
@@ -2852,15 +2854,23 @@ public class HungarianExperiment {
 		/**
 		 * inverted_index.get(i)[my_token_id] -> ordered list of token_id with sim(my_token_id, token_id) >= threshold 
 		 */
-		final ArrayList<int[]> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
 		/**
 		 * inverted_window_index.get(my_token_id).get(paragraph_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
 		 */
-		final ArrayList<ArrayList<int[]>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
+		final ArrayList<ArrayList<MyArrayList>> temp = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
+		
+		final ArrayList<MyArrayList> inverted_window_index = new ArrayList<MyArrayList>(temp.size());
+		for(ArrayList<MyArrayList> token_index : temp) {
+			inverted_window_index.add(token_index.get(0));//There is only one paragraph at book level.
+		}
+		final int[][] inverted_window_index_ranges = to_inverted_window_index_ranges(inverted_window_index);
+		
 		/**
-		 * inverted_token_index.get(paragraph_id).get(my_token_id) -> all occurrences of my_token_id in this paragraph
+		 * inverted_token_index.get(paragraph_id).get(my_token_id) -> all occurrences of my_token_id in this paragraph.
+		 * It is sparse, since we probably do not see every token in this sequence.
 		 */
-		final HashMap<Integer, ArrayList<Integer>> inverted_token_index = create_inverted_token_index_book_granularity(this.k_with_windows_b1);
+		final HashMap<Integer, MyArrayList> inverted_token_index = create_inverted_token_index_book_granularity(this.k_with_windows_b1);
 		
 		double stop,start;
 		
@@ -2870,25 +2880,48 @@ public class HungarianExperiment {
 		final int[][] k_windows_p2 = this.k_with_windows_b2.get(0);	
 		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
 		
-		int count_survived_pruning = 0;
+		int count_candidates = 0;
+		int count_survived_sum_bound = 0;
 		int count_cells_exceeding_threshold = 0;
 		
 		start = System.currentTimeMillis();
 		
 		//(1) Determine candidates
 		double start_candidates = System.currentTimeMillis();
-		for(Entry<Integer, ArrayList<Integer>> e : inverted_token_index.entrySet()) {
+		for(Entry<Integer, MyArrayList> e : inverted_token_index.entrySet()) {
 			/** This is the token itself */
 			final int token_id = e.getKey();
 			/** This contains all windows of book_1 where token_id is in, i.e., this refers to lines */
-			final ArrayList<Integer> token_id_occurences = e.getValue();
+			final MyArrayList token_id_occurences = e.getValue();
 			/** This contains all windows with token_id with sim(token_id, token_id) >= threshold, i.e., this refers columns*/  
-			final int[] index = inverted_window_index.get(token_id).get(0);
+			final MyArrayList index = inverted_window_index.get(token_id);
+			final int[] raw_index = index.ARRAY;
+			final int size = index.size();
 			
-			for(int line : token_id_occurences) {
+			for(int c=0;c<token_id_occurences.size();c++) {
+				int line = token_id_occurences.get(c);
 				final boolean[] candidates_line = candidates[line];
-				for(int pos : index) {
+				for(int i=0;i<size;i++) {
+					int pos = raw_index[i];
 					candidates_line[pos] = true;
+				}
+				if(SAFE_MODE) {
+					boolean[] candidates_line_copy = Arrays.copyOf(candidates_line, candidates_line.length);
+					final int[] index_copy = inverted_window_index_ranges[token_id];
+					
+					for(int i=0;i<index_copy.length;i+=2) {//Note the +=2 because we have pairs (start,stop)
+						final int start_range = index_copy[i];
+						final int stop_range = index_copy[i+1];//including this one
+						for(int pos = start_range;pos<=stop_range;pos++) {
+							candidates_line_copy[pos] = true;
+						}
+					}
+					
+					for(int i=0;i<candidates_line_copy.length;i++) {
+						if(candidates_line_copy[i]!=candidates_line[i]) {
+							System.err.println("candidates_line_copy["+i+"]!=candidates_line["+i+"]");
+						}
+					}
 				}
 			}
 		}
@@ -2903,7 +2936,7 @@ public class HungarianExperiment {
 			for(int column=0;column<alignment_matrix[0].length;column++) {
 				boolean is_candidate = candidates_line[column];
 				if(is_candidate){
-					count_survived_pruning++;
+					count_candidates++;
 					//get local cost matrix
 					for(int i=0;i<this.k;i++) {
 						final int set_id_window_p1 = k_windows_p1[line][i];
@@ -2919,6 +2952,7 @@ public class HungarianExperiment {
 					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
 					
 					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+						count_survived_sum_bound++;
 						//That's the important line
 						double cost = this.solver.solve(cost_matrix, threshold);
 						//normalize costs: Before it was distance. Now it is similarity.
@@ -2940,27 +2974,243 @@ public class HungarianExperiment {
 		
 		int size = size(alignment_matrix);
 		double check_sum = sum(alignment_matrix);
-		System.out.println("P=0"+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_survived_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start_candidates));
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start_candidates));
 		
 		return run_times;
 	}
 	
-	private HashMap<Integer,ArrayList<Integer>> create_inverted_token_index_book_granularity(ArrayList<int[][]> k_with_windows) {
+	int[][] create_indexes() {
+		/**
+		 * inverted_index.get(i)[my_token_id] -> ordered list of token_id with sim(my_token_id, token_id) >= threshold 
+		 */
+		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		/**
+		 * inverted_window_index.get(my_token_id).get(paragraph_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
+		 */
+		final ArrayList<ArrayList<MyArrayList>> temp = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
+		
+		final ArrayList<MyArrayList> inverted_window_index = new ArrayList<MyArrayList>(temp.size());
+		for(ArrayList<MyArrayList> token_index : temp) {
+			inverted_window_index.add(token_index.get(0));//There is only one paragraph at book level.
+		}
+		final int[][] inverted_window_index_ranges = to_inverted_window_index_ranges(inverted_window_index);
+		
+		return inverted_window_index_ranges;
+	}
+	
+	void get_candidates(final int[] window_p1, final boolean[] candidates_line, final int[][] inverted_window_index_ranges) {
+		//Get candidates
+		for(int id : window_p1) {
+			final int[] index = inverted_window_index_ranges[id];
+			
+			for(int i=0;i<index.length;i+=2) {//Note the +=2 because we have pairs (start,stop)
+				final int start_range = index[i];
+				final int stop_range = index[i+1];//including this one
+				for(int pos = start_range;pos<=stop_range;pos++) {
+					candidates_line[pos] = true;
+				}
+			}
+		}
+	}
+	
+	public double[] run_candidates_min_matrix_4() {
+		if(k_with_windows_b1.size()!=1) {
+			System.err.println("Expecting book granularity");
+		}
+		//Check config (1) Normalized vectors to unit length
+		if(!MatchesWithEmbeddings.NORMALIZE_VECTORS) {
+			System.err.println("run_candidates_min_matrix_4(): MatchesWithEmbeddings.NORMALIZE_VECTORS=false");
+		}
+		//Ensure config (2) Hungarian implementation from Kevin Stern
+		this.solver = new HungarianKevinStern(k);
+		
+		// (3) Dense global cost matrix - compute once
+		if(dense_global_matrix_buffer==null) {//XXX Has extra runtime measurement inside method
+			create_dense_matrix();
+		}
+		
+		System.out.println("HungarianExperiment.run_candidates_min_matrix_4() dist="+SIM_FUNCTION+" k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] cost_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+		
+		final int[][] inverted_window_index_ranges = create_indexes();
+		
+		double stop,start;
+		
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = this.alignement_matrixes.get(0);//get the pre-allocated buffer. Done in Constructor
+		final int[][] k_windows_p1 = this.k_with_windows_b1.get(0);
+		final int[][] k_windows_p2 = this.k_with_windows_b2.get(0);	
+		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
+		
+		int count_candidates = 0;
+		int count_survived_sum_bound = 0;
+		int count_cells_exceeding_threshold = 0;
+		
+		start = System.currentTimeMillis();
+		
+		for(int line=0;line<alignment_matrix.length;line++) {
+			final boolean[] candidates_line = candidates[line];
+			final int[] window_p1 = k_windows_p1[line];
+			
+			//Get candidates
+			get_candidates(window_p1, candidates_line, inverted_window_index_ranges);
+			
+			MyArrayList candidates_condensed = new MyArrayList(candidates_line.length);
+			int q = 0;
+			boolean found_run = false;
+			while(q<candidates_line.length) {
+				if(candidates_line[q]) {//start of a run
+					candidates_condensed.add(q);
+					q++;
+					found_run = true;
+					while(q<candidates_line.length) {
+						if(!candidates_line[q]){//end of run
+							candidates_condensed.add(q-1);	
+							found_run = false;
+							break;
+						}else{
+							q++;	
+						}
+					}	
+				}
+				q++;
+			}
+			if(found_run) {
+				candidates_condensed.add(candidates_line.length-1);
+			}
+			
+			//Validate candidates
+			final double[] alignment_matrix_line = alignment_matrix[line];
+			final int size = candidates_condensed.size();
+			final int[] raw_candidates = candidates_condensed.ARRAY;
+			for(int c=0;c<size;c+=2) {
+				final int run_start = raw_candidates[c];
+				final int run_stop = raw_candidates[c+1];
+				for(int column=run_start;column<=run_stop;column++) {
+					count_candidates++;
+					//get local cost matrix
+					for(int i=0;i<this.k;i++) {
+						final int set_id_window_p1 = k_windows_p1[line][i];
+						for(int j=0;j<this.k;j++) {
+							final int set_id_window_p2 = k_windows_p2[column][j];
+							double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+							cost_matrix[i][j] = dist;
+						}
+					}
+					// (4) compute the bound
+					final double lb_cost = get_column_row_sum(cost_matrix);
+					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
+					
+					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+						count_survived_sum_bound++;
+						//That's the important line
+						double cost = this.solver.solve(cost_matrix, threshold);
+						//normalize costs: Before it was distance. Now it is similarity.
+						double normalized_similarity = 1.0 - (cost / (double)k);
+						if(normalized_similarity>=threshold) {
+							count_cells_exceeding_threshold++;
+							alignment_matrix_line[column] = normalized_similarity;
+						}//else keep it zero
+					}
+				}
+			}
+			/*
+			for(int column=0;column<alignment_matrix[0].length;column++) {
+				boolean is_candidate = candidates_line[column];
+				if(is_candidate){
+					count_candidates++;
+					//get local cost matrix
+					for(int i=0;i<this.k;i++) {
+						final int set_id_window_p1 = k_windows_p1[line][i];
+						for(int j=0;j<this.k;j++) {
+							final int set_id_window_p2 = k_windows_p2[column][j];
+							double dist = dense_global_matrix_buffer[set_id_window_p1][set_id_window_p2];
+							cost_matrix[i][j] = dist;
+						}
+					}
+					
+					// (4) compute the bound
+					final double lb_cost = get_column_row_sum(cost_matrix);
+					final double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
+					
+					if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>this.threshold) {
+						count_survived_sum_bound++;
+						//That's the important line
+						double cost = this.solver.solve(cost_matrix, threshold);
+						//normalize costs: Before it was distance. Now it is similarity.
+						double normalized_similarity = 1.0 - (cost / (double)k);
+						if(normalized_similarity>=threshold) {
+							count_cells_exceeding_threshold++;
+							alignment_matrix_line[column] = normalized_similarity;
+						}//else keep it zero
+					}
+				}//else safe mode
+				if(SAFE_MODE) {
+					safe_mode_run_candidates(k_windows_p1, k_windows_p2, line, column, cost_matrix ,is_candidate);
+				}
+			}*/
+		}
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold);
+		
+		return run_times;
+	}
+	
+	private int[][] to_inverted_window_index_ranges(ArrayList<MyArrayList> inverted_window_index) {
+		int[][] index = new int[inverted_window_index.size()][];
+		for(int token_id=0;token_id<index.length;token_id++) {
+			MyArrayList cells_above_threshold = inverted_window_index.get(token_id);
+			int[] temp = make_dense(cells_above_threshold);
+			index[token_id] = temp;
+		}
+		
+		return index;
+	}
+
+	private int[] make_dense(final MyArrayList cells_above_threshold) {
+		//start range
+		int index = 0;
+		final int size = cells_above_threshold.size();
+		MyArrayList temp = new MyArrayList();
+		
+		while(index<size) {
+			int start_range_index = cells_above_threshold.get(index);
+			index++;
+			//find end of range
+			while(index<size && cells_above_threshold.get(index-1)+1==cells_above_threshold.get(index)) {
+				index++;
+			}
+			int stop_range_index = cells_above_threshold.get(index-1);//The one before was the final element of the current range.
+			temp.add(start_range_index);
+			temp.add(stop_range_index);
+			//index++;
+		}
+		return temp.getTrimmedArray();//XXX should we do that?
+	}
+
+	private HashMap<Integer,MyArrayList> create_inverted_token_index_book_granularity(ArrayList<int[][]> k_with_windows) {
 		System.out.println("create_inverted_token_index() START");
 		if(k_with_windows.size()!=1) {
 			System.err.println("Expecting book granularity");
 		}
 		final double start = System.currentTimeMillis();
-		HashMap<Integer,ArrayList<Integer>> indexes = new HashMap<Integer,ArrayList<Integer>>(max_id+1);
+		HashMap<Integer,MyArrayList> indexes = new HashMap<Integer,MyArrayList>(max_id+1);
 				
 		final int[][] windows_in_paragraph = k_with_windows.get(0);
 			
 		for(int window_id=0;window_id<windows_in_paragraph.length;window_id++) {
 			final int[] window = windows_in_paragraph[window_id];
 			for(int token_id : window) {
-				ArrayList<Integer> index = indexes.get(token_id);
+				MyArrayList index = indexes.get(token_id);
 				if(index==null) {
-					index = new ArrayList<Integer>();	
+					index = new MyArrayList();	
 					indexes.put(token_id, index);
 				}
 				index.add(window_id);
@@ -3000,11 +3250,11 @@ public class HungarianExperiment {
 		/**
 		 * inverted_index.get(i)[my_token_id] -> ordered list of token_id with sim(my_token_id, token_id) >= threshold 
 		 */
-		final ArrayList<int[]> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
 		/**
 		 * inverted_window_index.get(my_token_id).get(paragraph_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
 		 */
-		final ArrayList<ArrayList<int[]>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
+		final ArrayList<ArrayList<MyArrayList>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
 		
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
@@ -3025,9 +3275,13 @@ public class HungarianExperiment {
 				//Create candidates: the window of p2 is fixed
 				final int[] window_p1 = k_windows_p1[line];
 				for(int id : window_p1) {
-					final ArrayList<int[]> token_index = inverted_window_index.get(id);
-					final int[] index = token_index.get(p);
-					for(int pos : index) {
+					final ArrayList<MyArrayList> token_index = inverted_window_index.get(id);
+					final MyArrayList index = token_index.get(p);
+					final int[] raw_index = index.ARRAY;
+					final int size = index.size();
+					
+					for(int i=0;i<size;i++) {
+						int pos = raw_index[i];
 						candidates[pos] = true;
 					}
 				}
@@ -3100,8 +3354,8 @@ public class HungarianExperiment {
 		 * inverted_index.get(i) -> index for paragraph token_id
 		 * inverted_index.get(i)[token_id] -> some other_token_id with sim(token_id, other_token_id) > threshold 
 		 */
-		final ArrayList<int[]> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
-		final ArrayList<ArrayList<int[]>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
+		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final ArrayList<ArrayList<MyArrayList>> inverted_window_index = create_inverted_window_index(this.k_with_windows_b2, neighborhood_index);
 		
 		double stop,start;
 		for(int p=0;p<num_paragraphs;p++) {
@@ -3120,9 +3374,13 @@ public class HungarianExperiment {
 				//Create candidates: the window of p2 is fixed
 				final int[] window_p1 = k_windows_p1[line];
 				for(int id : window_p1) {
-					final ArrayList<int[]> token_index = inverted_window_index.get(id);
-					final int[] index = token_index.get(p);
-					for(int column : index) {
+					final ArrayList<MyArrayList> token_index = inverted_window_index.get(id);
+					final MyArrayList index = token_index.get(p);
+					final int[] raw_index = index.ARRAY;
+					final int size = index.size();
+					
+					for(int c=0;c<size;c++) {
+						int column = raw_index[c];
 						if(!already_checked[column]) {//hopefully not computed before
 							already_checked[column] = true;
 							//get local cost matrix
@@ -3194,31 +3452,27 @@ public class HungarianExperiment {
 	 * @param k_with_windows_b12
 	 * @return
 	 */
-	private ArrayList<ArrayList<int[]>> create_inverted_window_index(final ArrayList<int[][]> k_with_windows, ArrayList<int[]> neihborhood_indexes) {
+	private ArrayList<ArrayList<MyArrayList>> create_inverted_window_index(final ArrayList<int[][]> k_with_windows, ArrayList<MyArrayList> neihborhood_indexes) {
 		System.out.println("ArrayList<ArrayList<int[]>> create_inverted_window_index() BEGIN");
 		double start = System.currentTimeMillis();
-		ArrayList<ArrayList<int[]>> indexes = new ArrayList<ArrayList<int[]>>();
+		ArrayList<ArrayList<MyArrayList>> indexes = new ArrayList<ArrayList<MyArrayList>>();
 		//For each token
 		for(int token_id = 0;token_id<neihborhood_indexes.size();token_id++) {
 			//Create the list of occurrences for token: token_id
-			final int[] neihborhood_index = neihborhood_indexes.get(token_id);
-			ArrayList<int[]> occurences_per_paragraph = new ArrayList<int[]>(k_with_windows.size());
+			final MyArrayList neihborhood_index = neihborhood_indexes.get(token_id);
+			ArrayList<MyArrayList> occurences_per_paragraph = new ArrayList<MyArrayList>(k_with_windows.size());
 			
 			//For each windowed paragraph: Inspect whether one of the tokens in neihborhood_indexes is in the windows
 			for(int paragraph=0;paragraph<k_with_windows.size();paragraph++) {
 				int[][] windows = k_with_windows.get(paragraph);
-				ArrayList<Integer> index_this_paragraph = new ArrayList<Integer>();
+				MyArrayList index_this_paragraph = new MyArrayList();
 				for(int pos=0;pos<windows.length;pos++) {
 					int[] curr_window = windows[pos];
 					if(is_in(neihborhood_index, curr_window)) {
 						index_this_paragraph.add(pos);
 					}
 				}
-				int[] temp = new int[index_this_paragraph.size()];
-				for(int i=0;i<index_this_paragraph.size();i++) {
-					temp[i] = index_this_paragraph.get(i);
-				}
-				occurences_per_paragraph.add(temp);
+				occurences_per_paragraph.add(index_this_paragraph);
 			}
 			indexes.add(occurences_per_paragraph);
 		}
@@ -3227,8 +3481,10 @@ public class HungarianExperiment {
 	}
 
 	//TODO exploit running window property: Maybe order ids by frequency
-	private boolean is_in(int[] neihborhood_index, int[] curr_window) {
-		for(int neighbor : neihborhood_index) {
+	private boolean is_in(MyArrayList neihborhood_index, int[] curr_window) {
+		final int[] arr = neihborhood_index.ARRAY;
+		for(int i=0;i<neihborhood_index.size();i++) {
+			final int neighbor = arr[i];
 			for(int t : curr_window) {
 				if(t==neighbor) {
 					return true;
@@ -3242,13 +3498,13 @@ public class HungarianExperiment {
 	 * inverted_index.get(i) -> index for paragraph token_id
 	 * inverted_index.get(i)[token_id] -> some other_token_id with sim(token_id, other_token_id) > threshold 
 	 */
-	private ArrayList<int[]> create_neihborhood_index(final double[][] matrix) {
+	private ArrayList<MyArrayList> create_neihborhood_index(final double[][] matrix) {
 		System.out.println("create_neihborhood_index() BEGIN");
 		double start = System.currentTimeMillis();
 		
-		ArrayList<int[]> indexes = new ArrayList<int[]>(matrix.length);
+		ArrayList<MyArrayList> indexes = new ArrayList<MyArrayList>(matrix.length);
 		for(final double[] line : matrix) {
-			ArrayList<Integer> index = new ArrayList<Integer>(line.length);//TODO remove double effort?
+			MyArrayList index = new MyArrayList(line.length);//TODO remove double effort?
 			for(int id=0;id<line.length;id++) {
 				final double dist = line[id];
 				final double sim = 1 - dist;
@@ -3256,18 +3512,14 @@ public class HungarianExperiment {
 					index.add(id);
 				}
 			}
-			int[] index_arr = new int[index.size()];
-			for(int i=0;i<index_arr.length;i++) {
-				index_arr[i] = index.get(i);
-			}
-			indexes.add(index_arr);
+			indexes.add(index);
 		}
 		System.out.println("create_neihborhood_index() END in\t"+(System.currentTimeMillis()-start));
 		if(LOGGING_MODE) {
 			System.out.println("Matrix size: "+matrix.length);
 			ArrayList<Integer> counts = new ArrayList<Integer>(matrix.length);
-			for(int[] index : indexes) {
-				counts.add(index.length);
+			for(MyArrayList index : indexes) {
+				counts.add(index.size());
 				//System.out.println(index.length);
 			}
 			Collections.sort(counts);
