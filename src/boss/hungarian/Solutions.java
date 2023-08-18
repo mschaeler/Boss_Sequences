@@ -13,9 +13,15 @@ public class Solutions {
 	long count_survived_sum_bound = 0;
 	long count_cells_exceeding_threshold = 0;
 	
+	long count_survived_pruning = 0;
+	long count_survived_second_pruning = 0;
+	long count_survived_third_pruning = 0;
+	
 	static double[][] dense_global_matrix_buffer = null;
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
 	private static final boolean SAVE_MODE = false;
+	
+	final double MAX_SIM_ADDITION_NEW_NODE; 
 	
 	final int k;
 	final double k_double;
@@ -48,6 +54,7 @@ public class Solutions {
 		if(num_paragraphs!=1) {
 			System.err.println("Solutions() - Expecting book granularity");
 		}
+		MAX_SIM_ADDITION_NEW_NODE = 1.0 / k_double; 
 		
 		this.raw_paragraph_b1 = raw_paragraphs_b1.get(0);
 		this.raw_paragraph_b2 = raw_paragraphs_b2.get(0);
@@ -242,7 +249,94 @@ public class Solutions {
 	
 	static final boolean LOGGING_MODE = true;
 	
-	
+	public double[] run_candidates_deep() {
+		print_special_configurations();
+		HungarianDeep solver = new HungarianDeep(k);
+		System.out.println("Solutions.run_candidates_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
+		USE_GLOBAL_MATRIX = true;
+		
+		System.out.println("HungarianExperiment.run_candidates_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
+		
+		double[] run_times = new double[num_paragraphs];
+		
+		final int[][] inverted_window_index_ranges = create_indexes();
+		
+		double stop,start;
+		
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = this.alignement_matrixes;//get the pre-allocated buffer. Done in Constructor
+		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
+		final double[][] current_lines = new double[k][];
+		
+		USE_GLOBAL_MATRIX = true;
+		final double[][] global_matrix_book = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
+		
+		start = System.currentTimeMillis();
+		double start_candidates = System.currentTimeMillis();
+		ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(candidates.length);
+		
+		for(int line=0;line<alignment_matrix.length;line++) {
+			final boolean[] candidates_line = candidates[line];
+			final int[] window_p1 = k_with_windows_b1[line];
+			
+			//Fill all_candidates
+			get_candidates(window_p1, candidates_line, inverted_window_index_ranges);
+			
+			MyArrayList candidates_condensed = new MyArrayList(candidates_line.length);
+			int q = 0;
+			boolean found_run = false;
+			while(q<candidates_line.length) {
+				if(candidates_line[q]) {//start of a run
+					candidates_condensed.add(q);
+					q++;
+					found_run = true;
+					while(q<candidates_line.length) {
+						if(!candidates_line[q]){//end of run
+							candidates_condensed.add(q-1);	
+							found_run = false;
+							break;
+						}else{
+							q++;	
+						}
+					}	
+				}
+				q++;
+			}
+			if(found_run) {
+				candidates_condensed.add(candidates_line.length-1);
+			}
+			all_candidates.add(candidates_condensed);
+		}
+		double stop_candidates = System.currentTimeMillis();
+		
+		for(int line=0;line<alignment_matrix.length;line++) {
+			for(int i=0;i<k;i++) {
+				current_lines[i] = global_matrix_book[line+i];
+			}
+			solver.set_matrix(current_lines);
+			//Validate candidates
+			final double[] alignment_matrix_line = alignment_matrix[line];
+			final MyArrayList candidates_condensed = all_candidates.get(line);
+			
+			final int size = candidates_condensed.size();
+			final int[] raw_candidates = candidates_condensed.ARRAY;
+			for(int c=0;c<size;c+=2) {
+				final int run_start = raw_candidates[c];
+				final int run_stop = raw_candidates[c+1];
+				
+				validate_run_deep(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
+			}
+		}
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start_candidates));
+		
+		return run_times;
+	}
 	
 	public double[] run_candidates() {
 		print_special_configurations();
@@ -484,6 +578,82 @@ public class Solutions {
 			}
 		}
 	}
+	void validate_run_deep(HungarianDeep solver, final int line, final int run_start, final int run_stop
+			, final double[][] current_lines, final double[] alignment_matrix_line) {
+		
+		double ub_sum, sim, prior_cell_similarity, prev_min_value; 
+		boolean prior_cell_updated_matrix;
+		
+		if(LOGGING_MODE) {count_candidates+=run_stop-run_start+1;}
+		
+		int column=run_start;			
+		{//Here we have no bound
+			ub_sum = sum_bound_similarity(current_lines, column)/k_double;
+			
+			if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
+				sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
+				sim /= k_double;
+				if(sim>=threshold) {
+					if(LOGGING_MODE) count_cells_exceeding_threshold++;
+					alignment_matrix_line[column] = sim;
+				}//else keep it zero
+				prior_cell_similarity = sim;
+			}else{
+				prior_cell_similarity = ub_sum;
+			}
+			
+			prev_min_value = max(current_lines, column);
+			prior_cell_updated_matrix = true;
+			
+		}
+			
+		//For all other columns: Here we have a bound
+		for(column=run_start+1;column<=run_stop;column++) {	
+			double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
+			if(prior_cell_updated_matrix) {
+				upper_bound_sim-= (prev_min_value / k_double);
+			}				
+			
+			if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+				if(LOGGING_MODE) count_survived_pruning++;  
+				
+				double max_sim_new_node = min(current_lines, column);
+				upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
+				upper_bound_sim+=(max_sim_new_node/k_double);
+				 
+				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+					if(LOGGING_MODE) count_survived_second_pruning++;
+					
+					ub_sum = sum_bound_similarity(current_lines, column)/k_double;
+					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The some bound is not necessarily tighter
+					
+					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
+						if(LOGGING_MODE) count_survived_third_pruning++;
+						//That's the important line
+						sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
+						//normalize 
+						sim /= k_double;
+						
+						if(sim>=threshold) {
+							if(LOGGING_MODE) count_cells_exceeding_threshold++;
+							alignment_matrix_line[column] = sim;
+						}//else keep it zero
+						prior_cell_similarity = sim;
+						
+					}else{
+						prior_cell_similarity = upper_bound_sim;
+					}
+				}else{
+					prior_cell_similarity = upper_bound_sim;
+				}
+				prev_min_value = max(current_lines, column);
+				prior_cell_updated_matrix = true;
+			}else{
+				prior_cell_similarity = upper_bound_sim;
+				prior_cell_updated_matrix = false;
+			}
+		}
+	}
 	
 	
 	public double[] run_incremental_cell_pruning_deep(){
@@ -491,9 +661,7 @@ public class Solutions {
 		System.out.println("Solutions.run_incremental_cell_pruning_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
 		
 		double[] run_times = new double[num_paragraphs];
-		
-		final double MAX_SIM_ADDITION_NEW_NODE = 1.0/k_double;
-		
+	
 		double stop,start;
 
 		//Allocate space for the alignment matrix
@@ -623,8 +791,6 @@ public class Solutions {
 		final double[][] local_similarity_matrix = new double[k][k];
 		
 		double[] run_times = new double[num_paragraphs];
-		
-		final double MAX_SIM_ADDITION_NEW_NODE = 1.0/k;
 		
 		double stop,start;
 
