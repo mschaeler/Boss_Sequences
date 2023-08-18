@@ -193,7 +193,24 @@ public class HungarianExperiment {
 		String experiment_name = "idea_nikolaus";//default experiment, has no special name
 		print_results(experiment_name, null);//TODO
 	}
-	
+	private long sum(ArrayList<MyArrayList> to_sum_up) {
+		long sum = 0;
+		for(MyArrayList array : to_sum_up) {
+			for(int i=0;i<array.size();i++) {
+				sum+=array.get(i);
+			}
+		}
+		return sum;
+	}
+	private long sum(int[][] alignment_matrix) {
+		long sum = 0;
+		for(int[] array : alignment_matrix) {
+			for(long d : array) {
+				sum+=d;
+			}
+		}
+		return sum;
+	}
 	private double sum(double[][] alignment_matrix) {
 		double sum = 0;
 		for(double[] array : alignment_matrix) {
@@ -2984,6 +3001,7 @@ public class HungarianExperiment {
 		 * inverted_index.get(i)[my_token_id] -> ordered list of token_id with sim(my_token_id, token_id) >= threshold 
 		 */
 		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		//System.err.println("sum(neighborhood_index) "+sum(neighborhood_index));
 		/**
 		 * inverted_window_index.get(my_token_id).get(paragraph_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
 		 */
@@ -2993,7 +3011,9 @@ public class HungarianExperiment {
 		for(ArrayList<MyArrayList> token_index : temp) {
 			inverted_window_index.add(token_index.get(0));//There is only one paragraph at book level.
 		}
+		//System.err.println("sum(inverted_window_index) "+sum(inverted_window_index));
 		final int[][] inverted_window_index_ranges = to_inverted_window_index_ranges(inverted_window_index);
+		//System.err.println("sum(inverted_window_index_ranges) "+sum(inverted_window_index_ranges));
 		
 		return inverted_window_index_ranges;
 	}

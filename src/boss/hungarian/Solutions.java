@@ -2,11 +2,17 @@ package boss.hungarian;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 
 import boss.embedding.MatchesWithEmbeddings;
+import boss.util.MyArrayList;
 
 public class Solutions {
+	long count_candidates = 0;
+	long count_survived_sum_bound = 0;
+	long count_cells_exceeding_threshold = 0;
+	
 	static double[][] dense_global_matrix_buffer = null;
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
 	private static final boolean SAVE_MODE = false;
@@ -105,7 +111,7 @@ public class Solutions {
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);
 		System.out.println("Solutions.run_baseline() k="+k+" threshold="+threshold+" "+solver.get_name());
-		final double[][] local_cost_matrix = new double[k][k];
+		final double[][] local_similarity_matrix = new double[k][k];
 		USE_GLOBAL_MATRIX = true;
 		
 		double[] run_times = new double[num_paragraphs];
@@ -123,12 +129,12 @@ public class Solutions {
 		for(int line=0;line<alignment_matrix.length;line++) {							
 			for(int column=0;column<alignment_matrix[0].length;column++) {	
 				//Fill local matrix of the current window combination from global matrix 
-				fill_local_similarity_matrix(local_cost_matrix, global_cost_matrix_book, line, column);
-				final double upper_bound_sim = get_sum_of_column_row_minima(local_cost_matrix);
+				fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
+				final double upper_bound_sim = get_sum_of_column_row_minima(local_similarity_matrix);
 				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold_times_k) {
 					count_survived_pruning++;
 					//That's the important line
-					double similarity = -solver.solve(local_cost_matrix, threshold);
+					double similarity = -solver.solve(local_similarity_matrix, threshold);
 					//normalize costs: Before it was distance. Now it is similarity.
 					if(similarity>=threshold_times_k) {
 						alignment_matrix[line][column] = similarity/(double)k;//normalize
@@ -173,7 +179,7 @@ public class Solutions {
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);
 		System.out.println("Solutions.run_naive() k="+k+" threshold="+threshold+" "+solver.get_name());
-		final double[][] local_cost_matrix = new double[k][k];
+		final double[][] local_similarity_matrix = new double[k][k];
 		USE_GLOBAL_MATRIX = false;
 		
 		double[] run_times = new double[num_paragraphs];
@@ -190,9 +196,9 @@ public class Solutions {
 		for(int line=0;line<alignment_matrix.length;line++) {							
 			for(int column=0;column<alignment_matrix[0].length;column++) {	
 				//Fill local matrix of the current window combination from global matrix 
-				fill_local_similarity_matrix(local_cost_matrix, global_cost_matrix_book, line, column);
+				fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
 				//That's the important line
-				final double similarity = -solver.solve(local_cost_matrix, threshold);
+				final double similarity = -solver.solve(local_similarity_matrix, threshold);
 				//normalize costs: Before it was distance. Now it is similarity.
 				if(similarity>=threshold_times_k) {
 					alignment_matrix[line][column] = similarity/(double)k;//normalize
@@ -235,6 +241,250 @@ public class Solutions {
 	//final boolean SAFE_MODE = true;
 	
 	static final boolean LOGGING_MODE = true;
+	
+	
+	
+	public double[] run_candidates() {
+		print_special_configurations();
+		HungarianKevinStern solver = new HungarianKevinStern(k);
+		System.out.println("Solutions.run_candidates() k="+k+" threshold="+threshold+" "+solver.get_name());
+		USE_GLOBAL_MATRIX = true;
+		
+		System.out.println("HungarianExperiment.run_candidates() k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] local_similarity_matrix = new double[k][k];
+		
+		double[] run_times = new double[num_paragraphs];
+		
+		final int[][] inverted_window_index_ranges = create_indexes();
+		
+		//System.err.println("sum(index) "+sum(inverted_window_index_ranges));
+		
+		double stop,start;
+		
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = this.alignement_matrixes;//get the pre-allocated buffer. Done in Constructor
+		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
+		
+		count_candidates = 0;
+		count_survived_sum_bound = 0;
+		count_cells_exceeding_threshold = 0;
+		
+		start = System.currentTimeMillis();
+		final double[][] global_matrix_book = fill_similarity_matrix();//For k<5 this does not pay off
+		double start_candidates = System.currentTimeMillis();
+		ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(candidates.length);
+		
+		for(int line=0;line<alignment_matrix.length;line++) {
+			final boolean[] candidates_line = candidates[line];
+			final int[] window_p1 = k_with_windows_b1[line];
+			
+			//Fill all_candidates
+			get_candidates(window_p1, candidates_line, inverted_window_index_ranges);
+			
+			MyArrayList candidates_condensed = new MyArrayList(candidates_line.length);
+			int q = 0;
+			boolean found_run = false;
+			while(q<candidates_line.length) {
+				if(candidates_line[q]) {//start of a run
+					candidates_condensed.add(q);
+					q++;
+					found_run = true;
+					while(q<candidates_line.length) {
+						if(!candidates_line[q]){//end of run
+							candidates_condensed.add(q-1);	
+							found_run = false;
+							break;
+						}else{
+							q++;	
+						}
+					}	
+				}
+				q++;
+			}
+			if(found_run) {
+				candidates_condensed.add(candidates_line.length-1);
+			}
+			all_candidates.add(candidates_condensed);
+		}
+		double stop_candidates = System.currentTimeMillis();
+		
+		for(int line=0;line<alignment_matrix.length;line++) {
+			//Validate candidates
+			final double[] alignment_matrix_line = alignment_matrix[line];
+			final MyArrayList candidates_condensed = all_candidates.get(line);
+			
+			final int size = candidates_condensed.size();
+			final int[] raw_candidates = candidates_condensed.ARRAY;
+			for(int c=0;c<size;c+=2) {
+				final int run_start = raw_candidates[c];
+				final int run_stop = raw_candidates[c+1];
+				
+				validate_run(solver, line, run_start, run_stop, local_similarity_matrix, global_matrix_book, alignment_matrix_line);
+			}
+		}
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start_candidates));
+		
+		return run_times;
+	}
+	
+	/**
+	 * inverted_index.get(token_id)[] -> List of all other other_token_id's with sim(token_id, other_token_id) > threshold, ordered asc by token_id.
+	 * @param matrix global similarity matrix of the Books. 
+	 */
+	private ArrayList<MyArrayList> create_neihborhood_index(final double[][] matrix) {
+		System.out.println("create_neihborhood_index() BEGIN");
+		double start = System.currentTimeMillis();
+		
+		ArrayList<MyArrayList> indexes = new ArrayList<MyArrayList>(matrix.length);
+		for(final double[] line : matrix) {
+			MyArrayList index = new MyArrayList(line.length);//Ensure the list has enough memory reserved
+			for(int id=0;id<line.length;id++) {
+				final double sim = line[id];
+				if(sim>=threshold){
+					index.add(id);
+				}
+			}
+			//TODO trim to size?
+			indexes.add(index);
+		}
+		System.out.println("create_neihborhood_index() END in\t"+(System.currentTimeMillis()-start));
+		return indexes;
+	}
+	
+	//TODO exploit running window property: Maybe order ids by frequency
+	private boolean is_in(MyArrayList neihborhood_index, int[] curr_window) {
+		final int[] arr = neihborhood_index.ARRAY;
+		for(int i=0;i<neihborhood_index.size();i++) {
+			final int neighbor = arr[i];
+			for(int t : curr_window) {
+				if(t==neighbor) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * indexes.get(token_id) -> int[] of window (positions) with token having sim(token_id, some token) > threshold
+	 * @param k_with_windows
+	 * @return
+	 */
+	private ArrayList<MyArrayList> create_inverted_window_index(final int[][] k_with_windows, final ArrayList<MyArrayList> neihborhood_indexes) {
+		System.out.println("ArrayList<ArrayList<int[]>> create_inverted_window_index() BEGIN");
+		final double start = System.currentTimeMillis();
+		final ArrayList<MyArrayList> indexes = new ArrayList<MyArrayList>(max_id+1);//one index per token
+		//For each token
+		for(int token_id = 0;token_id<neihborhood_indexes.size();token_id++) {
+			//Create the list of occurrences for token: token_id
+			final MyArrayList neihborhood_index = neihborhood_indexes.get(token_id);
+			
+			final MyArrayList index_this_paragraph = new MyArrayList();
+			for(int pos=0;pos<k_with_windows.length;pos++) {
+				int[] curr_window = k_with_windows[pos];
+				if(is_in(neihborhood_index, curr_window)) {
+					index_this_paragraph.add(pos);
+				}
+			}
+			indexes.add(index_this_paragraph);
+		}
+		System.out.println("ArrayList<ArrayList<int[]>> create_inverted_window_index() END in\t"+(System.currentTimeMillis()-start));
+		return indexes;
+	}
+	
+	private int[][] to_inverted_window_index_ranges(ArrayList<MyArrayList> inverted_window_index) {
+		int[][] index = new int[inverted_window_index.size()][];
+		for(int token_id=0;token_id<index.length;token_id++) {
+			MyArrayList cells_above_threshold = inverted_window_index.get(token_id);
+			int[] temp = make_dense(cells_above_threshold);
+			index[token_id] = temp;
+		}
+		
+		return index;
+	}
+	
+	private int[] make_dense(final MyArrayList cells_above_threshold) {
+		//start range
+		int index = 0;
+		final int size = cells_above_threshold.size();
+		MyArrayList temp = new MyArrayList();
+		
+		while(index<size) {
+			int start_range_index = cells_above_threshold.get(index);
+			index++;
+			//find end of range
+			while(index<size && cells_above_threshold.get(index-1)+1==cells_above_threshold.get(index)) {
+				index++;
+			}
+			int stop_range_index = cells_above_threshold.get(index-1);//The one before was the final element of the current range.
+			temp.add(start_range_index);
+			temp.add(stop_range_index);
+			//index++;
+		}
+		return temp.getTrimmedArray();//XXX should we do that?
+	}
+	
+	int[][] create_indexes() {
+		/**
+		 * inverted_index.get(my_token_id) -> ordered list of token_id's with sim(my_token_id, token_id) >= threshold 
+		 */
+		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		//System.err.println("sum(neighborhood_index) "+sum(neighborhood_index));
+		/**
+		 * inverted_window_index.get(my_token_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
+		 */
+		final ArrayList<MyArrayList> inverted_window_index = create_inverted_window_index(k_with_windows_b2, neighborhood_index);
+		//System.err.println("sum(inverted_window_index) "+sum(inverted_window_index));
+		/**
+		 * inverted_window_index_ranges[token_id][0] -> Start of first run (if there is one). The respective end is at inverted_window_index_ranges[token_id][1] etc.
+		 */
+		final int[][] inverted_window_index_ranges = to_inverted_window_index_ranges(inverted_window_index);
+		//System.err.println("sum(inverted_window_index_ranges) "+sum(inverted_window_index_ranges));
+		
+		return inverted_window_index_ranges;
+	}
+	
+	void get_candidates(final int[] window_b1, final boolean[] candidates_line, final int[][] inverted_window_index_ranges) {
+		//Get candidates
+		for(int id : window_b1) {
+			final int[] index = inverted_window_index_ranges[id];
+			
+			for(int i=0;i<index.length;i+=2) {//Note the +=2 because we have pairs (start,stop)
+				final int start_range = index[i];
+				final int stop_range = index[i+1];//including this one
+				for(int pos = start_range;pos<=stop_range;pos++) {
+					candidates_line[pos] = true;
+				}
+			}
+		}
+	}
+	
+	void validate_run(HungarianKevinStern solver, final int line, final int run_start, final int run_stop
+			, final double[][] local_similarity_matrix, final double[][] global_cost_matrix_book, final double[] alignment_matrix_line) {
+		for(int column=run_start;column<=run_stop;column++) {
+			count_candidates++;
+			
+			fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
+			final double upper_bound_sim = get_sum_of_column_row_minima(local_similarity_matrix);
+			if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold_times_k) {
+				count_survived_sum_bound++;
+				//That's the important line
+				double similarity = -solver.solve(local_similarity_matrix, threshold);
+				//normalize costs: Before it was distance. Now it is similarity.
+				if(similarity>=threshold_times_k) {
+					alignment_matrix_line[column] = similarity/k_double;//normalize
+					count_cells_exceeding_threshold++;
+				}//else keep it zero
+			}
+		}
+	}
+	
 	
 	public double[] run_incremental_cell_pruning_deep(){
 		HungarianDeep solver = new HungarianDeep(k);
@@ -662,7 +912,24 @@ public class Solutions {
 	private int size(double[][] alignment_matrix) {
 		return alignment_matrix.length*alignment_matrix[0].length;
 	}
-	
+	private long sum(ArrayList<MyArrayList> to_sum_up) {
+		long sum = 0;
+		for(MyArrayList array : to_sum_up) {
+			for(int i=0;i<array.size();i++) {
+				sum+=array.get(i);
+			}
+		}
+		return sum;
+	}
+	private long sum(int[][] alignment_matrix) {
+		long sum = 0;
+		for(int[] array : alignment_matrix) {
+			for(long d : array) {
+				sum+=d;
+			}
+		}
+		return sum;
+	}
 	private double sum(double[][] alignment_matrix) {
 		double sum = 0;
 		for(double[] array : alignment_matrix) {

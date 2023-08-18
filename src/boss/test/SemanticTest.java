@@ -45,19 +45,20 @@ public class SemanticTest {
 		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
 		double[] run_times;
 		
-		/*for(int k : k_s) {
+		for(int k : k_s) {
 			ArrayList<Solutions> solutions = prepare_solution(books,k,threshold);
 			for(Solutions s : solutions) {
 				//run_times = s.run_naive();
 				//run_times = s.run_baseline();
 				//run_times = s.run_incremental_cell_pruning();
-				run_times = s.run_incremental_cell_pruning_deep();
+				//run_times = s.run_incremental_cell_pruning_deep();
+				run_times = s.run_candidates();
 				
 				all_run_times.add(run_times);
 			}
-		}*/
+		}
 
-		for(int k : k_s) {
+		/*for(int k : k_s) {
 			ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
 			for(HungarianExperiment he : hes) {
 				//he.set_solver(new StupidSolver(k));
@@ -86,7 +87,7 @@ public class SemanticTest {
 				//run_times = he.run_check_node_deletion();
 				all_run_times.add(run_times);
 			}
-		}
+		}*/
 		
 		for(int i=0;i<k_s.length;i++) {
 			System.out.print("k="+k_s[i]+"\t");

@@ -96,7 +96,6 @@ public class HungarianDeep extends Solver{
 	 *         cost matrix. A matching value of -1 indicates that the corresponding
 	 *         worker is unassigned.
 	 */
-	@Deprecated
 	public double solve(final int start_column, final double[] col_minima) {
 		solve_counter++;//For statistics only
 		this.start_offset = start_column;
@@ -298,6 +297,7 @@ public class HungarianDeep extends Solver{
 		System.err.println("Not implemented");
 		return 0;
 	}
+	@Deprecated
 	public double solve(final int start_column) {
 		solve_counter++;//For statistics only
 		this.start_offset = start_column;
