@@ -2,6 +2,7 @@ package boss.hungarian;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 
@@ -9,13 +10,16 @@ import boss.embedding.MatchesWithEmbeddings;
 import boss.util.MyArrayList;
 
 public class Solutions {
-	long count_candidates = 0;
-	long count_survived_sum_bound = 0;
-	long count_cells_exceeding_threshold = 0;
+	//final boolean SAFE_MODE = true;
 	
-	long count_survived_pruning = 0;
-	long count_survived_second_pruning = 0;
-	long count_survived_third_pruning = 0;
+	static final boolean LOGGING_MODE = true;
+	
+	long count_candidates 				= 0;
+	long count_survived_sum_bound 		= 0;
+	long count_cells_exceeding_threshold = 0;
+	long count_survived_pruning 		= 0;
+	long count_survived_second_pruning 	= 0;
+	long count_survived_third_pruning 	= 0;
 	
 	static double[][] dense_global_matrix_buffer = null;
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
@@ -36,14 +40,15 @@ public class Solutions {
 	final int[] raw_paragraph_b1;
 	final int[] raw_paragraph_b2;
 	
-	final double[][] alignement_matrixes;
+	final double[][] alignement_matrix;
 	
 	final HashMap<Integer, double[]> embedding_vector_index;
 	
 	/**
 	 * Contains the maximum column similarity of current local similarity matrix. Note, since we negate the signum for the hungarian. It's the minimum....
 	 */
-	final double[] col_maxima;
+	final double[] col_maxima;	
+	double sum_cols;
 	
 	public Solutions(ArrayList<int[]> raw_paragraphs_b1, ArrayList<int[]> raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index) {
 		this.k = k;
@@ -63,7 +68,7 @@ public class Solutions {
 		this.embedding_vector_index = embedding_vector_index;
 		
 		//Prepare the buffers for the alignment matrixes
-		this.alignement_matrixes = new double[k_with_windows_b1.length][k_with_windows_b2.length];
+		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
 		
 		int max_id = 0;
 		for(int[] p : raw_paragraphs_b1) {
@@ -128,7 +133,7 @@ public class Solutions {
 		long count_survived_pruning = 0;
 		
 		//Allocate space for the alignment matrix
-		final double[][] alignment_matrix = this.alignement_matrixes;//get the pre-allocated buffer. Done in Constructor
+		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
 		
 		start = System.currentTimeMillis();
 		final double[][] global_cost_matrix_book = fill_similarity_matrix();
@@ -195,7 +200,7 @@ public class Solutions {
 		long count_computed_cells = 0;
 		
 		//Allocate space for the alignment matrix
-		final double[][] alignment_matrix = this.alignement_matrixes;//get the pre-allocated buffer. Done in Constructor
+		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
 		
 		start = System.currentTimeMillis();
 		final double[][] global_cost_matrix_book = fill_similarity_matrix();
@@ -245,77 +250,99 @@ public class Solutions {
 		}
 		return true;
 	}
-	//final boolean SAFE_MODE = true;
 	
-	static final boolean LOGGING_MODE = true;
+	MyArrayList condense(final BitSet candidates_line) {
+		MyArrayList candidates_condensed = new MyArrayList(candidates_line.size());
+		int q = 0;
+		boolean found_run = false;
+		while(q<candidates_line.size()) {
+			if(candidates_line.get(q)) {//start of a run
+				candidates_condensed.add(q);
+				q++;
+				found_run = true;
+				while(q<candidates_line.size()) {
+					if(!candidates_line.get(q)){//end of run
+						candidates_condensed.add(q-1);	
+						found_run = false;
+						break;
+					}else{
+						q++;	
+					}
+				}	
+			}
+			q++;
+		}
+		if(found_run) {
+			candidates_condensed.add(candidates_line.size()-1);
+		}
+		return candidates_condensed;
+	}
 	
-	public double[] run_candidates_deep() {
+	MyArrayList condense(final boolean[] candidates_line) {
+		MyArrayList candidates_condensed = new MyArrayList(candidates_line.length);
+		int q = 0;
+		boolean found_run = false;
+		while(q<candidates_line.length) {
+			if(candidates_line[q]) {//start of a run
+				candidates_condensed.add(q);
+				q++;
+				found_run = true;
+				while(q<candidates_line.length) {
+					if(!candidates_line[q]){//end of run
+						candidates_condensed.add(q-1);	
+						found_run = false;
+						break;
+					}else{
+						q++;	
+					}
+				}	
+			}
+			q++;
+		}
+		if(found_run) {
+			candidates_condensed.add(candidates_line.length-1);
+		}
+		return candidates_condensed;
+	}
+	
+	public double[] run_candidates_deep_bit_vectors() {
 		print_special_configurations();
 		HungarianDeep solver = new HungarianDeep(k);
 		System.out.println("Solutions.run_candidates_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
 		USE_GLOBAL_MATRIX = true;
 		
-		System.out.println("HungarianExperiment.run_candidates_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
-		
+		//Some variable
 		double[] run_times = new double[num_paragraphs];
-		
-		final int[][] inverted_window_index_ranges = create_indexes();
-		
 		double stop,start;
-		
-		//Allocate space for the alignment matrix
-		final double[][] alignment_matrix = this.alignement_matrixes;//get the pre-allocated buffer. Done in Constructor
-		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
 		final double[][] current_lines = new double[k][];
-		
 		USE_GLOBAL_MATRIX = true;
-		final double[][] global_matrix_book = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
+		final ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(alignement_matrix.length);
+		final BitSet candidates = new BitSet(alignement_matrix[0].length);
+		
+		final BitSet[] inverted_window_index = create_indexes_bit_vectors();//TODO include into run time below?
+		final double[][] global_matrix_book  = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
 		
 		start = System.currentTimeMillis();
-		double start_candidates = System.currentTimeMillis();
-		ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(candidates.length);
-		
-		for(int line=0;line<alignment_matrix.length;line++) {
-			final boolean[] candidates_line = candidates[line];
-			final int[] window_p1 = k_with_windows_b1[line];
-			
-			//Fill all_candidates
-			get_candidates(window_p1, candidates_line, inverted_window_index_ranges);
-			
-			MyArrayList candidates_condensed = new MyArrayList(candidates_line.length);
-			int q = 0;
-			boolean found_run = false;
-			while(q<candidates_line.length) {
-				if(candidates_line[q]) {//start of a run
-					candidates_condensed.add(q);
-					q++;
-					found_run = true;
-					while(q<candidates_line.length) {
-						if(!candidates_line[q]){//end of run
-							candidates_condensed.add(q-1);	
-							found_run = false;
-							break;
-						}else{
-							q++;	
-						}
-					}	
-				}
-				q++;
+		for(int line=0;line<alignement_matrix.length;line++) {
+			candidates.clear();//may contain result from prior line
+			for(int token_id : k_with_windows_b1[line]) {
+				final BitSet temp = inverted_window_index[token_id];
+				candidates.or(temp);
 			}
-			if(found_run) {
-				candidates_condensed.add(candidates_line.length-1);
-			}
+
+			//condense bool[] to runs with from to
+			MyArrayList candidates_condensed = condense(candidates);
 			all_candidates.add(candidates_condensed);
 		}
 		double stop_candidates = System.currentTimeMillis();
 		
-		for(int line=0;line<alignment_matrix.length;line++) {
+		for(int line=0;line<alignement_matrix.length;line++) {
 			for(int i=0;i<k;i++) {
 				current_lines[i] = global_matrix_book[line+i];
 			}
 			solver.set_matrix(current_lines);
 			//Validate candidates
-			final double[] alignment_matrix_line = alignment_matrix[line];
+			final double[] alignment_matrix_line   = alignement_matrix[line];
 			final MyArrayList candidates_condensed = all_candidates.get(line);
 			
 			final int size = candidates_condensed.size();
@@ -331,9 +358,68 @@ public class Solutions {
 		stop = System.currentTimeMillis();
 		run_times[0] = stop-start;
 		
-		int size = size(alignment_matrix);
-		double check_sum = sum(alignment_matrix);
-		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_sum_bound+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start_candidates));
+		int size = size(alignement_matrix);
+		double check_sum = sum(alignement_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start));
+		
+		return run_times;
+	}
+	
+	public double[] run_candidates_deep() {
+		print_special_configurations();
+		HungarianDeep solver = new HungarianDeep(k);
+		System.out.println("Solutions.run_candidates_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
+		USE_GLOBAL_MATRIX = true;
+		
+		//Some variable
+		double[] run_times = new double[num_paragraphs];
+		double stop,start;
+		//Allocate space for the alignment matrix
+		final boolean[][] candidates   = new boolean[alignement_matrix.length][alignement_matrix[0].length];
+		final double[][] current_lines = new double[k][];
+		USE_GLOBAL_MATRIX = true;
+		final ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(candidates.length);
+		
+		final int[][] inverted_window_index_ranges = create_indexes();//TODO include into run time below?
+		final double[][] global_matrix_book        = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
+		
+		start = System.currentTimeMillis();
+		for(int line=0;line<alignement_matrix.length;line++) {
+			final boolean[] candidates_line = candidates[line];
+			
+			//Fill all_candidates
+			get_candidates(k_with_windows_b1[line], candidates_line, inverted_window_index_ranges);
+			//condense bool[] to runs with from to
+			MyArrayList candidates_condensed = condense(candidates_line);
+			all_candidates.add(candidates_condensed);
+		}
+		double stop_candidates = System.currentTimeMillis();
+		
+		for(int line=0;line<alignement_matrix.length;line++) {
+			for(int i=0;i<k;i++) {
+				current_lines[i] = global_matrix_book[line+i];
+			}
+			solver.set_matrix(current_lines);
+			//Validate candidates
+			final double[] alignment_matrix_line = alignement_matrix[line];
+			final MyArrayList candidates_condensed = all_candidates.get(line);
+			
+			final int size = candidates_condensed.size();
+			final int[] raw_candidates = candidates_condensed.ARRAY;
+			for(int c=0;c<size;c+=2) {
+				final int run_start = raw_candidates[c];
+				final int run_stop = raw_candidates[c+1];
+				
+				validate_run_deep(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
+			}
+		}
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		
+		int size = size(alignement_matrix);
+		double check_sum = sum(alignement_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start));
 		
 		return run_times;
 	}
@@ -356,12 +442,8 @@ public class Solutions {
 		double stop,start;
 		
 		//Allocate space for the alignment matrix
-		final double[][] alignment_matrix = this.alignement_matrixes;//get the pre-allocated buffer. Done in Constructor
+		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
 		final boolean[][] candidates = new boolean[alignment_matrix.length][alignment_matrix[0].length];
-		
-		count_candidates = 0;
-		count_survived_sum_bound = 0;
-		count_cells_exceeding_threshold = 0;
 		
 		start = System.currentTimeMillis();
 		final double[][] global_matrix_book = fill_similarity_matrix();//For k<5 this does not pay off
@@ -492,6 +574,34 @@ public class Solutions {
 		return indexes;
 	}
 	
+	/**
+	 * indexes.get(token_id) -> int[] of window (positions) with token having sim(token_id, some token) > threshold
+	 * @param k_with_windows
+	 * @return
+	 */
+	private BitSet[] create_inverted_window_index_bit_vector(final int[][] k_with_windows, final ArrayList<MyArrayList> neihborhood_indexes) {
+		System.out.println("BitSet[] create_inverted_window_index() BEGIN");
+		final double start = System.currentTimeMillis();
+		
+		final BitSet[] indexes = new BitSet[neihborhood_indexes.size()];//one index per token
+		//For each token
+		for(int token_id = 0;token_id<neihborhood_indexes.size();token_id++) {
+			//Create the list of occurrences for token: token_id
+			final MyArrayList neihborhood_index = neihborhood_indexes.get(token_id);
+			
+			final BitSet index_this_token = new BitSet(k_with_windows.length);
+			for(int pos=0;pos<k_with_windows.length;pos++) {
+				int[] curr_window = k_with_windows[pos];
+				if(is_in(neihborhood_index, curr_window)) {
+					index_this_token.set(pos);
+				}
+			}
+			indexes[token_id] = index_this_token;
+		}
+		System.out.println("BitSet[] create_inverted_window_index() END in\t"+(System.currentTimeMillis()-start));
+		return indexes;
+	}
+	
 	private int[][] to_inverted_window_index_ranges(ArrayList<MyArrayList> inverted_window_index) {
 		int[][] index = new int[inverted_window_index.size()][];
 		for(int token_id=0;token_id<index.length;token_id++) {
@@ -544,6 +654,20 @@ public class Solutions {
 		return inverted_window_index_ranges;
 	}
 	
+	BitSet[] create_indexes_bit_vectors() {
+		/**
+		 * inverted_index.get(my_token_id) -> ordered list of token_id's with sim(my_token_id, token_id) >= threshold 
+		 */
+		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+
+		/**
+		 * inverted_window_index.get(my_token_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
+		 */
+		final BitSet[] inverted_window_index = create_inverted_window_index_bit_vector(k_with_windows_b2, neighborhood_index);
+
+		return inverted_window_index;
+	}
+	
 	void get_candidates(final int[] window_b1, final boolean[] candidates_line, final int[][] inverted_window_index_ranges) {
 		//Get candidates
 		for(int id : window_b1) {
@@ -578,17 +702,17 @@ public class Solutions {
 			}
 		}
 	}
-	void validate_run_deep(HungarianDeep solver, final int line, final int run_start, final int run_stop
+	public void validate_run_deep(HungarianDeep solver, final int line, final int run_start, final int run_stop
 			, final double[][] current_lines, final double[] alignment_matrix_line) {
 		
 		double ub_sum, sim, prior_cell_similarity, prev_min_value; 
-		boolean prior_cell_updated_matrix;
+		boolean prior_cell_updated_matrix, column_sum_correct;
 		
 		if(LOGGING_MODE) {count_candidates+=run_stop-run_start+1;}
 		
 		int column=run_start;			
 		{//Here we have no bound
-			ub_sum = sum_bound_similarity(current_lines, column)/k_double;
+			ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
 			
 			if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
 				sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
@@ -604,7 +728,7 @@ public class Solutions {
 			
 			prev_min_value = max(current_lines, column);
 			prior_cell_updated_matrix = true;
-			
+			column_sum_correct = true;
 		}
 			
 		//For all other columns: Here we have a bound
@@ -612,7 +736,7 @@ public class Solutions {
 			double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
 			if(prior_cell_updated_matrix) {
 				upper_bound_sim-= (prev_min_value / k_double);
-			}				
+			}		
 			
 			if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 				if(LOGGING_MODE) count_survived_pruning++;  
@@ -620,12 +744,31 @@ public class Solutions {
 				double max_sim_new_node = min(current_lines, column);
 				upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
 				upper_bound_sim+=(max_sim_new_node/k_double);
+				
+				double temp=-1;
+				if(column_sum_correct) {
+					sum_cols -= col_maxima[0];
+					sum_cols -= max_sim_new_node;//is not negated
+					temp = -sum_cols / k_double;
+					
+					ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
+					
+					if(ub_sum<temp) {
+						System.err.println("ub_sum<temp "+ ub_sum +"<"+temp +" "+line+" "+column);//FIXME
+					}
+					
+					if(temp<upper_bound_sim) {
+						upper_bound_sim = temp;
+					}
+				}
+				column_sum_correct = false;
 				 
 				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 					if(LOGGING_MODE) count_survived_second_pruning++;
 					
-					ub_sum = sum_bound_similarity(current_lines, column)/k_double;
-					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The some bound is not necessarily tighter
+					ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
+					
+					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The sum bound is not necessarily tighter
 					
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
 						if(LOGGING_MODE) count_survived_third_pruning++;
@@ -643,6 +786,7 @@ public class Solutions {
 					}else{
 						prior_cell_similarity = upper_bound_sim;
 					}
+					column_sum_correct = true;
 				}else{
 					prior_cell_similarity = upper_bound_sim;
 				}
@@ -656,6 +800,19 @@ public class Solutions {
 	}
 	
 	
+	private void out_matrix(double[][] current_lines, int column) {
+		for(double[] line : current_lines) {
+			for(int i=0;i<column+k;i++) {
+				System.out.print(line[i]+"\t");
+			}
+			System.out.println();
+		}
+		System.out.println("col/row maxime");
+		System.out.println(Arrays.toString(col_maxima));
+		//System.out.println(Arrays.toString(row_maxima));
+		
+	}
+
 	public double[] run_incremental_cell_pruning_deep(){
 		HungarianDeep solver = new HungarianDeep(k);
 		System.out.println("Solutions.run_incremental_cell_pruning_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
@@ -665,7 +822,7 @@ public class Solutions {
 		double stop,start;
 
 		//Allocate space for the alignment matrix
-		final double[][] alignment_matrix = alignement_matrixes;
+		final double[][] alignment_matrix = alignement_matrix;
 		
 		double prior_cell_similarity;
 		double prev_min_value;
@@ -699,7 +856,7 @@ public class Solutions {
 			
 			int column=0;			
 			{//Here we have no bound
-				ub_sum = sum_bound_similarity(current_lines, column)/k_double;
+				ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
 				
 				if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
 					sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
@@ -735,7 +892,7 @@ public class Solutions {
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 						if(LOGGING_MODE) count_survived_second_pruning++;
 						
-						ub_sum = sum_bound_similarity(current_lines, column)/k_double;
+						ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
 						upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The some bound is not necessarily tighter
 						
 						if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
@@ -785,7 +942,6 @@ public class Solutions {
 
 	public double[] run_incremental_cell_pruning(){
 		HungarianKevinStern solver = new HungarianKevinStern(k);
-		HungarianKevinStern solver_baseline = new HungarianKevinStern(k);
 		
 		System.out.println("Solutions.run_incremental_cell_pruning() k="+k+" threshold="+threshold+" "+solver.get_name());
 		final double[][] local_similarity_matrix = new double[k][k];
@@ -795,7 +951,7 @@ public class Solutions {
 		double stop,start;
 
 		//Allocate space for the alignment matrix
-		final double[][] alignment_matrix = alignement_matrixes;
+		final double[][] alignment_matrix = alignement_matrix;
 		final int[][] k_windows_p1 = k_with_windows_b1;
 		final int[][] k_windows_p2 = k_with_windows_b2;	
 		
@@ -901,7 +1057,7 @@ public class Solutions {
 	final void fill_local_similarity_matrix_incrementally(final int[] k_window_p1, final int[] k_window_p2, final double[][] local_similarity_matrix){
 		final int copy_length = k-1;
 		
-		col_sum-=col_maxima[0];
+		sum_cols-=col_maxima[0];
 		System.arraycopy(col_maxima, 1, col_maxima, 0, copy_length);
 		col_maxima[copy_length] = Double.MAX_VALUE;
 		
@@ -916,14 +1072,13 @@ public class Solutions {
 			}
 			
 		}
-		col_sum+=col_maxima[copy_length];
+		sum_cols+=col_maxima[copy_length];
 	}
 	
 	final double sim_cached(final int token_id_1, final int token_id_2) {
 		return (token_id_1==token_id_2) ? EQUAL : dense_global_matrix_buffer[token_id_1][token_id_2]; 
 	}
 	
-	double col_sum;
 	private double sum_bound_similarity(final double[][] similarity_matrix) {
 		double row_sum = 0;
 		Arrays.fill(col_maxima, Double.POSITIVE_INFINITY);
@@ -941,12 +1096,34 @@ public class Solutions {
 			}
 			row_sum += row_min;
 		}
-		col_sum = sum(col_maxima);
-		double min_cost = Math.max(row_sum, col_sum);		
+		sum_cols = sum(col_maxima);
+		double min_cost = Math.max(row_sum, sum_cols);		
 		
 		return -min_cost;
 	}
-	private double sum_bound_similarity(final double[][] current_lines, final int offset) {
+	
+	private double sum_bound_similarity_inc(final double[][] current_lines, final int offset, final double last_col_min) {
+		System.arraycopy(col_maxima, 1, col_maxima, 1, k-1);
+		col_maxima[k-1] = last_col_min;
+		
+		double row_sum = 0;
+		for(int i=0;i<this.k;i++) {
+			final double[] line = current_lines[i];
+			double row_min = Double.POSITIVE_INFINITY;
+			for(int j=0;j<this.k;j++) {
+				final double val = line[offset+j];
+				if(val<row_min) {
+					row_min = val;
+				}
+			}
+			row_sum += row_min;
+		}
+		double min_cost = Math.max(row_sum, sum_cols);		
+		
+		return -min_cost;
+	}
+	
+	private double sum_bound_similarity_2(final double[][] current_lines, final int offset) {
 		double row_sum = 0;
 		Arrays.fill(col_maxima, Double.POSITIVE_INFINITY);
 		for(int i=0;i<this.k;i++) {
@@ -963,12 +1140,23 @@ public class Solutions {
 			}
 			row_sum += row_min;
 		}
-		col_sum = sum(col_maxima);
-		double min_cost = Math.max(row_sum, col_sum);		
+		sum_cols = sum(col_maxima);
+		double min_cost = Math.max(row_sum, sum_cols);		
 		
 		return -min_cost;
-	}
+	}	
 	
+	private double min(double[] array, int offset) {
+		double min = array[offset];
+		for(int i=1;i<k;i++) {
+			double val = array[offset+i];
+			if(val<min) {
+				min=val;
+			}
+		}
+		return min;
+	}
+
 	private final double max(final double[][] current_lines, final int offset) {
 		double max = Double.NEGATIVE_INFINITY;//TODO remove this line?
 		for(double[] line : current_lines) {

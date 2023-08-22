@@ -53,7 +53,8 @@ public class SemanticTest {
 				//run_times = s.run_incremental_cell_pruning();
 				//run_times = s.run_incremental_cell_pruning_deep();
 				//run_times = s.run_candidates();
-				run_times = s.run_candidates_deep();
+				//run_times = s.run_candidates_deep();
+				run_times = s.run_candidates_deep_bit_vectors();
 				
 				all_run_times.add(run_times);
 			}
