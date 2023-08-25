@@ -305,10 +305,10 @@ public class Solutions {
 		return candidates_condensed;
 	}
 	
-	public double[] run_candidates_deep_bit_vectors() {
+	public double[] run_solution() {
 		print_special_configurations();
 		HungarianDeep solver = new HungarianDeep(k);
-		System.out.println("Solutions.run_candidates_deep() k="+k+" threshold="+threshold+" "+solver.get_name());
+		System.out.println("Solutions.run_solution() k="+k+" threshold="+threshold+" "+solver.get_name());
 		USE_GLOBAL_MATRIX = true;
 		
 		//Some variable
@@ -730,7 +730,7 @@ public class Solutions {
 			prior_cell_updated_matrix = true;
 			column_sum_correct = true;
 		}
-			
+	
 		//For all other columns: Here we have a bound
 		for(column=run_start+1;column<=run_stop;column++) {	
 			double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
@@ -745,28 +745,36 @@ public class Solutions {
 				upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
 				upper_bound_sim+=(max_sim_new_node/k_double);
 				
-				double temp=-1;
 				if(column_sum_correct) {
 					sum_cols -= col_maxima[0];
 					sum_cols -= max_sim_new_node;//is not negated
-					temp = -sum_cols / k_double;
-					
-					ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
-					
-					if(ub_sum<temp) {
-						System.err.println("ub_sum<temp "+ ub_sum +"<"+temp +" "+line+" "+column);//FIXME
-					}
+					double temp = -sum_cols / k_double;
 					
 					if(temp<upper_bound_sim) {
 						upper_bound_sim = temp;
 					}
 				}
-				column_sum_correct = false;
 				 
 				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 					if(LOGGING_MODE) count_survived_second_pruning++;
 					
+				
 					ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
+				/*
+					double[] temp_arr = new double[k];
+					System.arraycopy(col_maxima, 0, temp_arr, 0, k);
+
+					ub_sum = (column_sum_correct) ? sum_bound_row_only_and_shift(current_lines, column, -max_sim_new_node)/k_double : sum_bound_similarity_2(current_lines, column)/k_double;
+					
+					/*if(!is_equal(col_maxima, temp_arr)) {
+						System.err.println("!is_equal(col_maxima, temp_arr)");
+						System.out.println("true="+Arrays.toString(col_maxima));
+						System.out.println("false="+Arrays.toString(temp_arr));
+					}*/
+					/*if(!is_equal(ub_sum,ub_sum_cpy)) {
+						System.err.println("ub_sum!=ub_sum_cpy");
+					}*/
+					
 					
 					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The sum bound is not necessarily tighter
 					
@@ -789,17 +797,58 @@ public class Solutions {
 					column_sum_correct = true;
 				}else{
 					prior_cell_similarity = upper_bound_sim;
+					column_sum_correct = false;
 				}
 				prev_min_value = max(current_lines, column);
 				prior_cell_updated_matrix = true;
 			}else{
 				prior_cell_similarity = upper_bound_sim;
 				prior_cell_updated_matrix = false;
+				column_sum_correct = false;
 			}
 		}
 	}
 	
 	
+	private boolean is_equal(double[] col_maxima2, double[] temp_arr) {
+		for(int i=0;i<col_maxima2.length;i++) {
+			if(col_maxima2[i] != temp_arr[i]) return false;
+		}
+		return true;
+	}
+
+	private double sum_bound_row_only_and_shift(final double[][] current_lines, final int offset, final double max_sim_new_node) {
+		double row_sum = 0;
+		System.arraycopy(col_maxima, 1, col_maxima, 0, k-1);
+		col_maxima[k-1] = max_sim_new_node;
+		
+		for(int i=0;i<this.k;i++) {
+			final double[] line = current_lines[i];
+			double row_min = Double.POSITIVE_INFINITY;
+			for(int j=0;j<this.k;j++) {
+				final double val = line[offset+j];
+				if(val<row_min) {
+					row_min = val;
+				}
+			}
+			row_sum += row_min;
+		}
+		double min_cost = Math.max(row_sum, sum_cols);		
+		
+		return -min_cost;
+	}
+
+	private double min_col_i(double[][] current_lines, int column, int i) {
+		double min = Double.MAX_VALUE;
+		for(int j=0;j<k;j++) {
+			double val = current_lines[j][column+i];
+			if(val<min) {
+				min=val;
+			}
+		}
+		return min;
+	}
+
 	private void out_matrix(double[][] current_lines, int column) {
 		for(double[] line : current_lines) {
 			for(int i=0;i<column+k;i++) {
