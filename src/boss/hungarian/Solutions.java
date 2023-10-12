@@ -119,6 +119,139 @@ public class Solutions {
 		}
 	}
 	
+	public double[] run_bound_tightness_exp(){
+		print_special_configurations();
+		HungarianKevinStern solver = new HungarianKevinStern(k);
+		System.out.println("Solutions.run_bound_tightness_exp() k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] local_similarity_matrix = new double[k][k];
+		USE_GLOBAL_MATRIX = true;
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		long count_computed_cells   = 0;
+		long count_survived_pruning = 0;
+		long count_num_candidates   = 0;
+		long count_survived_o_1_bound = 0;
+		long count_survived_o_k_bound = 0;
+		double prior_cell_similarity = 1.0;//Some value
+		double prev_min_value = 0.0;
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
+		
+		ArrayList<Double> candidate_bound_differences = new ArrayList<Double>(size(alignment_matrix));
+		ArrayList<Double> o_1_bound_differences = new ArrayList<Double>(size(alignment_matrix));
+		ArrayList<Double> o_k_bound_differences = new ArrayList<Double>(size(alignment_matrix));
+		ArrayList<Double> o_k_square_bound_differences = new ArrayList<Double>(size(alignment_matrix));
+		
+		start = System.currentTimeMillis();
+		final double[][] global_cost_matrix_book = fill_similarity_matrix();
+		//For each pair of windows
+		for(int line=0;line<alignment_matrix.length;line++) {							
+			for(int column=0;column<alignment_matrix[0].length;column++) {	
+				//Fill local matrix of the current window combination from global matrix 
+				fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
+				
+				//Bound used for candidates
+				double max_sim_value_in_matrix = max_value(local_similarity_matrix);
+				
+				if(max_sim_value_in_matrix+DOUBLE_PRECISION_BOUND>=threshold) {
+					count_num_candidates++;
+				}
+				
+				//O(1) bound
+				double o_1_bound = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;// O(1) bound
+				
+				if(o_1_bound+DOUBLE_PRECISION_BOUND>=threshold) {
+					count_survived_o_1_bound++;
+				}
+				
+				//O(k) bound
+				double o_k_bound = prior_cell_similarity - (prev_min_value / k_double);
+				double max_sim_new_node = min(local_similarity_matrix);//(2) O(k) bound
+				o_k_bound += max_sim_new_node / k_double;
+				
+				if(o_k_bound+DOUBLE_PRECISION_BOUND>=threshold) {
+					count_survived_o_k_bound++;
+				}
+						
+				//O(k²) bound
+				double o_k_square_bound = get_sum_of_column_row_minima(local_similarity_matrix);
+				if(o_k_square_bound+DOUBLE_PRECISION_BOUND>=threshold_times_k) {
+					count_survived_pruning++;
+				}
+				o_k_square_bound /= k_double;
+				
+				//That's the important line
+				double similarity = -solver.solve(local_similarity_matrix, threshold);
+				similarity /= k_double;
+				//normalize costs: Before it was distance. Now it is similarity.
+				if(similarity>=threshold) {
+					alignment_matrix[line][column] = similarity;//normalize
+					count_computed_cells++;
+				}//else keep it zero
+				prior_cell_similarity = similarity;//normalize
+				prev_min_value = max(local_similarity_matrix);
+				
+				//System.out.println(line+" "+column+" "+similarity);
+				
+				if(similarity-DOUBLE_PRECISION_BOUND>=o_1_bound && column!=0) {
+					System.err.println("similarity+DOUBLE_PRECISION_BOUND>=o_1_bound");
+					System.err.println(prior_cell_similarity+"+"+MAX_SIM_ADDITION_NEW_NODE+"<"+similarity);
+				}
+				if(similarity-DOUBLE_PRECISION_BOUND>=o_k_bound && column!=0) {
+					System.err.println("similarity+DOUBLE_PRECISION_BOUND>=o_k_bound");
+					System.err.println(prior_cell_similarity+" "+(prev_min_value / k_double)+" "+max_sim_new_node / k_double+" < "+similarity);
+					System.err.println("prior_cell_similarity+(prev_min_value / k_double)+max_sim_new_node / k_double < similarity");
+				}
+				if(similarity-DOUBLE_PRECISION_BOUND>=o_k_square_bound) {
+					System.err.println("similarity+DOUBLE_PRECISION_BOUND>=o_k_square_bound");
+				}
+				if(column!=0) {
+					double d_0_1 = o_1_bound - similarity;
+					o_1_bound_differences.add(d_0_1);
+					double d_0_k = o_k_bound - similarity;
+					o_k_bound_differences.add(d_0_k);
+				}
+				double o_k_square_d = o_k_square_bound - similarity;
+				o_k_square_bound_differences.add(o_k_square_d);
+				candidate_bound_differences.add(max_sim_value_in_matrix - similarity);
+			}
+		}
+		stop = System.currentTimeMillis();
+		run_times[0] = (stop-start);		
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_num_candidates+"\t"+count_survived_o_1_bound+"\t"+count_survived_o_k_bound+"\t"+count_survived_pruning+"\t"+count_computed_cells);
+		
+		System.out.println("Candidate bound mean overestimation\t"+mean(candidate_bound_differences));
+		System.out.println("O(1) bound mean overestimation\t"+mean(o_1_bound_differences));
+		System.out.println("O(k) bound mean overestimation\t"+mean(o_k_bound_differences));
+		System.out.println("O(k²) bound mean overestimation\t"+mean(o_k_square_bound_differences));
+
+		return run_times;
+	}
+	
+	private double max_value(double[][] local_similarity_matrix) {
+		double min_value = Double.MAX_VALUE;
+		for(double[] array : local_similarity_matrix) {
+			for(double d : array) {
+				if(d < min_value) {
+					min_value = d;
+				}
+			}
+		}
+		return -min_value;//XXX -trick for the Hungarian
+	}
+
+	private double mean(ArrayList<Double> list) {
+		double sum = 0.0d;
+		for(double d : list) {
+			sum+=d;
+		}
+		return sum/(double)list.size();
+	}
+
 	public double[] run_baseline(){
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);
@@ -337,17 +470,17 @@ public class Solutions {
 		double stop_candidates = System.currentTimeMillis();
 		
 		for(int line=0;line<alignement_matrix.length;line++) {
-			for(int i=0;i<k;i++) {
+			for(int i=0;i<k;i++) {//Let current_lines point to the right window
 				current_lines[i] = global_matrix_book[line+i];
 			}
-			solver.set_matrix(current_lines);
+			solver.set_matrix(current_lines);//This way, we avoid to pass the window again and again for each window in a line of the matrix
 			//Validate candidates
 			final double[] alignment_matrix_line   = alignement_matrix[line];
 			final MyArrayList candidates_condensed = all_candidates.get(line);
 			
 			final int size = candidates_condensed.size();
 			final int[] raw_candidates = candidates_condensed.ARRAY;
-			for(int c=0;c<size;c+=2) {
+			for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
 				final int run_start = raw_candidates[c];
 				final int run_stop = raw_candidates[c+1];
 				
@@ -711,8 +844,8 @@ public class Solutions {
 		if(LOGGING_MODE) {count_candidates+=run_stop-run_start+1;}
 		
 		int column=run_start;			
-		{//Here we have no bound
-			ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
+		{//Here we have no bound O(1) bound
+			ub_sum = o_k_square_bound(current_lines, column)/k_double;
 			
 			if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
 				sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
@@ -731,17 +864,17 @@ public class Solutions {
 			column_sum_correct = true;
 		}
 	
-		//For all other columns: Here we have a bound
+		//For all other columns: Here we have a O(1) and O(k) bound
 		for(column=run_start+1;column<=run_stop;column++) {	
-			double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;
+			double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;// O(1) bound
 			if(prior_cell_updated_matrix) {
-				upper_bound_sim-= (prev_min_value / k_double);
+				upper_bound_sim-= (prev_min_value / k_double);// (1) O(k) bound : part of the O(k) bound in case the prior cell updated the matrix, i.e., we know the minimum similarity of the leaving node
 			}		
 			
 			if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 				if(LOGGING_MODE) count_survived_pruning++;  
 				
-				double max_sim_new_node = min(current_lines, column);
+				double max_sim_new_node = min(current_lines, column);//(2) O(k) bound 
 				upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
 				upper_bound_sim+=(max_sim_new_node/k_double);
 				
@@ -759,22 +892,7 @@ public class Solutions {
 					if(LOGGING_MODE) count_survived_second_pruning++;
 					
 				
-					ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
-				/*
-					double[] temp_arr = new double[k];
-					System.arraycopy(col_maxima, 0, temp_arr, 0, k);
-
-					ub_sum = (column_sum_correct) ? sum_bound_row_only_and_shift(current_lines, column, -max_sim_new_node)/k_double : sum_bound_similarity_2(current_lines, column)/k_double;
-					
-					/*if(!is_equal(col_maxima, temp_arr)) {
-						System.err.println("!is_equal(col_maxima, temp_arr)");
-						System.out.println("true="+Arrays.toString(col_maxima));
-						System.out.println("false="+Arrays.toString(temp_arr));
-					}*/
-					/*if(!is_equal(ub_sum,ub_sum_cpy)) {
-						System.err.println("ub_sum!=ub_sum_cpy");
-					}*/
-					
+					ub_sum = o_k_square_bound(current_lines, column)/k_double;
 					
 					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The sum bound is not necessarily tighter
 					
@@ -905,7 +1023,7 @@ public class Solutions {
 			
 			int column=0;			
 			{//Here we have no bound
-				ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
+				ub_sum = o_k_square_bound(current_lines, column)/k_double;
 				
 				if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
 					sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
@@ -941,7 +1059,7 @@ public class Solutions {
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 						if(LOGGING_MODE) count_survived_second_pruning++;
 						
-						ub_sum = sum_bound_similarity_2(current_lines, column)/k_double;
+						ub_sum = o_k_square_bound(current_lines, column)/k_double;
 						upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The some bound is not necessarily tighter
 						
 						if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
@@ -1172,7 +1290,13 @@ public class Solutions {
 		return -min_cost;
 	}
 	
-	private double sum_bound_similarity_2(final double[][] current_lines, final int offset) {
+	/**
+	 * O(k²) bound computing min(row/column)
+	 * @param current_lines
+	 * @param offset
+	 * @return
+	 */
+	private double o_k_square_bound(final double[][] current_lines, final int offset) {
 		double row_sum = 0;
 		Arrays.fill(col_maxima, Double.POSITIVE_INFINITY);
 		for(int i=0;i<this.k;i++) {
