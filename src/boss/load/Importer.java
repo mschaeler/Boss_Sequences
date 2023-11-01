@@ -79,8 +79,8 @@ public class Importer {
 		try {
 			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(path), INPUT_ENCODING));
 			String line = br.readLine();
-			String[] meta_info = {"PAN11", path, "PAN11"};
-			lines.add(meta_info);
+			// String[] meta_info = {"PAN11", path, "PAN11"};
+			// lines.add(meta_info);
 			// lines.add(line.split(" "));
 			while ((line = br.readLine()) != null) {
 				//System.out.println(line);
@@ -112,10 +112,12 @@ public class Importer {
 		return buffer.toString();
 	}
 	
-	private static Book to_book_pan11(ArrayList<String[]> raw_book, int language) {
-		String meta_info[] = raw_book.get(0);
+	private static Book to_book_pan11(ArrayList<String[]> raw_book, int language, String filename) {
+		// String meta_info[] = raw_book.get(0);
+		String[] meta_info = {"PAN11", filename, "PAN11"};
 		Book b = new Book(get_text_name(meta_info), get_book_name(meta_info), language);
 		Chapter current_chapter = new Chapter(b, "proxy");
+		b.my_chapters.add(current_chapter);
 		int para_number = 0;
 		for(int i=1;i<raw_book.size();i++) {//ignore first line 
 			String[] line = raw_book.get(i);
@@ -130,6 +132,7 @@ public class Importer {
 				}
 				Paragraph p = new Paragraph(current_chapter, String.valueOf(para_number), result.toString());
 				current_chapter.my_paragraphs.add(p);
+				para_number++;
 			}
 		}
 		return b;
@@ -189,7 +192,7 @@ public class Importer {
 
 	private static Book get_book_pan11(String file_path, int language) {
 		ArrayList<String[]> raw_book = get_data_from_file_pan11(file_path);
-		Book b = to_book_pan11(raw_book, language);
+		Book b = to_book_pan11(raw_book, language, file_path);
 		return b;
 	}
 	
