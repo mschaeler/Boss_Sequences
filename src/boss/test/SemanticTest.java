@@ -44,10 +44,10 @@ public class SemanticTest {
 		// ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		ArrayList<Book> books;
 		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
-		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
-		double[] run_times;
-		
 		for (int susp_id = 0; susp_id < Importer.PAN11_SRC.length; susp_id++) {
+			ArrayList<double[]> all_run_times = new ArrayList<double[]>();
+			double[] run_times;
+		
 			for (int src_id = 0; src_id < Importer.PAN11_SUSP.length; src_id++) {
 				books = ImporterAPI.get_pan_11_books(src_id, susp_id);
 				for(int k : k_s) {
@@ -66,7 +66,7 @@ public class SemanticTest {
 					}
 				}
 			}
-		}
+		
 
 		/*for(int k : k_s) {
 			ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
@@ -99,17 +99,18 @@ public class SemanticTest {
 			}
 		}*/
 		
-		for(int i=0;i<k_s.length;i++) {
-			System.out.print("k="+k_s[i]+"\t");
-		}
-		System.out.println();
-		
-		for(int p=0;p<all_run_times.get(0).length;p++) {
 			for(int i=0;i<k_s.length;i++) {
-				run_times = all_run_times.get(i);
-				System.out.print(run_times[p]+"\t");
+				System.out.print("k="+k_s[i]+"\t");
 			}
 			System.out.println();
+			
+			for(int p=0;p<all_run_times.get(0).length;p++) {
+				for(int i=0;i<k_s.length;i++) {
+					run_times = all_run_times.get(i);
+					System.out.print(run_times[p]+"\t");
+				}
+				System.out.println();
+			}
 		}
 		
 		/*String file_path = Embedding.get_embedding_path(books.get(0).language);
