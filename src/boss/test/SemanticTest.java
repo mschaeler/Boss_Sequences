@@ -18,6 +18,7 @@ import boss.hungarian.StupidSolver;
 import boss.lexicographic.BasicTokenizer;
 import boss.lexicographic.TokenizedParagraph;
 import boss.lexicographic.Tokenizer;
+import boss.load.Importer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
 import boss.util.Pair;
@@ -40,24 +41,30 @@ public class SemanticTest {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		
-		ArrayList<Book> books = ImporterAPI.get_all_english_books();
+		// ArrayList<Book> books = ImporterAPI.get_all_english_books();
+		ArrayList<Book> books;
 		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
 		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
 		double[] run_times;
 		
-		for(int k : k_s) {
-			ArrayList<Solutions> solutions = prepare_solution(books,k,threshold);
-			for(Solutions s : solutions) {
-				//run_times = s.run_naive();
-				//run_times = s.run_baseline();
-				//run_times = s.run_incremental_cell_pruning();
-				//run_times = s.run_incremental_cell_pruning_deep();
-				//run_times = s.run_candidates();
-				//run_times = s.run_candidates_deep();
-				//run_times = s.run_solution();
-				run_times = s.run_bound_tightness_exp();
-				
-				all_run_times.add(run_times);
+		for (int susp_id = 0; susp_id < Importer.PAN11_SRC.length; susp_id++) {
+			for (int src_id = 0; src_id < Importer.PAN11_SUSP.length; src_id++) {
+				books = ImporterAPI.get_pan_11_books(src_id, susp_id);
+				for(int k : k_s) {
+					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold);
+					for(Solutions s : solutions) {
+						//run_times = s.run_naive();
+						//run_times = s.run_baseline();
+						//run_times = s.run_incremental_cell_pruning();
+						//run_times = s.run_incremental_cell_pruning_deep();
+						//run_times = s.run_candidates();
+						//run_times = s.run_candidates_deep();
+						//run_times = s.run_solution();
+						run_times = s.run_bound_tightness_exp();
+						
+						all_run_times.add(run_times);
+					}
+				}
 			}
 		}
 

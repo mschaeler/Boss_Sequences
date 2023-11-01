@@ -1,0 +1,70 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "HungarianAlgorithmPranay",
+            "request": "launch",
+            "mainClass": "HungarianAlgorithmPranay",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "HungarianTest",
+            "request": "launch",
+            "mainClass": "HungarianTest",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "Loader",
+            "request": "launch",
+            "mainClass": "Loader",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "StupidSolver",
+            "request": "launch",
+            "mainClass": "StupidSolver",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "Importer",
+            "request": "launch",
+            "mainClass": "boss.load.Importer",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "ImportTests",
+            "request": "launch",
+            "mainClass": "boss.test.ImportTests",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "SemanticTest",
+            "request": "launch",
+            "mainClass": "boss.test.SemanticTest",
+            "projectName": "Boss_Sequences_6d9c9078"
+        },
+        {
+            "type": "java",
+            "name": "TokenizerTests",
+            "request": "launch",
+            "mainClass": "boss.test.TokenizerTests",
+            "projectName": "Boss_Sequences_6d9c9078"
+        }
+    ]
+}

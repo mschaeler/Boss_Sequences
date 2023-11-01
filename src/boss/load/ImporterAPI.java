@@ -31,4 +31,11 @@ public class ImporterAPI {
 	public static ArrayList<Book> get_all_greek_books() {
 		return get_books(Book.GREEK_BOOKS);
 	}
+
+	public static ArrayList<Book> get_pan_11_books(int src_id, int susp_id) {
+		ArrayList<Book> ret = new ArrayList<Book>(2);
+		ret.add(Importer.get_book_pan11(susp_id, false));
+		ret.add(Importer.get_book_pan11(src_id, true));
+		return ret;
+	}
 }

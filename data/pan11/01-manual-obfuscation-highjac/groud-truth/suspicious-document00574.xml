@@ -1,0 +1,15 @@
+<?xml version="1.0" ?><document reference="suspicious-document00574.txt">
+  
+  <feature name="plagiarism" type="simulated" this_language="en" this_offset="1120" this_length="428" source_reference="source-document06991.txt" source_language="en" source_offset="42881" source_length="459"/>
+  
+  
+  
+  
+  <feature name="plagiarism" type="simulated" this_language="en" this_offset="3899" this_length="1668" source_reference="source-document06586.txt" source_language="en" source_offset="3674" source_length="2050"/>
+  
+  
+  
+  
+  
+  
+</document>
