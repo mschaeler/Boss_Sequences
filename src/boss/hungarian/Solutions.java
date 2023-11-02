@@ -89,6 +89,9 @@ public class Solutions {
 		if(dense_global_matrix_buffer==null) {
 			create_dense_matrix();
 		}
+		if(this.max_id>dense_global_matrix_buffer.length) {
+			create_dense_matrix();
+		}
 		
 		this.col_maxima = new double[k];
 	}

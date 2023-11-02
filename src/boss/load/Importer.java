@@ -126,13 +126,15 @@ public class Importer {
 				b.my_chapters.add(current_chapter);
 				para_number = 0;
 			}else{
-				StringBuilder result = new StringBuilder(line[0]);
-				for (int j = 1; j < line.length; j++) {
-					result.append(" ").append(line[j]);
+				if(line.length>0) {
+					StringBuilder result = new StringBuilder(line[0]);
+					for (int j = 1; j < line.length; j++) {
+						result.append(" ").append(line[j]);
+					}
+					Paragraph p = new Paragraph(current_chapter, String.valueOf(para_number), result.toString());
+					current_chapter.my_paragraphs.add(p);
+					para_number++;
 				}
-				Paragraph p = new Paragraph(current_chapter, String.valueOf(para_number), result.toString());
-				current_chapter.my_paragraphs.add(p);
-				para_number++;
 			}
 		}
 		return b;
@@ -161,7 +163,10 @@ public class Importer {
 
 	static final String CHAPTER_START = "--";
 	private static boolean is_chapter_start(String[] line) {
-		return line[0].startsWith(CHAPTER_START);
+		if(line.length>1)
+			return line[0].startsWith(CHAPTER_START);
+		else
+			return false;
 	}
 
 	/**
