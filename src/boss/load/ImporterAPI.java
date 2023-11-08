@@ -38,4 +38,17 @@ public class ImporterAPI {
 		ret.add(Importer.get_book_pan11(src_id, true));
 		return ret;
 	}
+	public static ArrayList<Book> get_all_pan_books() {
+		ArrayList<Book> ret = new ArrayList<Book>();
+		for(int id=0;id<Importer.PAN11_SRC.length; id++) {
+			Book b = Importer.get_book_pan11(id, true);
+			ret.add(b);
+		}
+		for(int id=0;id<Importer.PAN11_SUSP.length; id++) {
+			Book b = Importer.get_book_pan11(id, false);
+			ret.add(b);
+		}
+		
+		return ret;
+	}
 }
