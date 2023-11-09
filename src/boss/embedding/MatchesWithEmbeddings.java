@@ -103,7 +103,7 @@ public class MatchesWithEmbeddings extends Match{
 	        while ((line = input.readLine()) != null) {
 	        	MatchesWithEmbeddings temp = to_instance(line);
 	        	mew.add(temp);
-	        	if(i%1000==0) {
+	        	if(i%10000==0) {
 	        		System.out.println(line);	
 	        	}
 	        	i++;

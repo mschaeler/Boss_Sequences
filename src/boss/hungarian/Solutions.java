@@ -21,7 +21,7 @@ public class Solutions {
 	long count_survived_second_pruning 	= 0;
 	long count_survived_third_pruning 	= 0;
 	
-	static double[][] dense_global_matrix_buffer = null;
+	public static double[][] dense_global_matrix_buffer = null;
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
 	private static final boolean SAVE_MODE = false;
 	
@@ -87,9 +87,6 @@ public class Solutions {
 		}
 		this.max_id = max_id;
 		if(dense_global_matrix_buffer==null) {
-			create_dense_matrix();
-		}
-		if(this.max_id>dense_global_matrix_buffer.length) {
 			create_dense_matrix();
 		}
 		

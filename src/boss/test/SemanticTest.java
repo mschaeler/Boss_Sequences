@@ -1,5 +1,7 @@
 package boss.test;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,10 +35,13 @@ public class SemanticTest {
 	static final int GRANULARITY_CHAPTER_TO_CHAPTER     = 2;
 	static final int GRANULARITY_BOOK_TO_BOOK     		= 3;
 	
+	static String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
+	
 	public static void main(String[] args) {
 		
 		final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.7;
+		boolean header_written = false;
 		
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
@@ -51,6 +56,7 @@ public class SemanticTest {
 			for (int src_id = 0; src_id < Importer.PAN11_SUSP.length; src_id++) {
 				books = ImporterAPI.get_pan_11_books(src_id, susp_id);
 				for(int k : k_s) {
+					Solutions.dense_global_matrix_buffer = null;
 					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold);
 					for(Solutions s : solutions) {
 						//run_times = s.run_naive();
@@ -65,7 +71,51 @@ public class SemanticTest {
 						all_run_times.add(run_times);
 					}
 				}
+				for(int i=0;i<k_s.length;i++) {
+					System.out.print("k="+k_s[i]+"\t");
+				}
+				System.out.println();
+				
+				for(int p=0;p<all_run_times.get(0).length;p++) {
+					for(int i=0;i<k_s.length;i++) {
+						run_times = all_run_times.get(i);
+						System.out.print(run_times[p]+"\t");
+					}
+					System.out.println();
+				}
+				boolean RESULTS_TO_FILE = true;
+				if(RESULTS_TO_FILE) {
+					//String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
+				    try {
+				        BufferedWriter output = new BufferedWriter(new FileWriter(result_path, true));
+
+				        // Writes the string to the file
+				        if(!header_written) {
+					        for(int i=0;i<k_s.length;i++) {
+					        	output.write("k="+k_s[i]+"\t");
+							}
+							output.newLine();
+							header_written = true;
+				        }
+						
+						for(int p=0;p<all_run_times.get(0).length;p++) {
+							for(int i=0;i<k_s.length;i++) {
+								run_times = all_run_times.get(i);
+								output.write(run_times[p]+"\t");
+							}
+							output.newLine();
+						}
+				        
+
+				        // Closes the writer
+				        output.close();
+				      }catch (Exception e) {
+				          e.getStackTrace();
+				      }
+				}
+				all_run_times.clear();
 			}
+			
 		
 
 		/*for(int k : k_s) {
@@ -99,7 +149,7 @@ public class SemanticTest {
 			}
 		}*/
 		
-			for(int i=0;i<k_s.length;i++) {
+			/*for(int i=0;i<k_s.length;i++) {
 				System.out.print("k="+k_s[i]+"\t");
 			}
 			System.out.println();
@@ -110,7 +160,7 @@ public class SemanticTest {
 					System.out.print(run_times[p]+"\t");
 				}
 				System.out.println();
-			}
+			}*/
 		}
 		
 		/*String file_path = Embedding.get_embedding_path(books.get(0).language);
