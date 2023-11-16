@@ -163,7 +163,7 @@ public class Importer {
 
 	static final String CHAPTER_START = "--";
 	private static boolean is_chapter_start(String[] line) {
-		if(line.length>1)
+		if(line.length>0)
 			return line[0].startsWith(CHAPTER_START);
 		else
 			return false;

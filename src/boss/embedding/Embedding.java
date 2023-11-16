@@ -210,8 +210,8 @@ public class Embedding {
 		return length_prefix;
 	}
 	
-	public static String get_embedding_path(final int language) {
-		return get_embedding_path(language, false);
+	public static String get_embedding_path(final int language, boolean pan_embeddings) {
+		return get_embedding_path(language, false, pan_embeddings);
 	}
 	/**
 	 * 
@@ -219,13 +219,16 @@ public class Embedding {
 	 * @param ignore_stopwords
 	 * @return
 	 */
-	public static String get_embedding_path(final int language, boolean ignore_stopwords) {
+	public static String get_embedding_path(final int language, boolean ignore_stopwords, boolean pan_embeddings) {
 		if(language == Book.LANGUAGE_ENGLISH) {
 			if(ignore_stopwords) {
 				return ENGLISH_MINIMAL_EMBEDDINGS;
 			}else{
-				// return ENGLISH_EMBEDDINGS;
-				return PAN11_ENGLISH_EMBEDDINGS;
+				if(pan_embeddings) {
+					return PAN11_ENGLISH_EMBEDDINGS;	
+				}else {
+					return ENGLISH_EMBEDDINGS;
+				}
 			}
 		}else if(language == Book.LANGUAGE_GERMAN){
 			return GERMAN_MINIMAL_EMBEDDINGS;

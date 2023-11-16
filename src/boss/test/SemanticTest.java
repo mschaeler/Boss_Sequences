@@ -37,18 +37,62 @@ public class SemanticTest {
 	
 	static String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
 	
-	public static void main(String[] args) {
+	public static void run_bible_experiments() {
+		final int[] k_s= {3,4,5,6,7,8};
+		final double threshold = 0.7;
 		
+		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		
+		ArrayList<Book> books = ImporterAPI.get_all_english_books();
+		
+		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
+		
+		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
+		double[] run_times;
+			
+		for(int k : k_s) {
+			Solutions.dense_global_matrix_buffer = null;
+			boolean pan_embeddings = false;
+			ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
+			for(Solutions s : solutions) {
+				//run_times = s.run_naive();
+				//run_times = s.run_baseline();
+				//run_times = s.run_incremental_cell_pruning();
+				//run_times = s.run_incremental_cell_pruning_deep();
+				//run_times = s.run_candidates();
+				//run_times = s.run_candidates_deep();
+				run_times = s.run_solution();
+				//run_times = s.run_bound_tightness_exp();
+				
+				all_run_times.add(run_times);
+			}
+		}
+			
+		
+		for(int i=0;i<k_s.length;i++) {
+			System.out.print("k="+k_s[i]+"\t");
+		}
+		System.out.println();
+		
+		for(int p=0;p<all_run_times.get(0).length;p++) {
+			for(int i=0;i<k_s.length;i++) {
+				run_times = all_run_times.get(i);
+				System.out.print(run_times[p]+"\t");
+			}
+			System.out.println();
+		}
+		
+	}
+	
+	public static void run_pan_experiments() {
 		final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.7;
 		boolean header_written = false;
 		
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
-		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		
-		// ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		ArrayList<Book> books;
-		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
 		for (int susp_id = 0; susp_id < Importer.PAN11_SRC.length; susp_id++) {
 			ArrayList<double[]> all_run_times = new ArrayList<double[]>();
 			double[] run_times;
@@ -57,7 +101,8 @@ public class SemanticTest {
 				books = ImporterAPI.get_pan_11_books(src_id, susp_id);
 				for(int k : k_s) {
 					Solutions.dense_global_matrix_buffer = null;
-					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold);
+					boolean pan_embeddings = true;
+					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
 					for(Solutions s : solutions) {
 						//run_times = s.run_naive();
 						//run_times = s.run_baseline();
@@ -115,52 +160,21 @@ public class SemanticTest {
 				}
 				all_run_times.clear();
 			}
-			
-		
-
-		/*for(int k : k_s) {
-			ArrayList<HungarianExperiment> hes = prepare_experiment(books,k,threshold);
-			for(HungarianExperiment he : hes) {
-				//he.set_solver(new StupidSolver(k));
-				//he.set_solver(new HungarianAlgorithmWiki(k));
-				//he.set_solver(new HungarianAlgorithmPranayImplementation());
-				he.set_solver(new HungarianKevinStern(k));
-				
-				//run_times=he.run_baseline();
-				//he.run_baseline_zick_zack();
-				//run_times=he.run_zick_zack();
-				//run_times=he.run_zick_zack_deep();
-				//run_times = he.run_check_hungo_heuristics();
-				//run_times=he.run_candidates_min_matrix();
-				//run_times=he.run_candidates_min_matrix_2();
-				//run_times=he.run_candidates_min_matrix_3();
-				run_times=he.run_candidates_min_matrix_4();
-				//run_times=he.run_solution();
-				//run_times=he.run_incremental_cell_pruning();
-				//run_times = he.run_incremental_cell_pruning_pranay();
-				//run_times = he.run_best_full_scan();
-				//run_times = he.run_baseline_deep();
-				//he.run_pruning();
-				//he.run_baseline_global_matrix_dense();
-				//he.run_baseline_global_matrix_sparse();
-				//he.test_hungarian_implementations();
-				//run_times = he.run_check_node_deletion();
-				all_run_times.add(run_times);
-			}
-		}*/
-		
-			/*for(int i=0;i<k_s.length;i++) {
-				System.out.print("k="+k_s[i]+"\t");
-			}
-			System.out.println();
-			
-			for(int p=0;p<all_run_times.get(0).length;p++) {
-				for(int i=0;i<k_s.length;i++) {
-					run_times = all_run_times.get(i);
-					System.out.print(run_times[p]+"\t");
-				}
-				System.out.println();
-			}*/
+		}
+	}
+	
+	
+	public static void main(String[] args) {
+		if(args.length==0) {
+			String[] temp = {"b"};//if no experiment specified run the bible experiment 
+			args = temp;
+		}
+		if(contains(args, "b")) {
+			run_bible_experiments();
+		}else if(contains(args, "p")) {
+			run_pan_experiments();
+		}else{
+			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
 		
 		/*String file_path = Embedding.get_embedding_path(books.get(0).language);
@@ -171,6 +185,15 @@ public class SemanticTest {
 		}*/	
 	}
 	
+	private static boolean contains(String[] array, String to_match) {
+		for(String s : array) {
+			if(s.equals(to_match)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static void test_node_deletion_in_hungarian() {
 		int k = 3;
 		HungarianKevinSternAlmpified HKS = new HungarianKevinSternAlmpified(k);
@@ -265,7 +288,7 @@ public class SemanticTest {
 	
 	
 	static HashMap<Integer, double[]> embedding_vector_index_buffer = null;
-	static ArrayList<HungarianExperiment> prepare_experiment(ArrayList<Book> books, final int k, final double threshold) {
+	static ArrayList<HungarianExperiment> prepare_experiment(ArrayList<Book> books, final int k, final double threshold, boolean pan_embeddings) {
 		System.out.println("SemanticTest.prepare_experiment() [START]");
 		ArrayList<HungarianExperiment> ret = new ArrayList<HungarianExperiment>(books.size());
 		
@@ -276,7 +299,7 @@ public class SemanticTest {
 		HashMap<Integer, double[]> embedding_vector_index;
 		if(embedding_vector_index_buffer==null) {
 			boolean ignore_stopwords = false;
-			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords);
+			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords, pan_embeddings);
 			embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
 		}else{
 			embedding_vector_index = embedding_vector_index_buffer;
@@ -305,7 +328,7 @@ public class SemanticTest {
 		return ret;
 	}
 	
-	static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold) {
+	static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold, boolean pan_embeddings) {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		System.out.println("SemanticTest.prepare_experiment() [START]");
 		ArrayList<Solutions> ret = new ArrayList<Solutions>(books.size());
@@ -317,7 +340,7 @@ public class SemanticTest {
 		HashMap<Integer, double[]> embedding_vector_index;
 		if(embedding_vector_index_buffer==null) {
 			boolean ignore_stopwords = false;//XXX
-			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords);
+			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords, pan_embeddings);
 			embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
 		}else{
 			embedding_vector_index = embedding_vector_index_buffer;
