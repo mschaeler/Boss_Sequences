@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import boss.embedding.MatchesWithEmbeddings;
 import boss.util.MyArrayList;
@@ -43,6 +44,8 @@ public class Solutions {
 	final double[][] alignement_matrix;
 	
 	final HashMap<Integer, double[]> embedding_vector_index;
+	final int[] tokens_b1;
+	final int[] tokens_b2;
 	
 	/**
 	 * Contains the maximum column similarity of current local similarity matrix. Note, since we negate the signum for the hungarian. It's the minimum....
@@ -70,21 +73,41 @@ public class Solutions {
 		//Prepare the buffers for the alignment matrixes
 		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
 		
+		HashSet<Integer> tokens_b1 = new HashSet<Integer>();
+		HashSet<Integer> tokens_b2 = new HashSet<Integer>();
+		
 		int max_id = 0;
 		for(int[] p : raw_paragraphs_b1) {
 			for(int id : p) {
+				tokens_b1.add(id);
 				if(id>max_id) {
 					max_id = id;
 				}
 			}
 		}
+		this.tokens_b1 = new int[tokens_b1.size()];
+		int i=0;
+		for(int id : tokens_b1) {
+			this.tokens_b1[i++] = id;
+		}
+		Arrays.sort(this.tokens_b1);
+		
 		for(int[] p : raw_paragraphs_b2) {//Second paragraph
 			for(int id : p) {
+				tokens_b2.add(id);
 				if(id>max_id) {
 					max_id = id;
 				}
 			}
 		}
+		
+		this.tokens_b2 = new int[tokens_b2.size()];
+		i=0;
+		for(int id : tokens_b2) {
+			this.tokens_b2[i++] = id;
+		}
+		Arrays.sort(this.tokens_b2);
+		
 		this.max_id = max_id;
 		if(dense_global_matrix_buffer==null) {
 			create_dense_matrix();
@@ -438,6 +461,101 @@ public class Solutions {
 		return candidates_condensed;
 	}
 	
+	/**
+	 * Suggests that candidate generation still makes sense
+	 * @return
+	 */
+	public double[] run_solution_no_candidates() {
+		print_special_configurations();
+		HungarianDeep solver = new HungarianDeep(k);
+		System.out.println("Solutions.run_solution_no_candidates() k="+k+" threshold="+threshold+" "+solver.get_name());
+		USE_GLOBAL_MATRIX = true;
+		
+		//Some variable
+		double[] run_times = new double[num_paragraphs];
+		double stop,start;
+		final double[][] current_lines = new double[k][];
+		USE_GLOBAL_MATRIX = true;
+//		final ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(alignement_matrix.length);
+//		final BitSet candidates = new BitSet(alignement_matrix[0].length);
+		
+//		final BitSet[] inverted_window_index = create_indexes_bit_vectors();//TODO include into run time below?
+		final double[][] global_matrix_book  = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
+		
+		start = System.currentTimeMillis();
+
+		double stop_candidates = System.currentTimeMillis();
+		
+		for(int line=0;line<alignement_matrix.length;line++) {
+			for(int i=0;i<k;i++) {//Let current_lines point to the right window
+				current_lines[i] = global_matrix_book[line+i];
+			}
+			solver.set_matrix(current_lines);//This way, we avoid to pass the window again and again for each window in a line of the matrix
+			//Validate candidates
+			final double[] alignment_matrix_line   = alignement_matrix[line];
+			int run_start = 0;
+			int run_stop = alignment_matrix_line.length-1;//to the end inclusively
+			validate_run_deep(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
+		}
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		
+		int size = size(alignement_matrix);
+		double check_sum = sum(alignement_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start));
+		
+		return run_times;
+	}
+	
+	int all_done = 0;
+	MyArrayList merge_runs(MyArrayList[] candidates) {
+		MyArrayList condensed_candidates = new MyArrayList(200);//guess
+		int[] pointer_lists = new int[candidates.length];
+		all_done = 0;
+		
+		int min_start_list = min_start_list(pointer_lists, candidates);
+		int pointer = pointer_lists[min_start_list];
+		int start = candidates[min_start_list].get(pointer);
+		int stop = candidates[min_start_list].get(pointer+1);
+		condensed_candidates.add(start);
+		condensed_candidates.add(stop);
+		
+		while(all_done==candidates.length) {
+			min_start_list = min_start_list(pointer_lists, candidates);
+			pointer = pointer_lists[min_start_list];
+			start = candidates[min_start_list].get(pointer);
+			stop = candidates[min_start_list].get(pointer+1);	
+			
+			int size = condensed_candidates.size();
+			int last_stop  = condensed_candidates.get(size-1);
+			if(start<=last_stop+1) {//Overlap in intervals
+				condensed_candidates.ARRAY[size-1] = stop;//Overwrite stop position
+			}else {
+				condensed_candidates.add(start);
+				condensed_candidates.add(stop);	
+			}
+		}
+		return condensed_candidates;
+	}
+	
+	int min_start_list(int[] pointer_lists, MyArrayList[] candidates) {
+		int min_pointer = Integer.MAX_VALUE;
+		int idx_min_pointer = -1;
+		for(int list=0;list<pointer_lists.length;list++) {
+			int my_start = candidates[list].get(pointer_lists[list]); 
+			if(my_start<min_pointer) {
+				min_pointer = my_start;
+				idx_min_pointer = list;
+			}
+		}
+		pointer_lists[idx_min_pointer] +=2;//increment position
+		if(candidates[idx_min_pointer].size() <= pointer_lists[idx_min_pointer]) {//reached end of this candidate list
+			all_done++;
+		}
+		return idx_min_pointer;
+	}
+
 	public double[] run_solution() {
 		print_special_configurations();
 		HungarianDeep solver = new HungarianDeep(k);
@@ -452,19 +570,31 @@ public class Solutions {
 		final ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(alignement_matrix.length);
 		final BitSet candidates = new BitSet(alignement_matrix[0].length);
 		
-		final BitSet[] inverted_window_index = create_indexes_bit_vectors();//TODO include into run time below?
 		final double[][] global_matrix_book  = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
 		
+		
 		start = System.currentTimeMillis();
+		final BitSet[] inverted_window_index = create_indexes_bit_vectors();//XXX includes neighborhood computation, which can be re-used
+		double stop_idx_creation = System.currentTimeMillis();
+		
 		for(int line=0;line<alignement_matrix.length;line++) {
 			candidates.clear();//may contain result from prior line
 			for(int token_id : k_with_windows_b1[line]) {
 				final BitSet temp = inverted_window_index[token_id];
 				candidates.or(temp);
 			}
-
 			//condense bool[] to runs with from to
 			MyArrayList candidates_condensed = condense(candidates);
+			
+			/*
+			BitSet[] my_candidates = new BitSet[k];
+			for(int i=0;i<k;i++) {
+				int token_id = k_with_windows_b1[line][i];
+				my_candidates[i] = inverted_window_index[token_id];
+			}			
+
+			MyArrayList candidates_condensed = merge(my_candidates);//, candidates_condensed);//XXX
+			*/
 			all_candidates.add(candidates_condensed);
 		}
 		double stop_candidates = System.currentTimeMillis();
@@ -493,11 +623,77 @@ public class Solutions {
 		
 		int size = size(alignement_matrix);
 		double check_sum = sum(alignement_matrix);
-		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start));
-		
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
+		//clean up
+		count_candidates = 0;
+		count_survived_pruning = 0;
+		count_survived_second_pruning = 0;
+		count_survived_third_pruning = 0;
+		count_cells_exceeding_threshold = 0;
 		return run_times;
 	}
 	
+	MyArrayList merge(BitSet[] my_candidates) {//, MyArrayList candidates_correct) {
+		final int size = my_candidates[0].size();
+		final int max_stop = k_with_windows_b2.length-1;
+		int index = 0;
+		boolean found_run = false;
+		MyArrayList candidates_condensed = new MyArrayList(size/2);
+		
+		while(index<size) {
+			//find next run start
+			if(has_run(my_candidates,index)) {
+				int start_run = index;
+				found_run = true;
+				if(index>k) {
+					index +=k;//TODO hier vlt k ausnutzen	
+				}else {
+					index++;
+				}
+				
+				while(has_run(my_candidates,index)) {
+					index++;
+				}
+				int stop_run = index-1;//index is the first one not having a candidate
+				if(stop_run>=max_stop) {
+					stop_run = max_stop;
+				}
+				candidates_condensed.add(start_run);
+				candidates_condensed.add(stop_run);
+				found_run = false;
+			}else{
+				index++;
+			}
+		}
+		if(found_run) {
+			candidates_condensed.add(size-1);	
+		}
+
+		/*if(candidates_correct.size()!=candidates_condensed.size()) {
+			System.err.println(candidates_correct);
+			System.err.println(candidates_condensed);
+		}else{
+			for(int i=0;i<candidates_correct.size();i++) {
+				if(candidates_correct.get(i)!=candidates_condensed.get(i)) {
+					System.err.println("candidates_correct.get(i)!=candidates_condensed.get("+i+")");
+					System.err.println(candidates_correct);
+					System.err.println(candidates_condensed);
+					System.err.println("i");
+				}
+			}
+		}*/
+		return candidates_condensed;
+	}
+
+	private boolean has_run(BitSet[] my_candidates, int index) {
+		for(BitSet bs : my_candidates) {
+			if(bs.get(index)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public double[] run_candidates_deep() {
 		print_special_configurations();
 		HungarianDeep solver = new HungarianDeep(k);
@@ -646,23 +842,24 @@ public class Solutions {
 	 * inverted_index.get(token_id)[] -> List of all other other_token_id's with sim(token_id, other_token_id) > threshold, ordered asc by token_id.
 	 * @param matrix global similarity matrix of the Books. 
 	 */
-	private ArrayList<MyArrayList> create_neihborhood_index(final double[][] matrix) {
-		System.out.println("create_neihborhood_index() BEGIN");
-		double start = System.currentTimeMillis();
+	private MyArrayList[] create_neihborhood_index(final double[][] matrix) {
+		//System.out.println("create_neihborhood_index() BEGIN");
+		//double start = System.currentTimeMillis();
 		
-		ArrayList<MyArrayList> indexes = new ArrayList<MyArrayList>(matrix.length);
-		for(final double[] line : matrix) {
+		MyArrayList[] indexes = new MyArrayList[matrix.length];
+		for(int token_id : this.tokens_b1) {
+			final double[] line = matrix[token_id];
 			MyArrayList index = new MyArrayList(line.length);//Ensure the list has enough memory reserved
-			for(int id=0;id<line.length;id++) {
+			for(int id : tokens_b2) {
 				final double sim = line[id];
 				if(sim>=threshold){
 					index.add(id);
 				}
 			}
 			//TODO trim to size?
-			indexes.add(index);
+			indexes[token_id]=index;
 		}
-		System.out.println("create_neihborhood_index() END in\t"+(System.currentTimeMillis()-start));
+		//System.out.println("create_neihborhood_index() END in\t"+(System.currentTimeMillis()-start));
 		return indexes;
 	}
 	
@@ -712,15 +909,18 @@ public class Solutions {
 	 * @param k_with_windows
 	 * @return
 	 */
-	private BitSet[] create_inverted_window_index_bit_vector(final int[][] k_with_windows, final ArrayList<MyArrayList> neihborhood_indexes) {
+	private BitSet[] create_inverted_window_index_bit_vector(final int[][] k_with_windows, final MyArrayList[] neihborhood_indexes) {
 		System.out.println("BitSet[] create_inverted_window_index() BEGIN");
 		final double start = System.currentTimeMillis();
 		
-		final BitSet[] indexes = new BitSet[neihborhood_indexes.size()];//one index per token
+		final BitSet[] indexes = new BitSet[dense_global_matrix_buffer.length];//one index per token
 		//For each token
-		for(int token_id = 0;token_id<neihborhood_indexes.size();token_id++) {
+		for(int token_id = 0;token_id<neihborhood_indexes.length;token_id++) {
 			//Create the list of occurrences for token: token_id
-			final MyArrayList neihborhood_index = neihborhood_indexes.get(token_id);
+			final MyArrayList neihborhood_index = neihborhood_indexes[token_id];
+			if(neihborhood_index==null) {
+				continue;//Token not in b_1
+			}
 			
 			final BitSet index_this_token = new BitSet(k_with_windows.length);
 			for(int pos=0;pos<k_with_windows.length;pos++) {
@@ -771,34 +971,123 @@ public class Solutions {
 		/**
 		 * inverted_index.get(my_token_id) -> ordered list of token_id's with sim(my_token_id, token_id) >= threshold 
 		 */
-		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final MyArrayList[] neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
 		//System.err.println("sum(neighborhood_index) "+sum(neighborhood_index));
 		/**
 		 * inverted_window_index.get(my_token_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
 		 */
-		final ArrayList<MyArrayList> inverted_window_index = create_inverted_window_index(k_with_windows_b2, neighborhood_index);
+		System.err.println("Removed");
+		//final MyArrayList[] inverted_window_index = create_inverted_window_index(k_with_windows_b2, neighborhood_index);
 		//System.err.println("sum(inverted_window_index) "+sum(inverted_window_index));
 		/**
 		 * inverted_window_index_ranges[token_id][0] -> Start of first run (if there is one). The respective end is at inverted_window_index_ranges[token_id][1] etc.
 		 */
-		final int[][] inverted_window_index_ranges = to_inverted_window_index_ranges(inverted_window_index);
+		System.err.println("Removed");
+		//final int[][] inverted_window_index_ranges = to_inverted_window_index_ranges(inverted_window_index);
 		//System.err.println("sum(inverted_window_index_ranges) "+sum(inverted_window_index_ranges));
 		
-		return inverted_window_index_ranges;
+		System.err.println("Removed");
+		return null;
+		//return inverted_window_index_ranges;
 	}
 	
-	BitSet[] create_indexes_bit_vectors() {
+	public BitSet[] create_indexes_bit_vectors() {
 		/**
 		 * inverted_index.get(my_token_id) -> ordered list of token_id's with sim(my_token_id, token_id) >= threshold 
 		 */
-		final ArrayList<MyArrayList> neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		final MyArrayList[] neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
 
 		/**
 		 * inverted_window_index.get(my_token_id) -> ordered list of cells containing some other token, s.t.  sim(my_token_id, token_id) >= threshold. I.e., this is a candidate. 
 		 */
-		final BitSet[] inverted_window_index = create_inverted_window_index_bit_vector(k_with_windows_b2, neighborhood_index);
+		//final BitSet[] inverted_window_index = create_inverted_window_index_bit_vector(k_with_windows_b2, neighborhood_index);
+		final BitSet[] inverted_window_index = create_inverted_window_index_bit_vector_2(neighborhood_index);
 
+		//test(neighborhood_index, inverted_window_index);
+		
 		return inverted_window_index;
+	}
+	
+	BitSet[] create_inverted_window_index_bit_vector_2(final MyArrayList[] neihborhood_indexes) {
+		//System.out.println("BitSet[] create_inverted_window_index_bit_vector_2() BEGIN");
+		//final double start_time = System.currentTimeMillis();
+		final BitSet[] indexes = new BitSet[dense_global_matrix_buffer.length];//one index per token
+		
+		for(int token_id : tokens_b1) {
+			final BitSet index_this_token = new BitSet(k_with_windows_b2.length);
+			final MyArrayList my_neighborhood_index = neihborhood_indexes[token_id];
+			
+			for(int i=0;i<raw_paragraph_b2.length;i++) {
+				final int token_id_in_b2 = raw_paragraph_b2[i];
+				if(my_neighborhood_index.isIn(token_id_in_b2)) {
+					final int start = Math.max(0, i-k+1);
+					final int stop = Math.min(k_with_windows_b2.length-1, i);
+					for(int pos=start;pos<=stop;pos++) {
+						index_this_token.set(pos);
+					}					
+				}
+			}
+			indexes[token_id] = index_this_token;
+		}
+		//final double stop_time = System.currentTimeMillis();
+		//System.out.println("BitSet[] create_inverted_window_index_bit_vector_2() END "+(stop_time-start_time)+" ms");
+		return indexes;
+	}
+
+	MyArrayList[] test(final MyArrayList[] neighborhood_index, BitSet[] indexes_corect) {
+		System.out.println("MyArrayList[] test() BEGIN");
+		final double start_time = System.currentTimeMillis();
+		
+		final MyArrayList[] candidate_runs = new MyArrayList[dense_global_matrix_buffer.length];
+		
+		for(int token_id : tokens_b1) {
+			if(token_id==30) {
+				System.err.println("token_id=="+token_id);
+			}
+			final MyArrayList my_neighborhood_index = neighborhood_index[token_id];
+			
+			//BitSet idx_correct = indexes_corect[token_id];
+			MyArrayList condensed_idx_correct = condense(indexes_corect[token_id]);
+			MyArrayList condensed_idx = new MyArrayList();
+			for(int i=0;i<raw_paragraph_b2.length;i++) {
+				final int token_id_in_b2 = raw_paragraph_b2[i];
+				if(my_neighborhood_index.isIn(token_id_in_b2)) {
+					int start = Math.max(0, i-k+1);
+					int stop = Math.min(k_with_windows_b2.length-1, i);
+					
+					if(condensed_idx.size()>=2) {
+						int size = condensed_idx.size();
+						int last_stop  = condensed_idx.get(size-1);
+						if(start<=last_stop+1) {//Overlap in intervals
+							condensed_idx.ARRAY[size-1] = stop;//Overwrite stop position
+						}else {
+							condensed_idx.add(start);
+							condensed_idx.add(stop);	
+						}
+					}else {
+						condensed_idx.add(start);
+						condensed_idx.add(stop);
+					}					
+				}
+			}
+			
+			if(condensed_idx_correct.size()!=condensed_idx.size()) {
+				System.err.println(condensed_idx_correct);
+				System.err.println(condensed_idx);
+			}else{
+				for(int i=0;i<condensed_idx_correct.size();i++) {
+					if(condensed_idx.get(i)!=condensed_idx.get(i)) {
+						System.err.println("condensed_idx.get(i)!=condensed_idx.get(i)");
+					}
+				}
+			}
+			candidate_runs[token_id] = condensed_idx;
+		}
+		
+		final double stop_time = System.currentTimeMillis();
+		System.out.println("BitSet[] test() END "+(stop_time-start_time)+" ms");
+
+		return candidate_runs;
 	}
 	
 	void get_candidates(final int[] window_b1, final boolean[] candidates_line, final int[][] inverted_window_index_ranges) {

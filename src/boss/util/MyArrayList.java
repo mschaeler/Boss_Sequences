@@ -120,7 +120,7 @@ public final class MyArrayList{
 	}
 	
 	public String toString(){
-		return "s="+size()+"";
+		return "s="+size()+" "+toString(size());
 	}
 
 	public String toString(int elmsToDisplay){

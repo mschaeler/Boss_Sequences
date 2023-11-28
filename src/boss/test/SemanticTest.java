@@ -49,39 +49,48 @@ public class SemanticTest {
 		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
 		
 		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
-		double[] run_times;
-			
-		for(int k : k_s) {
-			Solutions.dense_global_matrix_buffer = null;
-			boolean pan_embeddings = false;
-			ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
-			for(Solutions s : solutions) {
-				//run_times = s.run_naive();
-				//run_times = s.run_baseline();
-				//run_times = s.run_incremental_cell_pruning();
-				//run_times = s.run_incremental_cell_pruning_deep();
-				//run_times = s.run_candidates();
-				//run_times = s.run_candidates_deep();
-				run_times = s.run_solution();
-				//run_times = s.run_bound_tightness_exp();
-				
-				all_run_times.add(run_times);
+		double[] run_times=null;
+		
+		Solutions.dense_global_matrix_buffer = null;
+		//while(repitions++<1) {
+			for(int k : k_s) {
+				boolean pan_embeddings = false;
+				ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					int repitions = 0;
+					double run_time = 0;
+					while(repitions++<10) {
+						//run_times = s.run_naive();
+						//run_times = s.run_baseline();
+						//run_times = s.run_incremental_cell_pruning();
+						//run_times = s.run_incremental_cell_pruning_deep();
+						//run_times = s.run_candidates();
+						//run_times = s.run_candidates_deep();
+						run_times = s.run_solution();
+						//run_times = s.run_solution_no_candidates();
+						//run_times = s.run_bound_tightness_exp();
+						run_time += run_times[0];
+					}
+					run_time /= repitions-1;
+					double[] temp = {run_time};
+					all_run_times.add(temp);
+				}
 			}
-		}
+				
 			
-		
-		for(int i=0;i<k_s.length;i++) {
-			System.out.print("k="+k_s[i]+"\t");
-		}
-		System.out.println();
-		
-		for(int p=0;p<all_run_times.get(0).length;p++) {
 			for(int i=0;i<k_s.length;i++) {
-				run_times = all_run_times.get(i);
-				System.out.print(run_times[p]+"\t");
+				System.out.print("k="+k_s[i]+"\t");
 			}
 			System.out.println();
-		}
+			
+			for(int p=0;p<all_run_times.get(0).length;p++) {
+				for(int i=0;i<k_s.length;i++) {
+					run_times = all_run_times.get(i);
+					System.out.print(run_times[p]+"\t");
+				}
+				System.out.println();
+			}
+		//}
 		
 	}
 	
@@ -342,6 +351,7 @@ public class SemanticTest {
 			boolean ignore_stopwords = false;//XXX
 			String file_path = Embedding.get_embedding_path(books.get(0).language,ignore_stopwords, pan_embeddings);
 			embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+			embedding_vector_index_buffer = embedding_vector_index;
 		}else{
 			embedding_vector_index = embedding_vector_index_buffer;
 		}
