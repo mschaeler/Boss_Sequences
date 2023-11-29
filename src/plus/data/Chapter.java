@@ -58,4 +58,12 @@ public class Chapter {
 		}
 		return ret;
 	}
+	public String to_single_line_string() {
+		String ret = ""+my_paragraphs.get(0).to_single_line_string();
+		for(int i=1;i<my_paragraphs.size();i++) {
+			ret += " "+my_paragraphs.get(i).to_single_line_string();
+		}
+		
+		return ret;
+	}
 }

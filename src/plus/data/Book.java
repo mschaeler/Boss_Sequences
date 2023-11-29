@@ -103,4 +103,11 @@ public class Book {
 		}
 		return ret;
 	}
+	public String to_single_line_string(){
+		String ret = "";
+		for(Chapter c : my_chapters) {
+			ret += c.to_single_line_string();
+		}
+		return ret;
+	}
 }

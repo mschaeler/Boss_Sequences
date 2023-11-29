@@ -23,4 +23,7 @@ public class Paragraph {
 		ret += "\t"+my_paragraph_as_text;
 		return ret;
 	}
+	public String to_single_line_string(){
+		return my_paragraph_as_text;
+	}
 }

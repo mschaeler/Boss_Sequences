@@ -35,7 +35,8 @@ public class SemanticTest {
 	static final int GRANULARITY_CHAPTER_TO_CHAPTER     = 2;
 	static final int GRANULARITY_BOOK_TO_BOOK     		= 3;
 	
-	static String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
+	static String result_path_pan = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
+	static String result_path_bible = "./results/bible_results_"+System.currentTimeMillis()+".tsv";
 	
 	public static void run_bible_experiments() {
 		final int[] k_s= {3,4,5,6,7,8};
@@ -43,55 +44,115 @@ public class SemanticTest {
 		
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
+		int solution_enum = NAIVE; //SOLUTION, BASELINE, NAIVE
+		result_path_bible+="_"+solution_enum;
 		
+		Solutions.dense_global_matrix_buffer = null;
+		
+		int num_repititions = 1;
+		//English corpus
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
+		run(books, threshold, num_repititions, k_s, solution_enum);
 		
-		//ArrayList<Book> books = ImporterAPI.get_all_german_books();
-		
+		//Now the German corpus
+		SemanticTest.embedding_vector_index_buffer = null;//Need to laod the German embediings. Before we had the English ones.
+		books = ImporterAPI.get_all_german_books();
+		for(int i=0;i<books.size();i++) {
+			for(int j=i+1;j<books.size();j++) {
+				Solutions.dense_global_matrix_buffer = null;
+				ArrayList<Book> book_pair = new ArrayList<Book>(2);
+				book_pair.add(books.get(i));
+				book_pair.add(books.get(j));
+				run(book_pair, threshold, num_repititions, k_s, solution_enum);
+			}
+		}
+	}
+	
+	static final int SOLUTION = 0;
+	static final int BASELINE = 1;
+	static final int NAIVE    = 2;
+	
+	static boolean header_written = false;
+	static void run(ArrayList<Book> books, double threshold, int num_repititions, int[] k_s, int solution_enum) {
 		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
 		double[] run_times=null;
 		
-		Solutions.dense_global_matrix_buffer = null;
-		//while(repitions++<1) {
-			for(int k : k_s) {
-				boolean pan_embeddings = false;
-				ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
-				for(Solutions s : solutions) {
-					int repitions = 0;
-					double run_time = 0;
-					while(repitions++<10) {
-						//run_times = s.run_naive();
-						//run_times = s.run_baseline();
-						//run_times = s.run_incremental_cell_pruning();
-						//run_times = s.run_incremental_cell_pruning_deep();
-						//run_times = s.run_candidates();
-						//run_times = s.run_candidates_deep();
+		for(int k : k_s) {
+			boolean pan_embeddings = false;
+			ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
+			for(Solutions s : solutions) {
+				int repitions = 0;
+				double run_time = 0;
+				while(repitions++<num_repititions) {
+					if(solution_enum == SOLUTION) {
 						run_times = s.run_solution();
-						//run_times = s.run_solution_no_candidates();
-						//run_times = s.run_bound_tightness_exp();
-						run_time += run_times[0];
+					}else if(solution_enum == BASELINE) {
+						run_times = s.run_baseline();
+					}else if(solution_enum == NAIVE) {
+						run_times = s.run_naive();
+					}else{
+						System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 					}
-					run_time /= repitions-1;
-					double[] temp = {run_time};
-					all_run_times.add(temp);
+					//run_times = s.run_naive();
+					//run_times = s.run_baseline();
+					//run_times = s.run_incremental_cell_pruning();
+					//run_times = s.run_incremental_cell_pruning_deep();
+					//run_times = s.run_candidates();
+					//run_times = s.run_candidates_deep();
+					//run_times = s.run_solution();
+					//run_times = s.run_solution_no_candidates();
+					//run_times = s.run_bound_tightness_exp();
+					run_time += run_times[0];
 				}
+				run_time /= repitions-1;
+				double[] temp = {run_time};
+				all_run_times.add(temp);
 			}
-				
-			
+		}
+		
+		for(int i=0;i<k_s.length;i++) {
+			System.out.print("k="+k_s[i]+"\t");
+		}
+		System.out.println();
+		
+		for(int p=0;p<all_run_times.get(0).length;p++) {
 			for(int i=0;i<k_s.length;i++) {
-				System.out.print("k="+k_s[i]+"\t");
+				run_times = all_run_times.get(i);
+				System.out.print(run_times[p]+"\t");
 			}
 			System.out.println();
-			
-			for(int p=0;p<all_run_times.get(0).length;p++) {
-				for(int i=0;i<k_s.length;i++) {
-					run_times = all_run_times.get(i);
-					System.out.print(run_times[p]+"\t");
+		}
+		boolean RESULTS_TO_FILE = true;
+		if(RESULTS_TO_FILE) {
+			//String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
+		    try {
+		        BufferedWriter output = new BufferedWriter(new FileWriter(result_path_bible, true));
+
+		        // Writes the string to the file
+		        if(!header_written) {
+			        for(int i=0;i<k_s.length;i++) {
+			        	output.write("k="+k_s[i]+"\t");
+					}
+					output.newLine();
+					header_written = true;
+		        }
+				
+				for(int p=0;p<all_run_times.get(0).length;p++) {
+					for(int i=0;i<k_s.length;i++) {
+						run_times = all_run_times.get(i);
+						output.write(run_times[p]+"\t");
+					}
+					output.newLine();
 				}
-				System.out.println();
-			}
-		//}
-		
+		        
+
+		        // Closes the writer
+		        output.close();
+		      }catch (Exception e) {
+		          e.getStackTrace();
+		      }
+		}
+		all_run_times.clear();
 	}
 	
 	public static void run_pan_experiments() {
@@ -141,7 +202,7 @@ public class SemanticTest {
 				if(RESULTS_TO_FILE) {
 					//String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
 				    try {
-				        BufferedWriter output = new BufferedWriter(new FileWriter(result_path, true));
+				        BufferedWriter output = new BufferedWriter(new FileWriter(result_path_pan, true));
 
 				        // Writes the string to the file
 				        if(!header_written) {

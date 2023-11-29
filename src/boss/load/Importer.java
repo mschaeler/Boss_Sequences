@@ -78,7 +78,7 @@ public class Importer {
 		ArrayList<String[]> lines = new ArrayList<String[]>(1000);
 		try {
 			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(path), INPUT_ENCODING));
-			String line = br.readLine();
+			String line;// = br.readLine();
 			// String[] meta_info = {"PAN11", path, "PAN11"};
 			// lines.add(meta_info);
 			// lines.add(line.split(" "));
@@ -119,7 +119,7 @@ public class Importer {
 		Chapter current_chapter = new Chapter(b, "proxy");
 		b.my_chapters.add(current_chapter);
 		int para_number = 0;
-		for(int i=1;i<raw_book.size();i++) {//ignore first line 
+		for(int i=0;i<raw_book.size();i++) {//ignore first line 
 			String[] line = raw_book.get(i);
 			if(is_chapter_start(line)) {
 				current_chapter = new Chapter(b, get_chapter_name(line));
@@ -195,7 +195,7 @@ public class Importer {
 		return b;
 	}
 
-	private static Book get_book_pan11(String file_path, int language) {
+	public static Book get_book_pan11(String file_path, int language) {
 		ArrayList<String[]> raw_book = get_data_from_file_pan11(file_path);
 		Book b = to_book_pan11(raw_book, language, file_path);
 		return b;
@@ -238,7 +238,7 @@ public class Importer {
 		return b;
 	}
 
-	static Book get_book_pan11(int id, boolean src) {
+	public static Book get_book_pan11(int id, boolean src) {
 		Book b;
 		if (src) {
 			b = get_book_pan11(PAN11_SRC[id], Book.LANGUAGE_ENGLISH);
