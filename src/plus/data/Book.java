@@ -71,7 +71,7 @@ public class Book {
 	/**
 	 * The name of the biblical book. E.g., Esther
 	 */
-	public final String book_name;
+	public String book_name;
 	/**
 	 * A Book contains chapters, a chapter paragraphs. The paragraphs are the sequences, we intend to align. 
 	 */

@@ -1,7 +1,11 @@
 package pan;
 
+import java.util.ArrayList;
+
 import boss.load.Importer;
 import plus.data.Book;
+import plus.data.Chapter;
+import plus.data.Paragraph;
 
 /**
  * 
@@ -9,6 +13,8 @@ import plus.data.Book;
  *
  */
 public interface Data {
+	
+	boolean verbose = false;
 	
 	/**
 	 * L{susp_id,source_id}
@@ -54,16 +60,18 @@ public interface Data {
 			,{18351-1,18351+265-3,2261,2261+226}	//id = 13
 			,{2699,2699+268,7222,7222+267}			//id = 14
 			,{14034,14034+278,0+1,0+272}			//id = 15
-			,{18351-1,18351+265-2,2261,2261+226}		//id = 16
+			,{18351-1,18351+265-2,2261,2261+226}	//id = 16
 			,{3786,3786+210,37876,37876+250}		//id = 17
 	};
 	
 	int susp = 0;
 	int src = 1;
-	static void load(int pair_id) {
-		System.out.println("Loading pair "+pair_id);
+	static ArrayList<Book> load(int pair_id) {
+		if(verbose) System.out.println("***** Loading pair "+pair_id);
 		String pan_id_susp = plagiats[pair_id][susp];
 		String pan_id_src = plagiats[pair_id][src];
+		
+		ArrayList<Book> ret_values = new ArrayList<Book>(2);
 		
 		String path = Importer.PAN11_PREFIX_SUSP+pan_id_susp+".txt";
 		Book plagiat = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
@@ -76,20 +84,85 @@ public interface Data {
 		String excerpt_susp = plagiat.to_single_line_string().substring(offsets[pair_id][0], offsets[pair_id][1]).trim();
 		String excerpt_src  = original.to_single_line_string().substring(offsets[pair_id][2], offsets[pair_id][3]).trim();
 		
-		System.out.println("Relevant parts");
+		//System.out.println("Relevant parts");
 		
-		System.out.println("Susp\t"+excerpt_susp);
-		System.out.println("Src\t"+excerpt_src);
+		if(verbose) System.out.println("Susp\t"+excerpt_susp);
+		if(verbose) System.out.println("Src\t"+excerpt_src);
+		
+		//Make the plagiat a book
+		Book ret = new Book(plagiat);
+		ret.book_name = plagiats[pair_id][susp]+" excerpt ["+offsets[pair_id][0]+","+offsets[pair_id][1]+"]";
+		Chapter content = new Chapter(ret, "Plagiat excerpt");
+		ret.my_chapters.add(content);
+		Paragraph p = new Paragraph(content, "Copy", excerpt_susp);
+		content.my_paragraphs.add(p);
+		if(verbose) System.out.println(ret);
+		ret_values.add(ret);
+		
+		if(verbose) System.out.println();
+		
+		//Make the source a book
+		ret = new Book(original);
+		ret.book_name = plagiats[pair_id][src]+" excerpt ["+offsets[pair_id][2]+","+offsets[pair_id][3]+"]";
+		content = new Chapter(ret, "Source excerpt");
+		ret.my_chapters.add(content);
+		p = new Paragraph(content, "Org", excerpt_src);
+		content.my_paragraphs.add(p);
+		if(verbose) System.out.println(ret);
+		ret_values.add(ret);
+		
+		
+		return ret_values;
+		
+	}
+	
+	static ArrayList<Book> load_entire_documents(int pair_id) {
+		if(verbose) System.out.println("***** Loading pair "+pair_id);
+		String pan_id_susp = plagiats[pair_id][susp];
+		String pan_id_src = plagiats[pair_id][src];
+		
+		ArrayList<Book> ret_values = new ArrayList<Book>(2);
+		
+		String path = Importer.PAN11_PREFIX_SUSP+pan_id_susp+".txt";
+		Book plagiat = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
+		path = Importer.PAN11_PREFIX_SRC+pan_id_src+".txt";
+		Book original = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
+		
+		ret_values.add(plagiat);
+		ret_values.add(original);
+		
+		return ret_values;
+		
+	}
+	
+	static ArrayList<Book>[] load_all_entire_documents(){
+		@SuppressWarnings("unchecked")
+		ArrayList<Book>[] all_pairs = new ArrayList[plagiats.length];
+		for(int pair_id=0;pair_id<plagiats.length;pair_id++) {
+			ArrayList<Book> pair = load_entire_documents(pair_id);
+			all_pairs[pair_id] = pair;
+		}
+		return all_pairs;
+	}
+	
+	static ArrayList<Book>[] load_all_plagiarism_excerpts(){
+		@SuppressWarnings("unchecked")
+		ArrayList<Book>[] all_pairs = new ArrayList[plagiats.length];
+		for(int pair_id=0;pair_id<plagiats.length;pair_id++) {
+			ArrayList<Book> pair = load(pair_id);
+			all_pairs[pair_id] = pair;
+		}
+		return all_pairs;
 	}
 	
 	public static void main(String[] args) {
-		load(17);	
-		
-		/*for(int pair_id=0;pair_id<plagiats.length;pair_id++) {
-			load(pair_id);	
+		ArrayList<Book>[] all_pair = load_all_plagiarism_excerpts();
+		for(ArrayList<Book> pair : all_pair) {
+			System.out.println("Next pair ************************************************");
+			System.out.println(pair.get(0));
 			System.out.println();
-		}*/
-		
+			System.out.println(pair.get(1));
+		}
 	}
 	
 	

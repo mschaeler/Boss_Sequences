@@ -140,7 +140,7 @@ public class Importer {
 		return b;
 	}
 
-	private static Book to_book(ArrayList<String[]> raw_book, int language) {
+	public static Book to_book(ArrayList<String[]> raw_book, int language) {
 		String meta_info[] = raw_book.get(0);
 		Book b = new Book(get_text_name(meta_info), get_book_name(meta_info), language);
 		Chapter current_chapter = null;

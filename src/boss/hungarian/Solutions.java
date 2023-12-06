@@ -28,24 +28,24 @@ public class Solutions {
 	
 	final double MAX_SIM_ADDITION_NEW_NODE; 
 	
-	final int k;
+	public final int k;
 	final double k_double;
 	final int num_paragraphs;
-	final double threshold;
+	public final double threshold;
 	final int max_id;
 	final double threshold_times_k;
 	
-	final int[][] k_with_windows_b1;
-	final int[][] k_with_windows_b2;
+	public final int[][] k_with_windows_b1;
+	public final int[][] k_with_windows_b2;
 	
 	final int[] raw_paragraph_b1;
 	final int[] raw_paragraph_b2;
 	
-	final double[][] alignement_matrix;
+	public final double[][] alignement_matrix;
 	
 	final HashMap<Integer, double[]> embedding_vector_index;
-	final int[] tokens_b1;
-	final int[] tokens_b2;
+	public final int[] tokens_b1;
+	public final int[] tokens_b2;
 	
 	/**
 	 * Contains the maximum column similarity of current local similarity matrix. Note, since we negate the signum for the hungarian. It's the minimum....
@@ -1746,7 +1746,7 @@ public class Solutions {
 		}
 		return sum;
 	}
-	private double sum(double[][] alignment_matrix) {
+	public double sum(double[][] alignment_matrix) {
 		double sum = 0;
 		for(double[] array : alignment_matrix) {
 			for(double d : array) {

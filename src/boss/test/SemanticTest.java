@@ -24,6 +24,7 @@ import boss.load.Importer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
 import boss.util.Pair;
+import pan.PanResult;
 import plus.data.Book;
 import plus.data.Chapter;
 import plus.data.Paragraph;
@@ -236,13 +237,15 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"b"};//if no experiment specified run the bible experiment 
+			String[] temp = {"pc"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
 			run_bible_experiments();
 		}else if(contains(args, "p")) {
 			run_pan_experiments();
+		}else if(contains(args, "pc")) {
+			run_pan_correctness_experiments();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
@@ -255,6 +258,71 @@ public class SemanticTest {
 		}*/	
 	}
 	
+	public static void run_pan_correctness_experiments() {
+		//final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+		final int[] k_s= {3,4,5,6,7,8};
+		final double threshold = 0.5;//XXX - should set to zero?
+				
+		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			
+			for(int k : k_s) {
+				Solutions.dense_global_matrix_buffer = null;
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_solution();					
+					PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+				}
+			}
+		}
+		PanResult.out();
+		PanResult.out_agg();
+		
+		
+		/*for(int k : k_s) {
+			PanResult.all_results[k].get(0).out_my_matrices();
+			System.out.println();
+		}*/
+		
+		PanResult.clear();
+		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			
+			for(int k : k_s) {
+				Solutions.dense_global_matrix_buffer = null;
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_solution();					
+							
+					
+					//System.out.println("******** k="+k);
+					//out(alignment_matrix);
+					PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+					//System.out.println(r.result_header());
+					//System.out.println(r);
+				}
+			}
+		}
+		//PanResult.out();
+		PanResult.out_agg();
+		
+	}
+	
+	private static void out(double[] arr) {
+		for(double d : arr) {
+			System.out.print(d+"\t");
+		}
+	}
+
+	private static void out(double[][] alignment_matrix) {
+		for(double[] arr : alignment_matrix) {
+			out(arr);
+			System.out.println();
+		}
+	}
+
 	private static boolean contains(String[] array, String to_match) {
 		for(String s : array) {
 			if(s.equals(to_match)) {
