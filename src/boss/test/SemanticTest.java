@@ -264,28 +264,40 @@ public class SemanticTest {
 		final double threshold = 0.5;//XXX - should set to zero?
 				
 		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
-		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-			
-			for(int k : k_s) {
-				Solutions.dense_global_matrix_buffer = null;
-				boolean pan_embeddings = true;
-				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
-				for(Solutions s : solutions) {
-					s.run_solution();					
-					PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+		double[] connectivity_thresholds = {0.7};
+		for(double connectivity_threshold : connectivity_thresholds) {
+			for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+				
+				for(int k : k_s) {
+					Solutions.dense_global_matrix_buffer = null;
+					boolean pan_embeddings = true;
+					ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+					for(Solutions s : solutions) {
+						s.run_solution();
+						PanResult.connectivity_threshold = connectivity_threshold;
+						PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+					}
 				}
 			}
+			//PanResult.out();
+			
+			PanResult.out_agg();
+			PanResult.clear();
 		}
-		PanResult.out();
-		PanResult.out_agg();
+		boolean quit = false;
+		if(quit) return;//XXX
 		
 		
+		PanResult.connectivity_threshold = 0.5;
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Entire Documents****************");
+		System.out.println("****************************************************************");
 		/*for(int k : k_s) {
 			PanResult.all_results[k].get(0).out_my_matrices();
 			System.out.println();
 		}*/
 		
-		PanResult.clear();
+		
 		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
 		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			
@@ -295,19 +307,55 @@ public class SemanticTest {
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 				for(Solutions s : solutions) {
 					s.run_solution();					
-							
-					
-					//System.out.println("******** k="+k);
-					//out(alignment_matrix);
 					PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
-					//System.out.println(r.result_header());
-					//System.out.println(r);
 				}
 			}
 		}
 		//PanResult.out();
 		PanResult.out_agg();
 		
+		PanResult.clear();
+		
+		boolean do_all = false;
+		
+		if(do_all) {
+			System.out.println("****************************************************************");
+			System.out.println("******************************* All Documents ******************");
+			System.out.println("****************************************************************");
+			try {
+				ArrayList<Book> suspicious_docs = new ArrayList<Book>();
+				for (int susp_id = 0; susp_id < Importer.PAN11_SUSP.length; susp_id++) {
+					suspicious_docs.add(Importer.get_book_pan11(Importer.PAN11_SUSP[susp_id], Book.LANGUAGE_ENGLISH));
+				}
+				ArrayList<Book> source_docs = new ArrayList<Book>();
+				for (int source_id = 0; source_id < Importer.PAN11_SUSP.length; source_id++) {
+					source_docs.add(Importer.get_book_pan11(Importer.PAN11_SRC[source_id], Book.LANGUAGE_ENGLISH));
+				}
+				
+				for (int i=0;i<suspicious_docs.size();i++) {
+					Book susp = suspicious_docs.get(i);
+					System.out.println("Susp_id= "+i+" of "+suspicious_docs.size());
+					for(Book src : source_docs) {
+						ArrayList<Book> pair = new ArrayList<Book>(2);
+						pair.add(susp);
+						pair.add(src);
+						
+						for(int k : k_s) {
+							Solutions.dense_global_matrix_buffer = null;
+							boolean pan_embeddings = true;
+							ArrayList<Solutions> solutions = prepare_solution(pair,k,threshold, pan_embeddings);
+							for(Solutions s : solutions) {
+								s.run_solution();
+								new PanResult(s);//also adds it to the static class variable collecting all results
+							}
+						}
+					}
+				}
+			} catch (Exception e) {
+				System.err.println(e);
+			}
+			PanResult.out_agg();
+		}
 	}
 	
 	private static void out(double[] arr) {
@@ -468,7 +516,7 @@ public class SemanticTest {
 	
 	static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold, boolean pan_embeddings) {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
-		System.out.println("SemanticTest.prepare_experiment() [START]");
+		//System.out.println("SemanticTest.prepare_experiment() [START]");
 		ArrayList<Solutions> ret = new ArrayList<Solutions>(books.size());
 		
 		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
@@ -504,7 +552,7 @@ public class SemanticTest {
 				ret.add(exp);
 			}
 		}
-		System.out.println("SemanticTest.prepare_experiment() [DONE]");
+		//System.out.println("SemanticTest.prepare_experiment() [DONE]");
 		return ret;
 	}
 	
