@@ -66,4 +66,11 @@ public class Chapter {
 		
 		return ret;
 	}
+	public int size() {
+		int size = 0;
+		for(Paragraph p : my_paragraphs) {
+			size+=p.size();
+		}
+		return size;
+	}
 }

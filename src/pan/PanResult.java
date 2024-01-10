@@ -40,14 +40,18 @@ public class PanResult {
 	public static double connectivity_threshold = 0.5;
 	
 	public PanResult(Solutions s) {
+		this(s, s.alignement_matrix);
+	}
+	
+	public PanResult(Solutions s, double[][] matrix) {
 		//this.s = s;
 		all_results[s.k].add(this);
 		
-		this.sum = sum(s.alignement_matrix);
-		this.num_cells = num_cells(s.alignement_matrix);
-		this.avg_cell_similarity = avg_cell_similarity(s.alignement_matrix);
-		this.num_rows = s.alignement_matrix.length;
-		this.num_cols = s.alignement_matrix[0].length;
+		this.sum = sum(matrix);
+		this.num_cells = num_cells(matrix);
+		this.avg_cell_similarity = avg_cell_similarity(matrix);
+		this.num_rows = matrix.length;
+		this.num_cols = matrix[0].length;
 		
 		this.tokens_t1 = s.tokens_b1.clone();
 		this.tokens_t2 = s.tokens_b2.clone();
@@ -57,13 +61,13 @@ public class PanResult {
 		
 		double[] thresholds = {0.5,0.6,0.7,0.8,0.9};
 		for(double t : thresholds) {
-			num_rows_marked_as_similar.put(t, num_rows_marked_as_similar(t, s.alignement_matrix));
+			num_rows_marked_as_similar.put(t, num_rows_marked_as_similar(t, matrix));
 			//XXX num_colums_marked_as_similar.put(t, num_colums_marked_as_similar(t, s.alignement_matrix));
-			num_cluster_rows.put(t, num_cluster_rows(s.alignement_matrix, t, connectivity_threshold));
+			num_cluster_rows.put(t, num_cluster_rows(matrix, t, connectivity_threshold));
 		}
 	}
-	
-	double[][] jaccard_windows(){
+
+	public static double[][] jaccard_windows(int[][] k_with_windows_b1, int[][] k_with_windows_b2){
 		double[][] matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
 		for(int row=0;row<matrix.length;row++) {
 			int[] w_r = k_with_windows_b1[row];
@@ -78,12 +82,16 @@ public class PanResult {
 		return matrix;
 	}
 	
+	double[][] jaccard_windows(){
+		return jaccard_windows(this.k_with_windows_b1, this.k_with_windows_b2);
+	}
+	
 	double jaccard_all_text() {
 		double jaccard_sim = jaccard(tokens_t1, tokens_t2);
 		return jaccard_sim;
 	}
 	
-	double jaccard(int[] tokens_t1, int[] tokens_t2) {
+	static double jaccard(int[] tokens_t1, int[] tokens_t2) {
 		HashSet<Integer> tokens_hashed = new HashSet<Integer>(tokens_t1.length);
 		for(int t : tokens_t1) {
 			tokens_hashed.add(t);
@@ -283,7 +291,12 @@ public class PanResult {
 	}
 	
 	public static void out_agg() {
-		System.out.println("k\tnum cells\tnum rows\tnum cols\tsum\tavg_cell_similarity\trecal_0.5\trecal_0.6\trecal_0.7\trecal_0.8\trecal_0.9\tJaccard text\trecal_0.5\trecal_0.6\trecal_0.7\trecal_0.8\trecal_0.9");
+		System.out.println("k\tnum cells\tnum rows\tnum cols\tsum\tavg_cell_similarity"
+				+ "\trecal_0.5\trecal_0.6\trecal_0.7\trecal_0.8\trecal_0.9\tJaccard text"
+				+ "\trecal_0.5\trecal_0.6\trecal_0.7\trecal_0.8\trecal_0.9"
+				+ "\t#cluster_0.5\t#cluster_0.6\t#cluster_0.7\t#cluster_0.8\t#cluster_0.9"
+				+ "\tcluster_0.5\tcluster_0.6\tcluster_0.7\tcluster_0.8\tcluster_0.9"
+		);
 		for(ArrayList<PanResult> all_results_k : all_results) {
 			if(!all_results_k.isEmpty()) {
 				double num_cells = 0;
@@ -369,16 +382,18 @@ public class PanResult {
 		//all_results.clear();
 	}
 	
-	double num_cluster_rows(double[][] matrix, double core_threshold, double connectivity_threshold) {
+	public static double num_cluster_rows(double[][] matrix, double core_threshold, double connectivity_threshold) {
 		double[] max_row_sim = new double[matrix.length];
 		boolean[] cluster_rows = new boolean[matrix.length];
 		for(int row=0;row<matrix.length;row++) {
 			max_row_sim[row] = max(matrix[row]);
 		}
+		double count_clusters = 0;//TODO muss man speichern
 		
 		for(int row=0;row<matrix.length;row++) {
 			//find seeds
 			if(max_row_sim[row]>=core_threshold) {
+				count_clusters++;
 				cluster_rows[row] = true;
 				//extend them
 				int i=1;
@@ -392,7 +407,6 @@ public class PanResult {
 					row++;
 				}
 			}
-			
 		}
 		
 		double count = 0;
@@ -402,7 +416,7 @@ public class PanResult {
 		return count;
 	}
 
-	private double max(double[] arr) {
+	private static double max(double[] arr) {
 		double max = Double.NEGATIVE_INFINITY;
 		for(double d : arr) {
 			if(d>max) {
@@ -416,5 +430,52 @@ public class PanResult {
 		for( ArrayList<PanResult> a : all_results) {
 			a.clear();
 		}
+	}
+	
+	//TODO originale Dokumente längen
+	
+	/**
+	 * Metrics according to https://aclanthology.org/C10-2115.pdf
+	 * @return
+	 */
+	/**
+	 * Metrics according to https://aclanthology.org/C10-2115.pdf
+	 * @param pan
+	 * @param threshold
+	 * @return
+	 */
+	public static double precision(PanResult pan, double threshold) {
+		double nominator = pan.num_cluster_rows(threshold);
+		return nominator/pan.num_rows;
+	}
+	public static double recall(PanResult pan, double threshold) {
+		double nominator = pan.num_cluster_rows(threshold);
+		return nominator/pan.num_cols;
+	}
+	/**
+	 * Fragments detecting a plagiat - we want a 1:1 mapping 
+	 * @param pan
+	 * @return
+	 */
+	public static double gran(PanResult pan) {
+		return todo(); 
+	}
+	public static double plagdet(PanResult pan, double threshold) {
+		return F(precision(pan, threshold), recall(pan, threshold)) / log_2(1+gran(pan));
+	}
+
+	/**
+	 * Harmonic mean
+	 * @return
+	 */
+	private static double F(double val_1, double val_2) {
+		float sum = 0; 
+	    sum += 1.0d / val_1;
+	    sum += 1.0d / val_2;
+	    return 2.0d / sum; 
+	}
+
+	private static double log_2(double d) {
+		return Math.log(d) / Math.log(2.0d);
 	}
 }

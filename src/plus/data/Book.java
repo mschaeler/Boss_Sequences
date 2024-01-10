@@ -110,4 +110,12 @@ public class Book {
 		}
 		return ret;
 	}
+
+	public int size() {
+		int size = 0;
+		for(Chapter c : my_chapters) {
+			size+=c.size();
+		}
+		return size;
+	}
 }

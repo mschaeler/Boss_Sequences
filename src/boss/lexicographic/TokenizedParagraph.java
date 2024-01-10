@@ -77,4 +77,8 @@ public class TokenizedParagraph extends Paragraph{
 			return inter_mediate_results.get(inter_mediate_results.size() - 1);
 		}
 	}
+	
+	public int size() {
+		return get_tokens().size();
+	}
 }

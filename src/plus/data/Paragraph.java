@@ -26,4 +26,8 @@ public class Paragraph {
 	public String to_single_line_string(){
 		return my_paragraph_as_text;
 	}
+
+	public int size() {
+		return my_paragraph_as_text.split(" ").length;
+	}
 }

@@ -40,7 +40,7 @@ public interface Data {
 			,{"10497", "06489"}
 	};
 	/**
-	 * L[sus_begin,sus_end,src_begin,src_end]
+	 * L[sus_begin,sus_end,src_begin,src_end] - in Characters 
 	 * Note, minor corrections in offsets to have whole words. Seems to be an issue of how to count whitespaces.
 	 */
 	int[][] offsets = {
@@ -63,6 +63,23 @@ public interface Data {
 			,{18351-1,18351+265-2,2261,2261+226}	//id = 16
 			,{3786,3786+210,37876,37876+250}		//id = 17
 	};
+	
+	static int[] offsets_in_tokens(int pair_id) {
+		String pan_id_susp = plagiats[pair_id][susp];
+		String pan_id_src = plagiats[pair_id][src];
+		
+		String path = Importer.PAN11_PREFIX_SUSP+pan_id_susp+".txt";
+		Book plagiat = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
+		path = Importer.PAN11_PREFIX_SRC+pan_id_src+".txt";
+		Book original = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
+		
+		ArrayList<Book> excerpts = load(pair_id);
+		
+		//TODO get indices
+		System.err.println("TODO");
+		
+		return null;
+	}
 	
 	int susp = 0;
 	int src = 1;
