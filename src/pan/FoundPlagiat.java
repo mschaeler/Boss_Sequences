@@ -86,7 +86,7 @@ public class FoundPlagiat {
 		return nominator/denominator;
 	}
 	
-	public double recall(PanResult pan, double threshold) {
+	public double recall(double threshold) {
 		final int size = src.size();//XXX Check whether it is TokenizedParagraph
 		BitSet ground_truth_src = new BitSet(size);
 		ground_truth_src.set(get_ground_truth_location()[2], get_ground_truth_location()[3]);//Note the indices
@@ -135,8 +135,8 @@ public class FoundPlagiat {
 		
 		return num_fragments; 
 	}
-	public static plagdet(PanResult pan, double threshold) {
-		return F(precision(pan, threshold), recall(pan, threshold)) / log_2(1+gran(pan));
+	public static double plagdet(PanResult pan, double threshold) {
+		return F(precision(pan, threshold), recall(pan, threshold)) / log_2(1+gran(pan, threshold));
 	}
 
 	/**

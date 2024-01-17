@@ -142,8 +142,10 @@ public interface Data {
 		
 		String path = Importer.PAN11_PREFIX_SUSP+pan_id_susp+".txt";
 		Book plagiat = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
+		plagiat.book_name = "susp_"+pan_id_susp;
 		path = Importer.PAN11_PREFIX_SRC+pan_id_src+".txt";
 		Book original = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
+		original.book_name = "src_"+pan_id_src;
 		
 		ret_values.add(plagiat);
 		ret_values.add(original);

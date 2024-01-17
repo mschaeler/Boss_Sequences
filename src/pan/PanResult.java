@@ -36,6 +36,10 @@ public class PanResult {
 	HashMap<Double, Double> num_colums_marked_as_similar = new HashMap<Double, Double>();
 	HashMap<Double, Double> num_rows_marked_as_similar = new HashMap<Double, Double>();
 	HashMap<Double, Double> num_cluster_rows = new HashMap<Double, Double>();
+	/**
+	 * Number of clusters. Ideally, it is one.
+	 */
+	HashMap<Double, Double> granularity = new HashMap<Double, Double>();
 	
 	public static double connectivity_threshold = 0.5;
 	
@@ -382,7 +386,7 @@ public class PanResult {
 		//all_results.clear();
 	}
 	
-	public static double num_cluster_rows(double[][] matrix, double core_threshold, double connectivity_threshold) {
+	public double num_cluster_rows(double[][] matrix, double core_threshold, double connectivity_threshold) {
 		double[] max_row_sim = new double[matrix.length];
 		boolean[] cluster_rows = new boolean[matrix.length];
 		for(int row=0;row<matrix.length;row++) {
@@ -413,6 +417,8 @@ public class PanResult {
 		for(int row=0;row<matrix.length;row++) {
 			if(cluster_rows[row]) count++;
 		}
+		
+		this.granularity.put(core_threshold, count_clusters);
 		return count;
 	}
 
@@ -457,11 +463,16 @@ public class PanResult {
 	 * @param pan
 	 * @return
 	 */
-	public static double gran(PanResult pan) {
-		return todo(); 
+	public static double gran(PanResult pan, double threshold) {
+		Double gran = pan.granularity.get(threshold);
+		if(gran==null) {
+			System.err.println("gran(PanResult,"+threshold+") - no value for this threshold");
+			return 0.0d;
+		}
+		return gran.doubleValue();
 	}
 	public static double plagdet(PanResult pan, double threshold) {
-		return F(precision(pan, threshold), recall(pan, threshold)) / log_2(1+gran(pan));
+		return F(precision(pan, threshold), recall(pan, threshold)) / log_2(1+gran(pan, threshold));
 	}
 
 	/**

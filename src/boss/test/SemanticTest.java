@@ -1,6 +1,7 @@
 package boss.test;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -376,8 +377,10 @@ public class SemanticTest {
 					ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 					for(Solutions s : solutions) {
 						s.run_solution();
-						PanResult.connectivity_threshold = connectivity_threshold;
-						PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+						//PanResult.connectivity_threshold = connectivity_threshold;
+						//PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+						String name = "./results/pan_results/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+						matrix_to_file(name, k, s.alignement_matrix);
 					}
 				}
 			}
@@ -409,7 +412,9 @@ public class SemanticTest {
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 				for(Solutions s : solutions) {
 					s.run_solution();					
-					PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+					//PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+					String name = "./results/pan_results/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, s.alignement_matrix);
 				}
 			}
 		}
@@ -448,7 +453,9 @@ public class SemanticTest {
 							ArrayList<Solutions> solutions = prepare_solution(pair,k,threshold, pan_embeddings);
 							for(Solutions s : solutions) {
 								s.run_solution();
-								new PanResult(s);//also adds it to the static class variable collecting all results
+								//new PanResult(s);//also adds it to the static class variable collecting all results
+								String name = "./results/pan_results/"+pair.get(0).book_name+"_"+pair.get(1).book_name;
+								matrix_to_file(name, k, s.alignement_matrix);
 							}
 						}
 					}
@@ -460,6 +467,44 @@ public class SemanticTest {
 		}
 	}
 	
+	public static String outTSV(double[] array) {
+		if (array == null)
+			return "Null array";
+
+		StringBuffer buffer = new StringBuffer(array.length*5);
+		for (int index = 0; index < array.length - 1; index++) {
+			buffer.append(array[index] + "\t ");
+		}
+		buffer.append(array[array.length - 1] + "\t");
+
+		return buffer.toString();
+	}
+	
+	private static void matrix_to_file(String directory_path, int k, double[][] alignement_matrix) {
+		double start = System.currentTimeMillis();
+		File directory = new File(String.valueOf(directory_path));
+
+		if (!directory.exists()) {
+			new File("./results/pan_results/").mkdir();
+			directory.mkdir();
+		}
+		String file_path = directory_path+"/"+k+".tsv";
+	    try {
+	        BufferedWriter output = new BufferedWriter(new FileWriter(file_path, false));
+	        for(double[] line : alignement_matrix) {
+	        	String line_as_string = outTSV(line);
+	        	output.write(line_as_string);
+	        	output.newLine();
+	        }
+
+	        // Closes the writer
+	        output.close();
+	      }catch (Exception e) {
+	          System.err.println(e);
+	      }
+	    System.out.println("matrix_to_file(String,int,double[][]) DONE in "+(System.currentTimeMillis()-start)+" ms");
+	}
+
 	private static void out(double[] arr) {
 		for(double d : arr) {
 			System.out.print(d+"\t");
