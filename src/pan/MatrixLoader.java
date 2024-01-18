@@ -35,7 +35,7 @@ public class MatrixLoader {
 	}
 	
 	public static void main(String[] args) {
-		List<String> directories = listFilesUsingFilesList(path_to_matrices);
+		/*List<String> directories = listFilesUsingFilesList(path_to_matrices);
 		for(String dir : directories) {
 			System.out.println(dir);
 		}
@@ -46,8 +46,10 @@ public class MatrixLoader {
 		System.out.println("get_all_excerpt_directories()");
 		for(String dir : get_all_excerpt_directories(directories)) {
 			System.out.println(dir);
-		}
-		load_all_matrices();
+		}*/
+		//load_all_matrices();
+		//load_all__excerpt_matrices();
+		PotthastMetrics.run();
 	}
 	
 	static List<String> get_all_susp_src_directories(List<String> all_directories){
@@ -127,5 +129,13 @@ public class MatrixLoader {
 		for(String dir : listFilesUsingFilesList(path_to_matrices)) {
 			load_all_matrices_of_pair(dir);
 		}
+	}
+	public static ArrayList<ArrayList<double[][]>> load_all__excerpt_matrices() {
+		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
+		for(String dir : get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices))) {
+			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
+			all_matrices.add(pair_matrices);
+		}
+		return all_matrices;
 	}
 }
