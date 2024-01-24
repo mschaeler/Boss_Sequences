@@ -1,6 +1,7 @@
 package pan;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import boss.load.Importer;
 import plus.data.Book;
@@ -63,7 +64,76 @@ public interface Data {
 			,{18351-1,18351+265-2,2261,2261+226}	//id = 16
 			,{3786,3786+210,37876,37876+250}		//id = 17
 	};
+	/**
+	 * L[src_excerpt_start, src_excerpt_stop, sus_excerpt_start, sus_excerpt_stop]
+	 */
+	int[][] excerpt_offsets = {
+			{115, 98, 347, 106}
+			,{9264, 78, 232, 72}
+			,{759, 401, 756, 291}
+			,{1962, 37, 1259, 27}
+			,{1948, 302, 1041, 328}
+			,{2021, 40, 441, 44}
+			,{232, 42, 2834, 49}
+			,{865, 47, 604, 40}
+			,{530, 110, 827, 79}
+			,{4353, 136, 1059, 135}
+			,{6528, 369, 1423, 372}
+			,{2246, 364, 842, 327}
+			,{2536, 565, 271, 652}
+			,{399, 40, 3272, 48}
+			,{1343, 43, 535, 50}
+			,{1, 51, 2595, 51}
+			,{399, 40, 3272, 48}
+			,{8275, 37, 689, 31}
+	};
 	
+	static int get_id(String org_susp_id, String org_src_id) {
+		for(int id=0;id<plagiats.length;id++) {
+			String[] pair = plagiats[id];
+			if(pair[0].equals(org_susp_id) && pair[1].equals(org_src_id)) {
+				return id;
+			}
+		}
+		System.err.println("Data.get_id(String,String) not found");
+		return -1;//not found
+	}
+	
+	static boolean matches(String[] org_as_strings, String[] excerpt_as_strings, final int start_offset) {
+		final int length = excerpt_as_strings.length; 
+		for(int j=1;j<length;j++) {
+			int offset = start_offset+j;
+			String o = org_as_strings[offset].replace(".", "");
+			String e = excerpt_as_strings[j].replace(".", "");
+			if(!o.equals(e)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	static int[] find_start_stop_offset(Book org, Book excerpt) {
+		String[] org_as_strings = org.to_single_line_string().split(" ");
+		String[] excerpt_as_strings = excerpt.to_single_line_string().split(" ");
+		for(int i=0;i<org_as_strings.length;i++) {
+			String o = org_as_strings[i];
+			String e = excerpt_as_strings[0];
+			if(o.equals(e)) {//found start
+				if(matches(org_as_strings,excerpt_as_strings,i)) {
+					int[] temp = {i,excerpt_as_strings.length};
+					return temp;
+				}
+			}
+		}
+		System.err.println("find_start_stop_offset() not found");
+		int[] temp = {1,excerpt_as_strings.length};//XXX Hack for id 15. It has some string format issues
+		return temp;
+	}
+	/**
+	 * [sus_begin,sus_end,src_begin,src_end] 
+	 * @param pair_id
+	 * @return
+	 */
 	static int[] offsets_in_tokens(int pair_id) {
 		String pan_id_susp = plagiats[pair_id][susp];
 		String pan_id_src = plagiats[pair_id][src];
@@ -74,11 +144,11 @@ public interface Data {
 		Book original = Importer.get_book_pan11(path, Book.LANGUAGE_ENGLISH);
 		
 		ArrayList<Book> excerpts = load(pair_id);
-		
-		//TODO get indices
-		System.err.println("TODO");
-		
-		return null;
+		int[] src_locs = find_start_stop_offset(original, excerpts.get(1));
+		int[] sups_locs = find_start_stop_offset(plagiat, excerpts.get(0));
+				
+		int[] offsets = {src_locs[0],src_locs[1],sups_locs[0],sups_locs[1]};
+		return offsets;
 	}
 	
 	int susp = 0;
@@ -175,13 +245,19 @@ public interface Data {
 	}
 	
 	public static void main(String[] args) {
-		ArrayList<Book>[] all_pair = load_all_plagiarism_excerpts();
+		/*ArrayList<Book>[] all_pair = load_all_plagiarism_excerpts();
 		for(ArrayList<Book> pair : all_pair) {
 			System.out.println("Next pair ************************************************");
 			System.out.println(pair.get(0));
 			System.out.println();
 			System.out.println(pair.get(1));
+		}*/
+		
+		for(int id=0;id<plagiats.length;id++) {
+			int[] offsets = Data.offsets_in_tokens(id);
+			System.out.println(Arrays.toString(offsets));
 		}
+		
 	}
 	
 	

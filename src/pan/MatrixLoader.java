@@ -49,7 +49,13 @@ public class MatrixLoader {
 		}*/
 		//load_all_matrices();
 		//load_all__excerpt_matrices();
-		PotthastMetrics.run();
+		//get_org_docs_and_excerpts(0);
+		//PotthastMetrics.run();
+		PotthastMetrics.run_full_documents();
+	}
+	
+	static List<String> get_all_susp_src_directories(){
+		return get_all_susp_src_directories(listFilesUsingFilesList(path_to_matrices)); 
 	}
 	
 	static List<String> get_all_susp_src_directories(List<String> all_directories){
@@ -62,6 +68,10 @@ public class MatrixLoader {
 		return all_excerpt_directories;
 	}
 	
+	static List<String> get_all_excerpt_directories(){
+		return get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices));
+	}
+	
 	static List<String> get_all_excerpt_directories(List<String> all_directories){
 		ArrayList<String> all_excerpt_directories = new ArrayList<String>();
 		for(String s : all_directories) {
@@ -72,6 +82,48 @@ public class MatrixLoader {
 		return all_excerpt_directories;
 	}
 	
+	/**
+	 * return all excerpt matrices and their full text counterparts
+	 */
+	public static ArrayList<double[][]>[] get_org_docs_and_excerpts(int file_num) {
+		List<String> s = get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices));
+		
+		String dir = s.get(file_num);
+		ArrayList<double[][]> excerpts = load_all_matrices_of_pair(dir);
+		String org_doc_dir = get_org_document_dir(dir);
+		ArrayList<double[][]> org_documents = load_all_matrices_of_pair(org_doc_dir);
+		
+		ArrayList<double[][]>[] ret = new ArrayList[2];
+		ret[0] = excerpts;
+		ret[1] = org_documents;
+		return ret;
+	}
+		
+	/**
+	 * 
+	 * @param dir input like "00228 excerpt [1925,2445]_05889 excerpt [581,1070]"
+	 * @return
+	 */
+	private static String get_org_document_dir(String dir) {
+		String[] ids = dir.split("_");
+		String first_id_str = ids[0].substring(0, 5);
+		String second_id_str = ids[1].substring(0, 5);
+		String org_document_dir = "susp_"+first_id_str+"_src_"+second_id_str;
+		return org_document_dir;
+	}
+	/**
+	 * 
+	 * @param dir input like "00228 excerpt [1925,2445]_05889 excerpt [581,1070]"
+	 * @return
+	 */
+	static String[] get_document_ids(String dir) {
+		String[] ids = dir.split("_");
+		String first_id_str = ids[0].substring(0, 5);
+		String second_id_str = ids[1].substring(0, 5);
+		String[] ret = {first_id_str, second_id_str};
+		return ret;
+	}
+
 	static double[][] load(File f) {
 		double start = System.currentTimeMillis();
 		ArrayList<double[]> temp = new ArrayList<double[]>();
@@ -103,7 +155,7 @@ public class MatrixLoader {
 		System.out.println("Loaded matrix of size "+ret.length+" * "+ret[0].length+" in "+(System.currentTimeMillis()-start)+" ms from "+f);
 		return ret;
 	}
-	static ArrayList<double[][]> load_all_matrices_of_pair(String f) {
+	public static ArrayList<double[][]> load_all_matrices_of_pair(String f) {
 		int[] k_s = {3,4,5,6,7,8};
 		return load_all_matrices_of_pair(new File(f), k_s) ;
 	}
@@ -130,9 +182,17 @@ public class MatrixLoader {
 			load_all_matrices_of_pair(dir);
 		}
 	}
-	public static ArrayList<ArrayList<double[][]>> load_all__excerpt_matrices() {
+	public static ArrayList<ArrayList<double[][]>> load_all_excerpt_matrices() {
 		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
 		for(String dir : get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices))) {
+			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
+			all_matrices.add(pair_matrices);
+		}
+		return all_matrices;
+	}
+	public static ArrayList<ArrayList<double[][]>> load_all_full_document_matrices() {
+		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
+		for(String dir : get_all_susp_src_directories(listFilesUsingFilesList(path_to_matrices))) {
 			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
 			all_matrices.add(pair_matrices);
 		}
