@@ -370,9 +370,10 @@ public class SemanticTest {
 		double[] connectivity_thresholds = {0.7};
 		for(double connectivity_threshold : connectivity_thresholds) {
 			for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-				
+				Solutions.dense_global_matrix_buffer = null;
+				SemanticTest.embedding_vector_index_buffer = null;
 				for(int k : k_s) {
-					Solutions.dense_global_matrix_buffer = null;
+					
 					boolean pan_embeddings = true;
 					ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 					for(Solutions s : solutions) {
@@ -405,9 +406,10 @@ public class SemanticTest {
 		
 		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
 		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-			
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
 			for(int k : k_s) {
-				Solutions.dense_global_matrix_buffer = null;
+				
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 				for(Solutions s : solutions) {
@@ -447,8 +449,10 @@ public class SemanticTest {
 						pair.add(susp);
 						pair.add(src);
 						
+						Solutions.dense_global_matrix_buffer = null;
+						SemanticTest.embedding_vector_index_buffer = null;
 						for(int k : k_s) {
-							Solutions.dense_global_matrix_buffer = null;
+							
 							boolean pan_embeddings = true;
 							ArrayList<Solutions> solutions = prepare_solution(pair,k,threshold, pan_embeddings);
 							for(Solutions s : solutions) {

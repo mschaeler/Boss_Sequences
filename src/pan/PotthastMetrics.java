@@ -80,14 +80,9 @@ public class PotthastMetrics {
 		 * all_matrices.(pair_id).(k-3)
 		 */
 		ArrayList<ArrayList<double[][]>> all_matrices = MatrixLoader.load_all_excerpt_matrices();
-		List<String> l = MatrixLoader.get_all_excerpt_directories();
-		String[][] ids = new String[l.size()][2];
-		for(int i=0;i<l.size();i++) {
-			ids[i] = MatrixLoader.get_document_ids(l.get(i));
-		}
-		//TODO
+
 		for(int pair_id=0;pair_id<all_matrices.size();pair_id++) {
-			run_single_pair(all_matrices.get(pair_id), true, ids[pair_id]);
+			run_single_pair(all_matrices.get(pair_id));
 		}
 	}
 	
@@ -95,20 +90,19 @@ public class PotthastMetrics {
 		/**
 		 * all_matrices.(pair_id).(k-3)
 		 */
-		List<String> dirs = MatrixLoader.get_all_susp_src_directories();
 		List<String> l = MatrixLoader.get_all_excerpt_directories();
-		String[][] ids = new String[l.size()][2];
-		for(int i=0;i<l.size();i++) {
-			ids[i] = MatrixLoader.get_document_ids(l.get(i));
-		}
 		
-		for(int i=0;i<dirs.size();i++) {
-			ArrayList<double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair(dirs.get(i));//FIXME Pfade und pan_ids stimmen nicht
-			run_single_pair(my_matrices, false, ids[i]);
+		for(int i=0;i<l.size();i++) {
+			String dir = l.get(i);
+			
+			ArrayList<double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair(MatrixLoader.get_org_document_dir(dir));
+			ArrayList<double[][]> my_excerpt_matrices = MatrixLoader.load_all_matrices_of_pair(dir);
+			System.out.println("Computing precison for "+MatrixLoader.get_org_document_dir(dir)+" and "+dir);
+			run_single_pair_for_precision(my_matrices, my_excerpt_matrices);
 		}
 	}
 	
-	static void run_single_pair(ArrayList<double[][]> pair_matrices, boolean excerpt_matrices, String[] org_pair_ids) {
+	static void run_single_pair(ArrayList<double[][]> pair_matrices) {
 		boolean header_written = false;
 		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
 			double[][] matrix = pair_matrices.get(k_minus_3);
@@ -123,30 +117,56 @@ public class PotthastMetrics {
 			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.7)));
 			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.6)));
 			
-			if(excerpt_matrices) {
-				if(VERBOSE) {
-					out_tsv(matrices);
-					System.out.println();
-					System.out.println();
-				}else {
-					if(!header_written) {
-						System.out.print("k\t");
-						for(int i=1;i<matrices.size();i++) {
-							System.out.print("recall\tgran\t");
-						}
-						header_written=true;
-						System.out.println();
+			if(VERBOSE) {
+				out_tsv(matrices);
+				System.out.println();
+				System.out.println();
+			}else {
+				if(!header_written) {
+					System.out.print("k\t");
+					for(int i=1;i<matrices.size();i++) {
+						System.out.print("recall\tgran\t");
 					}
-					System.out.print(k_minus_3+3+"\t");
-					for(int i=1;i<matrices.size();i++) {	
-						double recall = recall(matrices.get(i));
-						double gran = gran(matrices.get(i));
-						double[] res = {recall, gran};
-						System.out.print(SemanticTest.outTSV(res));
-					}
+					header_written=true;
 					System.out.println();
 				}
-			}else {//full document matrices
+				System.out.print(k_minus_3+3+"\t");
+				for(int i=1;i<matrices.size();i++) {	
+					double recall = recall(matrices.get(i));
+					double gran = gran(matrices.get(i));
+					double[] res = {recall, gran};
+					System.out.print(SemanticTest.outTSV(res));
+				}
+				System.out.println();
+			}
+		}
+	}
+	
+	static void run_single_pair_for_precision(ArrayList<double[][]> pair_matrices, ArrayList<double[][]> pair_excerpt_matrices) {
+		boolean header_written = false;
+		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
+			double[][] matrix = pair_matrices.get(k_minus_3);
+			ArrayList<double[][]> matrices = new ArrayList<double[][]>();
+			matrices.add(matrix);
+			matrices.add(expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k_minus_3+3)));
+			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.8)));
+			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.7)));
+			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.6)));
+			
+			double[][] matrix_excerpt = pair_excerpt_matrices.get(k_minus_3);
+			ArrayList<double[][]> matrices_excerpt = new ArrayList<double[][]>();
+			matrices_excerpt.add(matrix_excerpt);
+			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt, mark_cluster_seeds(matrix_excerpt, k_minus_3+3)));
+			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt,mark_cluster_seeds(matrix_excerpt, k_minus_3+3, 0.8)));
+			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt,mark_cluster_seeds(matrix_excerpt, k_minus_3+3, 0.7)));
+			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt,mark_cluster_seeds(matrix_excerpt, k_minus_3+3, 0.6)));
+			
+			
+			if(VERBOSE) {
+				out_tsv(matrices);
+				System.out.println();
+				System.out.println();
+			}else {
 				if(!header_written) {
 					System.out.print("k\t");
 					for(int i=1;i<matrices.size();i++) {
@@ -154,37 +174,25 @@ public class PotthastMetrics {
 					}
 					header_written=true;
 					System.out.println();
-					System.out.print(k_minus_3+3+"\t");
-					for(int i=1;i<matrices.size();i++) {	
-						double precision = precision(matrices.get(i), org_pair_ids, k_minus_3+3);
-						System.out.print(precision+"\t");
-					}
-					System.out.println();
 				}
+				System.out.print(k_minus_3+3+"\t");
+				for(int i=1;i<matrices.size();i++) {	
+					double precision = precision(matrices.get(i), matrices_excerpt.get(i));
+					System.out.print(precision+"\t");
+				}
+				System.out.println();
 			}
 		}
 	}
 	
-	//FIXME
-	private static double precision(double[][] marked_cells, String[] org_pan_ids, int k) {
-		int pair_id = Data.get_id(org_pan_ids[0], org_pan_ids[1]);
-		int[] ground_truth = {Data.excerpt_offsets[pair_id][0], Data.excerpt_offsets[pair_id][1]};
+	private static double precision(double[][] marked_cells, double[][] marked_cells_excerpt) {
+		
 		
 		boolean[] marked_lines = get_marked_lines(marked_cells);
 		double count_all_positives = count_greater_zero(marked_lines); 
 		
-		int from = Math.max(ground_truth[0]-k, 0);
-		int to = Math.min(ground_truth[0]+ground_truth[1]+k, marked_lines.length);
-		
-		//null
-		for(int i=0;i<from;i++) {
-			marked_lines[i] = false;//genau falsch rum
-		}
-		for(int i=to;i<marked_lines.length;i++) {
-			marked_lines[i] = false;//genau falsch rum
-		}
-		
-		double count_true_positives = count_greater_zero(marked_lines);
+		boolean[] marked_lines_excerpt = get_marked_lines(marked_cells_excerpt);
+		double count_true_positives = count_greater_zero(marked_lines_excerpt);
 		
 		double precision = count_true_positives / count_all_positives;
 		

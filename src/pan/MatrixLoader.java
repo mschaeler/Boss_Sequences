@@ -50,8 +50,8 @@ public class MatrixLoader {
 		//load_all_matrices();
 		//load_all__excerpt_matrices();
 		//get_org_docs_and_excerpts(0);
-		//PotthastMetrics.run();
-		PotthastMetrics.run_full_documents();
+		PotthastMetrics.run();
+		//PotthastMetrics.run_full_documents();
 	}
 	
 	static List<String> get_all_susp_src_directories(){
@@ -104,7 +104,7 @@ public class MatrixLoader {
 	 * @param dir input like "00228 excerpt [1925,2445]_05889 excerpt [581,1070]"
 	 * @return
 	 */
-	private static String get_org_document_dir(String dir) {
+	public static String get_org_document_dir(String dir) {
 		String[] ids = dir.split("_");
 		String first_id_str = ids[0].substring(0, 5);
 		String second_id_str = ids[1].substring(0, 5);
