@@ -75,7 +75,18 @@ public class PotthastMetrics {
 		}
 	}
 	
+	static ArrayList<Double>[][] recall_results;
+	static ArrayList<Double>[][] gran_results;
 	public static void run() {
+		recall_results = new ArrayList[6][4];
+		gran_results = new ArrayList[6][4];
+		for(int line=0;line<recall_results.length;line++) {
+			for(int column=0;column<recall_results[line].length;column++) {
+				recall_results[line][column] = new ArrayList<Double>();
+				gran_results[line][column] = new ArrayList<Double>();
+			}
+		}
+		
 		/**
 		 * all_matrices.(pair_id).(k-3)
 		 */
@@ -84,9 +95,58 @@ public class PotthastMetrics {
 		for(int pair_id=0;pair_id<all_matrices.size();pair_id++) {
 			run_single_pair(all_matrices.get(pair_id));
 		}
+		System.out.println("Average Recall");
+		System.out.println();
+
+		System.out.println("k\trecall .9\trecall .8\trecall .7\trecall .6");
+		for(int k_minus_3=0;k_minus_3<recall_results.length;k_minus_3++) {
+			ArrayList<Double>[] line = recall_results[k_minus_3];
+			System.out.print(k_minus_3+3+"\t");
+			for(int i=0;i<line.length;i++) {
+				System.out.print(avg(line[i])+"\t");	
+			}
+			System.out.println();
+		}
+		
+		System.out.println("Average Granularity");
+		System.out.println();
+
+		System.out.println("k\tgran .9\tgran .8\tgran .7\tgran .6");
+		for(int k_minus_3=0;k_minus_3<gran_results.length;k_minus_3++) {
+			ArrayList<Double>[] line = gran_results[k_minus_3];
+			System.out.print(k_minus_3+3+"\t");
+			for(int i=0;i<line.length;i++) {
+				System.out.print(avg(line[i])+"\t");	
+			}
+			System.out.println();
+		}
 	}
 	
+	private static double avg(ArrayList<Double> arrayList) {
+		double sum = 0.0d;
+		for(double d : arrayList) {
+			sum += d;
+		}
+		return sum/(double)arrayList.size();
+	}
+
+	/**
+	 * Collects all results.
+	 */
+	static ArrayList<Double>[][] precsion_results;
+	static double[][] precsion_results_true_positives;
+	static double[][] precsion_results_all_positves;
+	
 	public static void run_full_documents() {
+		precsion_results = new ArrayList[6][4];
+		for(int line=0;line<precsion_results.length;line++) {
+			for(int column=0;column<precsion_results[line].length;column++) {
+				precsion_results[line][column] = new ArrayList<Double>();
+			}
+		}
+		precsion_results_true_positives = new double[6][4];
+		precsion_results_all_positves = new double[6][4];
+		
 		/**
 		 * all_matrices.(pair_id).(k-3)
 		 */
@@ -99,6 +159,26 @@ public class PotthastMetrics {
 			ArrayList<double[][]> my_excerpt_matrices = MatrixLoader.load_all_matrices_of_pair(dir);
 			System.out.println("Computing precison for "+MatrixLoader.get_org_document_dir(dir)+" and "+dir);
 			run_single_pair_for_precision(my_matrices, my_excerpt_matrices);
+		}
+		System.out.println("True positives");
+		System.out.println("k\tprecision .9\tprecision .8\tprecision .7\tprecision .6");
+		for(double[] line : precsion_results_true_positives) {
+			System.out.println("k\t"+SemanticTest.outTSV(line));
+		}
+		
+		System.out.println("All positives");
+		System.out.println("k\tprecision .9\tprecision .8\tprecision .7\tprecision .6");
+		for(double[] line : precsion_results_all_positves) {
+			System.out.println("k\t"+SemanticTest.outTSV(line));
+		}
+		System.out.println("Precision");
+		System.out.println("k\tprecision .9\tprecision .8\tprecision .7\tprecision .6");
+		for(int line=0;line<precsion_results_all_positves.length;line++) {
+			System.out.print(line+3+"\t");
+			for(int colum=0;colum<precsion_results_all_positves[0].length;colum++) {
+				System.out.print(precsion_results_true_positives[line][colum] / precsion_results_all_positves[line][colum] +"\t");  
+			}
+			System.out.println();
 		}
 	}
 	
@@ -136,6 +216,8 @@ public class PotthastMetrics {
 					double gran = gran(matrices.get(i));
 					double[] res = {recall, gran};
 					System.out.print(SemanticTest.outTSV(res));
+					recall_results[k_minus_3][i-1].add(recall);
+					gran_results[k_minus_3][i-1].add(gran);
 				}
 				System.out.println();
 			}
@@ -147,20 +229,19 @@ public class PotthastMetrics {
 		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
 			double[][] matrix = pair_matrices.get(k_minus_3);
 			ArrayList<double[][]> matrices = new ArrayList<double[][]>();
+			double[] core_thresholds = {0.9,0.8,0.7,0.6};
+				
 			matrices.add(matrix);
-			matrices.add(expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k_minus_3+3)));
-			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.8)));
-			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.7)));
-			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.6)));
-			
+			for(double core_threshold : core_thresholds) {
+				matrices.add(expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k_minus_3+3, core_threshold)));	
+			}
+						
 			double[][] matrix_excerpt = pair_excerpt_matrices.get(k_minus_3);
 			ArrayList<double[][]> matrices_excerpt = new ArrayList<double[][]>();
 			matrices_excerpt.add(matrix_excerpt);
-			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt, mark_cluster_seeds(matrix_excerpt, k_minus_3+3)));
-			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt,mark_cluster_seeds(matrix_excerpt, k_minus_3+3, 0.8)));
-			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt,mark_cluster_seeds(matrix_excerpt, k_minus_3+3, 0.7)));
-			matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt,mark_cluster_seeds(matrix_excerpt, k_minus_3+3, 0.6)));
-			
+			for(double core_threshold : core_thresholds) {
+				matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt, mark_cluster_seeds(matrix_excerpt, k_minus_3+3,core_threshold)));	
+			}			
 			
 			if(VERBOSE) {
 				out_tsv(matrices);
@@ -177,7 +258,7 @@ public class PotthastMetrics {
 				}
 				System.out.print(k_minus_3+3+"\t");
 				for(int i=1;i<matrices.size();i++) {	
-					double precision = precision(matrices.get(i), matrices_excerpt.get(i));
+					double precision = precision(matrices.get(i), matrices_excerpt.get(i), k_minus_3, i);
 					System.out.print(precision+"\t");
 				}
 				System.out.println();
@@ -185,7 +266,7 @@ public class PotthastMetrics {
 		}
 	}
 	
-	private static double precision(double[][] marked_cells, double[][] marked_cells_excerpt) {
+	private static double precision(double[][] marked_cells, double[][] marked_cells_excerpt, final int k_minus_3, final int i) {
 		
 		
 		boolean[] marked_lines = get_marked_lines(marked_cells);
@@ -195,6 +276,9 @@ public class PotthastMetrics {
 		double count_true_positives = count_greater_zero(marked_lines_excerpt);
 		
 		double precision = count_true_positives / count_all_positives;
+		
+		precsion_results_all_positves[k_minus_3][i-1] += count_all_positives;
+		precsion_results_true_positives[k_minus_3][i-1] += count_true_positives;
 		
 		return precision;
 	}
