@@ -25,6 +25,7 @@ import boss.load.Importer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
 import boss.util.Pair;
+import pan.MatrixLoader;
 import pan.PanResult;
 import plus.data.Book;
 import plus.data.Chapter;
@@ -238,7 +239,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"pc"};//if no experiment specified run the bible experiment 
+			String[] temp = {"j"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -282,7 +283,7 @@ public class SemanticTest {
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
 				for (Solutions s : solutions) {
-					double[][] matrix = PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2);
+					double[][] matrix = s.jaccard_windows();
 					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
 							+ src_plagiat_pair.get(1).book_name;
 					matrix_to_file(name, k, matrix);
@@ -455,14 +456,14 @@ public class SemanticTest {
 	}
 	
 	private static void matrix_to_file(String directory_path, int k, double[][] alignement_matrix) {
-		double start = System.currentTimeMillis();
+		//double start = System.currentTimeMillis();
 		File directory = new File(String.valueOf(directory_path));
 
 		if (!directory.exists()) {
 			new File("./results/pan_results/").mkdir();
 			directory.mkdir();
 		}
-		String file_path = directory_path+"/"+k+".tsv";
+		/*String file_path = directory_path+"/"+k+".tsv";
 	    try {
 	        BufferedWriter output = new BufferedWriter(new FileWriter(file_path, false));
 	        for(double[] line : alignement_matrix) {
@@ -476,7 +477,26 @@ public class SemanticTest {
 	      }catch (Exception e) {
 	          System.err.println(e);
 	      }
-	    System.out.println("matrix_to_file(String,int,double[][]) DONE in "+(System.currentTimeMillis()-start)+" ms");
+	    */
+		File f = new File(directory_path+"/"+k+".bin");
+	    MatrixLoader.toFile(f, alignement_matrix);
+	    //System.out.println("matrix_to_file(String,int,double[][]) DONE in "+(System.currentTimeMillis()-start)+" ms");
+	    
+	    double[][] matrix = MatrixLoader.fromFile(f);
+	    if(alignement_matrix.length!=matrix.length) {
+	    	System.err.println("alignement_matrix.length!=matrix.length");
+	    }
+	    if(alignement_matrix[0].length!=matrix[0].length) {
+	    	System.err.println("alignement_matrix[0].length!=matrix[0].length");
+	    }
+	    
+	    for(int line = 0;line<alignement_matrix.length;line++) {
+	    	for(int column = 0;column<alignement_matrix[0].length;column++) {
+	    		if(alignement_matrix[line][column]!=matrix[line][column]) {
+	    			System.err.println("alignement_matrix[line][column]!=matrix[line][column] at "+line+" "+column);
+	    		}
+	    	}
+	    }
 	}
 
 	private static void out(double[] arr) {

@@ -2,9 +2,13 @@ package pan;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -12,6 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+
+
+import boss.util.Config;
+import boss.util.Util;
 
 public class MatrixLoader {
 	static final String path_to_pan_matrices = "./results/pan_results/";
@@ -52,8 +61,8 @@ public class MatrixLoader {
 		//load_all_matrices();
 		//load_all__excerpt_matrices();
 		//get_org_docs_and_excerpts(0);
+		path_to_matrices = path_to_pan_matrices;
 		//path_to_matrices = path_to_jaccard_matrices;
-		path_to_matrices = path_to_jaccard_matrices;
 		
 		PotthastMetrics.run();
 		PotthastMetrics.run_full_documents();
@@ -131,6 +140,11 @@ public class MatrixLoader {
 	}
 
 	static double[][] load(File f) {
+		return fromFile(f);
+	}
+	
+	@Deprecated
+	static double[][] load_o(File f) {
 		double start = System.currentTimeMillis();
 		ArrayList<double[]> temp = new ArrayList<double[]>();
 		try {
@@ -169,7 +183,7 @@ public class MatrixLoader {
 		ArrayList<double[][]> ret = new ArrayList<double[][]>();
 		
 		for(int k : k_s) {
-			File f = new File(path_to_matrices+"/"+dir+"/"+k+".tsv");//FIXME how to do that for jaccard?
+			File f = new File(path_to_matrices+"/"+dir+"/"+k+".bin");//FIXME how to do that for jaccard?
 			if(!f.exists()) {
 				System.err.println(f+" does not exist");
 			}else {
@@ -211,5 +225,83 @@ public class MatrixLoader {
 			all_matrices.add(pair_matrices);
 		}
 		return all_matrices;
+	}
+	
+	public static void toFile(final File file, final double[][] matrix){
+		double start = System.currentTimeMillis();
+		final int num_lines = matrix.length;
+		final int num_columns = matrix[0].length;
+		System.out.print("MatrixLoader.toFile(file, matrix) writing matric of size"+num_lines+"*"+num_columns+" to "+file.getAbsolutePath());
+		
+		
+		final byte[] META_DATA = new byte[4];
+		ByteBuffer db = ByteBuffer.allocate(num_columns*Config.BYTES_PER_DOUBLE);
+		FileOutputStream fos;//TODO Buffer the fos?
+		try {
+			fos = new FileOutputStream(file);
+			Util.intToByteArray(num_lines, META_DATA);
+			fos.write(META_DATA);
+			Util.intToByteArray(num_columns, META_DATA);
+			fos.write(META_DATA);
+			
+			for(double[] line : matrix) {
+				for(int i=0;i<line.length;i++) {
+					double d = line[i];
+					db.putDouble(i*Config.BYTES_PER_DOUBLE, d);
+				}
+
+				fos.write(db.array());
+				/*DoubleBuffer temp = db.asDoubleBuffer();
+				for(int i=0;i<num_columns;i++) {
+					System.out.println(db.getDouble(i*Config.BYTES_PER_DOUBLE)+" vs. "+temp.get(i)+" vs. "+line[i]);
+				}*/
+			}
+			fos.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		Util.out_end_time(start);
+	}
+	
+	public static double[][] fromFile(File file){
+		System.out.print("MatrixLoader.fromFile(file) loading from "+file);
+		double start = System.currentTimeMillis();
+		
+		final byte[] META_DATA = new byte[4];
+		int num_lines, num_columns;
+		FileInputStream fis;
+		double[][] matrix = null;
+		try {
+			fis = new FileInputStream(file);
+			// num_lines
+			fis.read(META_DATA);			
+			num_lines=Util.byteArrayToInt(META_DATA);
+			// num_columns
+			fis.read(META_DATA);			
+			num_columns=Util.byteArrayToInt(META_DATA);
+			System.out.print(" of size "+num_lines+"*"+num_columns);
+			matrix = new double[num_lines][num_columns];
+			
+			final byte[] BUFFER = new byte[num_columns*Config.BYTES_PER_DOUBLE];
+			for(int line=0;line<num_lines;line++) {
+				fis.read(BUFFER);//one line of the matrix
+				DoubleBuffer db = ByteBuffer.wrap(BUFFER).asDoubleBuffer();
+				for(int i=0;i<num_columns;i++) {
+					double d = db.get(i);
+					matrix[line][i] = d;
+				}
+			}
+			
+			fis.close();
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		Util.out_end_time(start);
+		return matrix;
 	}
 }

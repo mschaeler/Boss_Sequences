@@ -76,7 +76,7 @@ public class PotthastMetrics {
 	}
 	
 
-	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5};
+	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
 	static ArrayList<Double>[][] recall_results = null;
 	static ArrayList<Double>[][] gran_results = null;
 	public static void run() {

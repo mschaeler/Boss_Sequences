@@ -1839,6 +1839,71 @@ public class Solutions {
 	    return dotProduct;
 	}
 	
+	public double[][] jaccard_windows(){
+		HashSet<Integer> duplicates = new HashSet<Integer>();
+		final double[][] global_cost_matrix_book = fill_similarity_matrix();
+		for(int id=0;id<global_cost_matrix_book.length;id++) {
+			if(duplicates.contains(id)) {
+				continue;
+			}
+			final double[] line = global_cost_matrix_book[id];
+			for(int other_id=id+1;other_id<line.length;other_id++) {
+				if(line[other_id]==1.0d) {
+					duplicates.add(other_id);
+					replace(k_with_windows_b1, id, other_id);
+					replace(k_with_windows_b2, id, other_id);
+				}
+			}
+		}
+		
+		double[][] matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
+		for(int row=0;row<matrix.length;row++) {
+			int[] w_r = k_with_windows_b1[row];
+			for(int colum=0;colum<matrix[0].length;colum++) {
+				int[] w_c = k_with_windows_b2[colum];
+				double jaccard_sim = jaccard(w_r, w_c);
+				matrix[row][colum] = jaccard_sim;
+			}
+		}
+		return matrix;
+	}
+	
+	private void replace(int[][] windows, int id, int replace_me_id) {
+		for(int[] w : windows) {
+			for(int i=0;i<w.length;i++) {
+				if(w[i]==replace_me_id){
+					w[i] = id; 
+				}
+			}
+		}
+		
+	}
+
+	static double jaccard(int[] tokens_t1, int[] tokens_t2) {
+		HashSet<Integer> tokens_hashed = new HashSet<Integer>(tokens_t1.length);
+		for(int t : tokens_t1) {
+			tokens_hashed.add(t);
+		}
+		
+		int size_intersection = 0;
+		for(int t : tokens_t2) {
+			if(tokens_hashed.contains(t)) {
+				size_intersection++;
+			}else{
+				//TODO same semantic, but different set?
+			}
+		}
+		//size union
+		for(int t : tokens_t2) {
+			tokens_hashed.add(t);
+		}
+		int size_union = tokens_hashed.size();
+		
+		double jaccard_sim = (double) size_intersection / (double) size_union;
+		
+		return jaccard_sim;
+	}
+	
 	private void create_dense_matrix() {
 		double start = System.currentTimeMillis();
 		dense_global_matrix_buffer = new double[max_id+1][max_id+1];//This is big....
