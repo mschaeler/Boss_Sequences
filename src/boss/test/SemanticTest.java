@@ -263,92 +263,57 @@ public class SemanticTest {
 	
 	public static void run_pan_jaccard_experiments() {
 		System.out.println("run_pan_jaccard_experiments()");
-		//final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
-		final int[] k_s= {3,4,5,6,7,8};
-		final double[] thresholds = {0.5,0.6,0.7,0.8,0.9};
-		final double threshold = 0.5;//XXX - should set to zero?
-				
-		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
-		double[] connectivity_thresholds = {0.7};
-		for(double connectivity_threshold : connectivity_thresholds) {
-			PanResult.connectivity_threshold = connectivity_threshold;
-			for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-				for(int k : k_s) {
-					boolean pan_embeddings = true;
-					ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
-					for(Solutions s : solutions) {
-						new PanResult(s, PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2));
-					}	
-				}
-			}
-			//PanResult.out();
-			
-			PanResult.out_agg();
-			PanResult.clear();
+		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+		//final int[] k_s = { 3, 4, 5, 6, 7, 8 };// TODO make global s.t. we can use it everywhere
+		final double threshold = 0.5;// XXX - should set to zero?
+		
+		//TODO create result dir if not exists
+		File  f = new File("./results/jaccard_results"); 
+		if(!f.exists()) {
+			f.mkdir();
 		}
 		
+		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for (int k : k_s) {
+
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
+				for (Solutions s : solutions) {
+					double[][] matrix = PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2);
+					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
+							+ src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, matrix);
+				}
+			}
+		}
+
+		boolean quit = false;
+		if (quit)
+			return;// XXX
+
+		PanResult.connectivity_threshold = 0.5;
 		System.out.println("****************************************************************");
 		System.out.println("******************************* Entire Documents****************");
 		System.out.println("****************************************************************");
-		/*for(int k : k_s) {
-			PanResult.all_results[k].get(0).out_my_matrices();
-			System.out.println();
-		}*/
-		
-		
+
 		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
-		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-			
-			for(int k : k_s) {
+		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for (int k : k_s) {
+
 				boolean pan_embeddings = true;
-				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
-				for(Solutions s : solutions) {				
-					new PanResult(s, PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2));//also adds it to the static class variable collecting all results
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
+				for (Solutions s : solutions) {
+					double[][] matrix = PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2);
+					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
+							+ src_plagiat_pair.get(1).book_name;// TODO change name
+					matrix_to_file(name, k, matrix);
 				}
 			}
-		}
-		//PanResult.out();
-		PanResult.out_agg();
-		
-		PanResult.clear();
-		
-		boolean do_all = false;
-		
-		if(do_all) {
-			System.out.println("****************************************************************");
-			System.out.println("******************************* All Documents ******************");
-			System.out.println("****************************************************************");
-			try {
-				ArrayList<Book> suspicious_docs = new ArrayList<Book>();
-				for (int susp_id = 0; susp_id < Importer.PAN11_SUSP.length; susp_id++) {
-					suspicious_docs.add(Importer.get_book_pan11(Importer.PAN11_SUSP[susp_id], Book.LANGUAGE_ENGLISH));
-				}
-				ArrayList<Book> source_docs = new ArrayList<Book>();
-				for (int source_id = 0; source_id < Importer.PAN11_SUSP.length; source_id++) {
-					source_docs.add(Importer.get_book_pan11(Importer.PAN11_SRC[source_id], Book.LANGUAGE_ENGLISH));
-				}
-				
-				for (int i=0;i<suspicious_docs.size();i++) {
-					Book susp = suspicious_docs.get(i);
-					System.out.println("Susp_id= "+i+" of "+suspicious_docs.size());
-					for(Book src : source_docs) {
-						ArrayList<Book> pair = new ArrayList<Book>(2);
-						pair.add(susp);
-						pair.add(src);
-						
-						for(int k : k_s) {
-							boolean pan_embeddings = true;
-							ArrayList<Solutions> solutions = prepare_solution(pair,k,threshold, pan_embeddings);
-							for(Solutions s : solutions) {
-								new PanResult(s, PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2));//also adds it to the static class variable collecting all results
-							}
-						}
-					}
-				}
-			} catch (Exception e) {
-				System.err.println(e);
-			}
-			PanResult.out_agg();
 		}
 	}
 	
@@ -362,10 +327,15 @@ public class SemanticTest {
 	}
 
 	public static void run_pan_correctness_experiments() {
-		//final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
-		final int[] k_s= {3,4,5,6,7,8};
+		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+		//final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.5;//XXX - should set to zero?
 				
+		File  f = new File("./results/pan_results"); 
+		if(!f.exists()) {
+			f.mkdir();
+		}
+		
 		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
 		double[] connectivity_thresholds = {0.7};
 		for(double connectivity_threshold : connectivity_thresholds) {

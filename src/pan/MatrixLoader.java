@@ -14,7 +14,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class MatrixLoader {
-	static final String path_to_matrices = "./results/pan_results/";
+	static final String path_to_pan_matrices = "./results/pan_results/";
+	static final String path_to_jaccard_matrices = "./results/jaccard_results/";
+	static String path_to_matrices = path_to_jaccard_matrices;
 	
 	public static List<String> listFilesUsingFilesList(String dir) {
 		File directory = new File(dir);
@@ -50,12 +52,16 @@ public class MatrixLoader {
 		//load_all_matrices();
 		//load_all__excerpt_matrices();
 		//get_org_docs_and_excerpts(0);
+		//path_to_matrices = path_to_jaccard_matrices;
+		path_to_matrices = path_to_jaccard_matrices;
+		
 		PotthastMetrics.run();
-		//PotthastMetrics.run_full_documents();
+		PotthastMetrics.run_full_documents();
+		PotthastMetrics.out_aggregated_result();
 	}
 	
 	static List<String> get_all_susp_src_directories(){
-		return get_all_susp_src_directories(listFilesUsingFilesList(path_to_matrices)); 
+		return get_all_susp_src_directories(listFilesUsingFilesList(path_to_pan_matrices)); 
 	}
 	
 	static List<String> get_all_susp_src_directories(List<String> all_directories){
@@ -69,7 +75,7 @@ public class MatrixLoader {
 	}
 	
 	static List<String> get_all_excerpt_directories(){
-		return get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices));
+		return get_all_excerpt_directories(listFilesUsingFilesList(path_to_pan_matrices));
 	}
 	
 	static List<String> get_all_excerpt_directories(List<String> all_directories){
@@ -86,7 +92,7 @@ public class MatrixLoader {
 	 * return all excerpt matrices and their full text counterparts
 	 */
 	public static ArrayList<double[][]>[] get_org_docs_and_excerpts(int file_num) {
-		List<String> s = get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices));
+		List<String> s = get_all_excerpt_directories(listFilesUsingFilesList(path_to_pan_matrices));
 		
 		String dir = s.get(file_num);
 		ArrayList<double[][]> excerpts = load_all_matrices_of_pair(dir);
@@ -156,18 +162,14 @@ public class MatrixLoader {
 		return ret;
 	}
 	public static ArrayList<double[][]> load_all_matrices_of_pair(String f) {
-		int[] k_s = {3,4,5,6,7,8};
+		int[] k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 		return load_all_matrices_of_pair(new File(f), k_s) ;
-	}
-	static ArrayList<double[][]> load_all_matrices_of_pair(File f) {
-		int[] k_s = {3,4,5,6,7,8};
-		return load_all_matrices_of_pair(f, k_s) ;
 	}
 	static ArrayList<double[][]> load_all_matrices_of_pair(File dir, int[] k_s) {
 		ArrayList<double[][]> ret = new ArrayList<double[][]>();
 		
 		for(int k : k_s) {
-			File f = new File(path_to_matrices+"/"+dir+"/"+k+".tsv");
+			File f = new File(path_to_matrices+"/"+dir+"/"+k+".tsv");//FIXME how to do that for jaccard?
 			if(!f.exists()) {
 				System.err.println(f+" does not exist");
 			}else {
@@ -177,14 +179,26 @@ public class MatrixLoader {
 		}
 		return ret;
 	}
-	static void load_all_matrices() {
-		for(String dir : listFilesUsingFilesList(path_to_matrices)) {
-			load_all_matrices_of_pair(dir);
+
+	public static ArrayList<ArrayList<double[][]>> load_all_jaccard_excerpt_matrices() {
+		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
+		for(String dir : get_all_excerpt_directories(listFilesUsingFilesList(path_to_jaccard_matrices))) {
+			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
+			all_matrices.add(pair_matrices);
 		}
+		return all_matrices;
+	}
+	public static ArrayList<ArrayList<double[][]>> load_all_jaccard_full_document_matrices() {
+		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
+		for(String dir : get_all_susp_src_directories(listFilesUsingFilesList(path_to_jaccard_matrices))) {
+			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
+			all_matrices.add(pair_matrices);
+		}
+		return all_matrices;
 	}
 	public static ArrayList<ArrayList<double[][]>> load_all_excerpt_matrices() {
 		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
-		for(String dir : get_all_excerpt_directories(listFilesUsingFilesList(path_to_matrices))) {
+		for(String dir : get_all_excerpt_directories(listFilesUsingFilesList(path_to_pan_matrices))) {
 			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
 			all_matrices.add(pair_matrices);
 		}
@@ -192,7 +206,7 @@ public class MatrixLoader {
 	}
 	public static ArrayList<ArrayList<double[][]>> load_all_full_document_matrices() {
 		ArrayList<ArrayList<double[][]>> all_matrices = new ArrayList<ArrayList<double[][]>>();
-		for(String dir : get_all_susp_src_directories(listFilesUsingFilesList(path_to_matrices))) {
+		for(String dir : get_all_susp_src_directories(listFilesUsingFilesList(path_to_pan_matrices))) {
 			ArrayList<double[][]> pair_matrices = load_all_matrices_of_pair(dir);
 			all_matrices.add(pair_matrices);
 		}

@@ -78,9 +78,7 @@ public class PanResult {
 			for(int colum=0;colum<matrix[0].length;colum++) {
 				int[] w_c = k_with_windows_b2[colum];
 				double jaccard_sim = jaccard(w_r, w_c);
-				if(jaccard_sim>0.2) {//XXX the threshold works here differently
-					matrix[row][colum] = jaccard_sim;
-				}
+				matrix[row][colum] = jaccard_sim;
 			}
 		}
 		return matrix;

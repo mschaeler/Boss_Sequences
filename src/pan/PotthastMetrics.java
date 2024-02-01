@@ -75,11 +75,19 @@ public class PotthastMetrics {
 		}
 	}
 	
-	static ArrayList<Double>[][] recall_results;
-	static ArrayList<Double>[][] gran_results;
+
+	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5};
+	static ArrayList<Double>[][] recall_results = null;
+	static ArrayList<Double>[][] gran_results = null;
 	public static void run() {
-		recall_results = new ArrayList[6][4];
-		gran_results = new ArrayList[6][4];
+		/**
+		 * all_matrices.(pair_id).(k-3)
+		 */
+		ArrayList<ArrayList<double[][]>> all_matrices;
+		all_matrices = MatrixLoader.load_all_excerpt_matrices();
+			
+		recall_results = new ArrayList[all_matrices.get(0).size()][core_thresholds.length];
+		gran_results = new ArrayList[all_matrices.get(0).size()][core_thresholds.length];
 		for(int line=0;line<recall_results.length;line++) {
 			for(int column=0;column<recall_results[line].length;column++) {
 				recall_results[line][column] = new ArrayList<Double>();
@@ -87,18 +95,17 @@ public class PotthastMetrics {
 			}
 		}
 		
-		/**
-		 * all_matrices.(pair_id).(k-3)
-		 */
-		ArrayList<ArrayList<double[][]>> all_matrices = MatrixLoader.load_all_excerpt_matrices();
-
 		for(int pair_id=0;pair_id<all_matrices.size();pair_id++) {
 			run_single_pair(all_matrices.get(pair_id));
 		}
 		System.out.println("Average Recall");
 		System.out.println();
 
-		System.out.println("k\trecall .9\trecall .8\trecall .7\trecall .6");
+		System.out.print("k\t");
+		for(double d : core_thresholds) {
+			System.out.print("recall "+d+"\t");
+		}
+		System.out.println();
 		for(int k_minus_3=0;k_minus_3<recall_results.length;k_minus_3++) {
 			ArrayList<Double>[] line = recall_results[k_minus_3];
 			System.out.print(k_minus_3+3+"\t");
@@ -111,7 +118,11 @@ public class PotthastMetrics {
 		System.out.println("Average Granularity");
 		System.out.println();
 
-		System.out.println("k\tgran .9\tgran .8\tgran .7\tgran .6");
+		System.out.print("k\t");
+		for(double d : core_thresholds) {
+			System.out.print("gran "+d+"\t");
+		}
+		System.out.println();
 		for(int k_minus_3=0;k_minus_3<gran_results.length;k_minus_3++) {
 			ArrayList<Double>[] line = gran_results[k_minus_3];
 			System.out.print(k_minus_3+3+"\t");
@@ -134,19 +145,10 @@ public class PotthastMetrics {
 	 * Collects all results.
 	 */
 	static ArrayList<Double>[][] precsion_results;
-	static double[][] precsion_results_true_positives;
-	static double[][] precsion_results_all_positves;
+	static double[][] precsion_results_true_positives = null;
+	static double[][] precsion_results_all_positves = null;
 	
-	public static void run_full_documents() {
-		precsion_results = new ArrayList[6][4];
-		for(int line=0;line<precsion_results.length;line++) {
-			for(int column=0;column<precsion_results[line].length;column++) {
-				precsion_results[line][column] = new ArrayList<Double>();
-			}
-		}
-		precsion_results_true_positives = new double[6][4];
-		precsion_results_all_positves = new double[6][4];
-		
+	public static void run_full_documents() {		
 		/**
 		 * all_matrices.(pair_id).(k-3)
 		 */
@@ -157,6 +159,20 @@ public class PotthastMetrics {
 			
 			ArrayList<double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair(MatrixLoader.get_org_document_dir(dir));
 			ArrayList<double[][]> my_excerpt_matrices = MatrixLoader.load_all_matrices_of_pair(dir);
+			if(precsion_results_true_positives==null) {
+				precsion_results_true_positives = new double[my_matrices.size()][core_thresholds.length];
+			}
+			if(precsion_results_all_positves==null) {
+				precsion_results_all_positves = new double[my_matrices.size()][core_thresholds.length];
+			}
+			if(precsion_results==null) {
+				precsion_results = new ArrayList[my_matrices.size()][core_thresholds.length];
+				for(int line=0;line<precsion_results.length;line++) {
+					for(int column=0;column<precsion_results[line].length;column++) {
+						precsion_results[line][column] = new ArrayList<Double>();
+					}
+				}
+			}
 			System.out.println("Computing precison for "+MatrixLoader.get_org_document_dir(dir)+" and "+dir);
 			run_single_pair_for_precision(my_matrices, my_excerpt_matrices);
 		}
@@ -188,14 +204,10 @@ public class PotthastMetrics {
 			double[][] matrix = pair_matrices.get(k_minus_3);
 			ArrayList<double[][]> matrices = new ArrayList<double[][]>();
 			matrices.add(matrix);
-			double[][] clusters = mark_cluster_seeds(matrix, k_minus_3+3);
-			expand_cluster_seeds(matrix, clusters);
 			
-			matrices.add(clusters);
-			
-			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.8)));
-			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.7)));
-			matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, 0.6)));
+			for(double core_threshold : core_thresholds) {
+				matrices.add(expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, core_threshold)));	
+			}			
 			
 			if(VERBOSE) {
 				out_tsv(matrices);
@@ -229,7 +241,6 @@ public class PotthastMetrics {
 		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
 			double[][] matrix = pair_matrices.get(k_minus_3);
 			ArrayList<double[][]> matrices = new ArrayList<double[][]>();
-			double[] core_thresholds = {0.9,0.8,0.7,0.6};
 				
 			matrices.add(matrix);
 			for(double core_threshold : core_thresholds) {
@@ -267,8 +278,6 @@ public class PotthastMetrics {
 	}
 	
 	private static double precision(double[][] marked_cells, double[][] marked_cells_excerpt, final int k_minus_3, final int i) {
-		
-		
 		boolean[] marked_lines = get_marked_lines(marked_cells);
 		double count_all_positives = count_greater_zero(marked_lines); 
 		
@@ -279,7 +288,9 @@ public class PotthastMetrics {
 		
 		precsion_results_all_positves[k_minus_3][i-1] += count_all_positives;
 		precsion_results_true_positives[k_minus_3][i-1] += count_true_positives;
-		
+		if(!Double.isNaN(precision)) {
+			precsion_results[k_minus_3][i-1].add(precision);
+		}		
 		return precision;
 	}
 
@@ -379,5 +390,151 @@ public class PotthastMetrics {
 			System.out.println();
 		}
 		
+	}
+
+	public static void out_aggregated_result() {
+		System.out.println("PotthastMetrics.out_aggregated_result()");
+		double[][] recall = null;
+		if(recall_results!=null) {
+			recall = new double[recall_results.length][recall_results[0].length];
+			System.out.println();
+			System.out.println("Average Recall");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print("recall "+d+"\t");
+			}
+			System.out.println();
+			for(int k_minus_3=0;k_minus_3<recall_results.length;k_minus_3++) {
+				ArrayList<Double>[] line = recall_results[k_minus_3];
+				System.out.print(k_minus_3+3+"\t");
+				for(int i=0;i<line.length;i++) {
+					double temp = avg(line[i]);
+					recall[k_minus_3][i] = temp;
+					System.out.print(temp+"\t");	
+				}
+				System.out.println();
+			}
+		}
+		double[][] gran = null;
+		if(gran_results!=null) {
+			gran = new double[gran_results.length][gran_results[0].length];
+			System.out.println();
+			System.out.println("Average Granularity");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print("gran "+d+"\t");
+			}
+			System.out.println();
+			for(int k_minus_3=0;k_minus_3<gran_results.length;k_minus_3++) {
+				ArrayList<Double>[] line = gran_results[k_minus_3];
+				System.out.print(k_minus_3+3+"\t");
+				for(int i=0;i<line.length;i++) {
+					double temp = avg(line[i]);
+					gran[k_minus_3][i] = temp;
+					System.out.print(temp+"\t");	
+				}
+				System.out.println();
+			}
+		}
+		double[][] weigted_gran = null;
+		if(gran!=null) {
+			weigted_gran = new double[gran.length][gran[0].length];
+			System.out.println();
+			System.out.println("Weigthed Granularity");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print("weigted_gran "+d+"\t");
+			}
+			System.out.println();
+			for(int k_minus_3=0;k_minus_3<gran.length;k_minus_3++) {
+				double[] line = gran[k_minus_3];
+				System.out.print(k_minus_3+3+"\t");
+				for(int i=0;i<line.length;i++) {
+					double temp = log_2(1+line[i]);
+					weigted_gran[k_minus_3][i] = temp;
+					System.out.print(temp+"\t");	
+				}
+				System.out.println();
+			}
+		}
+		double[][] precison = null;
+		if(precsion_results_all_positves!=null && precsion_results_true_positives!=null) {
+			precison = new double[precsion_results_all_positves.length][precsion_results_all_positves[0].length];
+			System.out.println();
+			System.out.println("Precision");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print(d+"\t");
+			}
+			System.out.println();
+			for(int line=0;line<precsion_results_all_positves.length;line++) {
+				System.out.print(line+3+"\t");
+				for(int colum=0;colum<precsion_results_all_positves[0].length;colum++) {
+					double temp = precsion_results_true_positives[line][colum] / precsion_results_all_positves[line][colum];
+					precison[line][colum] = temp;
+					System.out.print(temp +"\t");  
+				}
+				System.out.println();
+			}
+		}
+		//Alternative document-wise precision
+		if(precsion_results!=null) {
+			System.out.println();
+			System.out.println("Precision (alternative)");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print(d+"\t");
+			}
+			System.out.println();
+			for(int line=0;line<precsion_results.length;line++) {
+				System.out.print(line+3+"\t");
+				for(int colum=0;colum<precsion_results[0].length;colum++) {
+					double temp = avg(precsion_results[line][colum]);
+					if(temp>precison[line][colum]) {precison[line][colum]=temp;}//replace it, though I do not like this way of computing precision
+					System.out.print(temp +"\t");  
+				}
+				System.out.println();
+			}
+		}
+		double[][] harmonic_mean = null;
+		if(precison!=null && recall!=null) {
+			harmonic_mean = new double[precison.length][precison[0].length];
+			System.out.println();
+			System.out.println("Harmonic mean");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print(d+"\t");
+			}
+			System.out.println();
+			for(int line=0;line<precison.length;line++) {
+				System.out.print(line+3+"\t");
+				for(int colum=0;colum<precison[0].length;colum++) {
+					double hm = 2.0d / ((1.0d/ precison[line][colum]) + (1.0d / recall[line][colum]));
+					harmonic_mean[line][colum] = hm;
+					System.out.print(hm +"\t");  
+				}
+				System.out.println();
+			}
+		}
+		if(harmonic_mean!=null && weigted_gran!=null) {
+			System.out.println();
+			System.out.println("Overall score");
+			System.out.print("k\t");
+			for(double d : core_thresholds) {
+				System.out.print(d+"\t");
+			}
+			System.out.println();
+			for(int line=0;line<precison.length;line++) {
+				System.out.print(line+3+"\t");
+				for(int colum=0;colum<precison[0].length;colum++) {
+					double temp = harmonic_mean[line][colum] / weigted_gran[line][colum];
+					System.out.print(temp +"\t");  
+				}
+				System.out.println();
+			}
+		}
+	}
+	private static double log_2(double d) {
+		return Math.log(d) / Math.log(2.0d);
 	}
 }
