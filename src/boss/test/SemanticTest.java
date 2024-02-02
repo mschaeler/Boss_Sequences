@@ -24,6 +24,7 @@ import boss.lexicographic.Tokenizer;
 import boss.load.Importer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
+import boss.util.Config;
 import boss.util.Pair;
 import pan.MatrixLoader;
 import pan.PanResult;
@@ -239,7 +240,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"j"};//if no experiment specified run the bible experiment 
+			String[] temp = {"pc"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -264,7 +265,6 @@ public class SemanticTest {
 	
 	public static void run_pan_jaccard_experiments() {
 		System.out.println("run_pan_jaccard_experiments()");
-		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 		//final int[] k_s = { 3, 4, 5, 6, 7, 8 };// TODO make global s.t. we can use it everywhere
 		final double threshold = 0.5;// XXX - should set to zero?
 		
@@ -278,7 +278,7 @@ public class SemanticTest {
 		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			Solutions.dense_global_matrix_buffer = null;
 			SemanticTest.embedding_vector_index_buffer = null;
-			for (int k : k_s) {
+			for (int k : Config.k_s) {
 
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
@@ -304,7 +304,7 @@ public class SemanticTest {
 		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			Solutions.dense_global_matrix_buffer = null;
 			SemanticTest.embedding_vector_index_buffer = null;
-			for (int k : k_s) {
+			for (int k : Config.k_s) {
 
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
@@ -328,7 +328,7 @@ public class SemanticTest {
 	}
 
 	public static void run_pan_correctness_experiments() {
-		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+		
 		//final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.5;//XXX - should set to zero?
 				
@@ -343,7 +343,7 @@ public class SemanticTest {
 			for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 				Solutions.dense_global_matrix_buffer = null;
 				SemanticTest.embedding_vector_index_buffer = null;
-				for(int k : k_s) {
+				for(int k : Config.k_s) {
 					
 					boolean pan_embeddings = true;
 					ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
@@ -379,7 +379,7 @@ public class SemanticTest {
 		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			Solutions.dense_global_matrix_buffer = null;
 			SemanticTest.embedding_vector_index_buffer = null;
-			for(int k : k_s) {
+			for(int k : Config.k_s) {
 				
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
@@ -422,7 +422,7 @@ public class SemanticTest {
 						
 						Solutions.dense_global_matrix_buffer = null;
 						SemanticTest.embedding_vector_index_buffer = null;
-						for(int k : k_s) {
+						for(int k : Config.k_s) {
 							
 							boolean pan_embeddings = true;
 							ArrayList<Solutions> solutions = prepare_solution(pair,k,threshold, pan_embeddings);
@@ -481,7 +481,7 @@ public class SemanticTest {
 		File f = new File(directory_path+"/"+k+".bin");
 	    MatrixLoader.toFile(f, alignement_matrix);
 	    //System.out.println("matrix_to_file(String,int,double[][]) DONE in "+(System.currentTimeMillis()-start)+" ms");
-	    
+	    /*
 	    double[][] matrix = MatrixLoader.fromFile(f);
 	    if(alignement_matrix.length!=matrix.length) {
 	    	System.err.println("alignement_matrix.length!=matrix.length");
@@ -496,7 +496,7 @@ public class SemanticTest {
 	    			System.err.println("alignement_matrix[line][column]!=matrix[line][column] at "+line+" "+column);
 	    		}
 	    	}
-	    }
+	    }*/
 	}
 
 	private static void out(double[] arr) {
@@ -855,7 +855,9 @@ public class SemanticTest {
 				TokenizedParagraph tp = (TokenizedParagraph) p;
 				String[] array = tp.last_intermediate_result();
 				for(String s : array) {
-					temp.add(s);
+					if(s!=null) {
+						temp.add(s);
+					}
 				}
 			}
 		}

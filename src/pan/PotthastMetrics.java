@@ -288,7 +288,7 @@ public class PotthastMetrics {
 		
 		precsion_results_all_positves[k_minus_3][i-1] += count_all_positives;
 		precsion_results_true_positives[k_minus_3][i-1] += count_true_positives;
-		if(!Double.isNaN(precision)) {
+		if(!Double.isNaN(precision) && !Double.isInfinite(precision)) {
 			precsion_results[k_minus_3][i-1].add(precision);
 		}		
 		return precision;

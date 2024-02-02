@@ -4,6 +4,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import boss.lexicographic.StopWords;
+import boss.util.Config;
+import boss.util.Util;
 import plus.data.*;
 
 public class Importer {

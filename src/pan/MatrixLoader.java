@@ -61,8 +61,8 @@ public class MatrixLoader {
 		//load_all_matrices();
 		//load_all__excerpt_matrices();
 		//get_org_docs_and_excerpts(0);
-		path_to_matrices = path_to_pan_matrices;
-		//path_to_matrices = path_to_jaccard_matrices;
+		//path_to_matrices = path_to_pan_matrices;
+		path_to_matrices = path_to_jaccard_matrices;
 		
 		PotthastMetrics.run();
 		PotthastMetrics.run_full_documents();
@@ -176,7 +176,7 @@ public class MatrixLoader {
 		return ret;
 	}
 	public static ArrayList<double[][]> load_all_matrices_of_pair(String f) {
-		int[] k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+		int[] k_s = Config.k_s;
 		return load_all_matrices_of_pair(new File(f), k_s) ;
 	}
 	static ArrayList<double[][]> load_all_matrices_of_pair(File dir, int[] k_s) {
@@ -228,6 +228,10 @@ public class MatrixLoader {
 	}
 	
 	public static void toFile(final File file, final double[][] matrix){
+		if(matrix.length==0 || matrix[0].length==0) {
+			System.err.println("No matrix remains - probably stop words removed and large k");
+			return;
+		}
 		double start = System.currentTimeMillis();
 		final int num_lines = matrix.length;
 		final int num_columns = matrix[0].length;

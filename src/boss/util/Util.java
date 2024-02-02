@@ -1,5 +1,8 @@
 package boss.util;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+
 public class Util {
 
 	public static void double_array_to_byte_array(double[] line, byte[] bUFFER) {
@@ -26,5 +29,20 @@ public class Util {
 				| (BUFFER[0] & 0xFF) << 24
 		;
 		return value;
+	}
+
+	public static String[] remove(String[] tokens, HashSet<String> stop_words) {
+		ArrayList<String> temp = new ArrayList<String>();
+		for(String s : tokens) {
+			s=s.trim();
+			if(!stop_words.contains(s)) {
+				temp.add(s);
+			}
+		}
+		String[] ret = new String[temp.size()];
+		for(int i=0;i<temp.size();i++) {
+			ret[i] = temp.get(i);
+		}
+		return ret;
 	}
 }

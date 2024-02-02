@@ -2,6 +2,7 @@ package boss.lexicographic;
 
 import java.util.HashSet;
 
+import boss.util.Config;
 import plus.data.Book;
 
 /**
@@ -13,6 +14,30 @@ import plus.data.Book;
 public class StopWords {
 	public static boolean keep_stopwords = true;
 	
+	/**
+	 * 
+	 * @param config_enum from Config.DE_STOP_WORDS, Config.EN_STOP_WORDS, or Config.DD_STOP_WORDS
+	 * @return
+	 */
+	public static HashSet<String> get_stop_words_by_enum(final int config_enum) {
+		String[] stop_words = null;
+		if(config_enum == Config.DE_STOP_WORDS) {
+			stop_words = GERMAN_STOP_WORDS;
+		}else if(config_enum == Config.EN_STOP_WORDS) {
+			stop_words = ENGLISH_STOPWORDS;
+		}else if(config_enum == Config.DD_STOP_WORDS) {
+			stop_words = DONG_DENG_STOPWORDS;
+		}else{
+			System.err.println("StopWords.get_stop_words_by_enum("+config_enum+") unknown config_enum");
+			return null;
+		}
+		final HashSet<String> ret = new HashSet<String>(stop_words.length);
+		for(String s : stop_words){
+			ret.add(s);
+		}
+		return ret;
+	}
+	
 	public static HashSet<String> get_stop_words(int language) {
 		String[] stop_words;
 		if(language == Book.LANGUAGE_LATIN) {
@@ -22,7 +47,7 @@ public class StopWords {
 		}else if(language == Book.LANGUAGE_GERMAN) {
 			stop_words = GERMAN_STOP_WORDS;
 		}else if(language == Book.LANGUAGE_ENGLISH) {
-			stop_words = ENGLISH_STOPWORDS;
+			stop_words = DONG_DENG_STOPWORDS;
 		}else{
 			
 			System.err.println("StopWords.get_stop_words(int): Not implemented for "+Book.get_language_string(language));

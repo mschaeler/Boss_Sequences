@@ -2,6 +2,7 @@ package boss.lexicographic;
 
 import java.util.ArrayList;
 
+import boss.util.Config;
 import plus.data.Book;
 import plus.data.Chapter;
 import plus.data.Paragraph;
@@ -19,7 +20,9 @@ public class BasicTokenizer extends Tokenizer {
 	void tokenize(TokenizedParagraph p) {
 		Tokenizer.remove_non_alphabetic_characters(p);
 		Tokenizer.to_lower_case(p);
-		//Tokenizer.remover_stop_words(p);
+		if(Config.REMOVE_STOP_WORDS){
+			Tokenizer.remover_stop_words(p);
+		}
 	}
 
 	@Override
