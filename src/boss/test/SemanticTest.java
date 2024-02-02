@@ -42,13 +42,9 @@ public class SemanticTest {
 	static String result_path_pan = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
 	static String result_path_bible = "./results/bible_results_"+System.currentTimeMillis()+".tsv";
 	
-	public static void run_bible_experiments() {
-		final int[] k_s= {3,4,5,6,7,8};
-		final double threshold = 0.7;
-		
+	public static void run_bible_experiments(int solution_enum, int[] k_s, double threshold, boolean only_english) {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
-		int solution_enum = NAIVE; //SOLUTION, BASELINE, NAIVE
 		result_path_bible+="_"+solution_enum;
 		
 		Solutions.dense_global_matrix_buffer = null;
@@ -57,6 +53,8 @@ public class SemanticTest {
 		//English corpus
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		run(books, threshold, num_repititions, k_s, solution_enum);
+		
+		if(only_english) return;
 		
 		//Now the German corpus
 		SemanticTest.embedding_vector_index_buffer = null;//Need to laod the German embediings. Before we had the English ones.
@@ -75,6 +73,7 @@ public class SemanticTest {
 	static final int SOLUTION = 0;
 	static final int BASELINE = 1;
 	static final int NAIVE    = 2;
+	static final int BOUND_TIGHTNESS    = 3;
 	
 	static boolean header_written = false;
 	static void run(ArrayList<Book> books, double threshold, int num_repititions, int[] k_s, int solution_enum) {
@@ -94,6 +93,8 @@ public class SemanticTest {
 						run_times = s.run_baseline();
 					}else if(solution_enum == NAIVE) {
 						run_times = s.run_naive();
+					}else if(solution_enum == BOUND_TIGHTNESS) {
+						run_times = s.run_bound_tightness_exp();
 					}else{
 						System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 					}
@@ -240,17 +241,26 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"pc"};//if no experiment specified run the bible experiment 
+			String[] temp = {"bound"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
-			run_bible_experiments();
+			final int[] k_s= {3,4,5,6,7,8};
+			final double threshold = 0.7;
+			int solution_enum = NAIVE; //SOLUTION, BASELINE, NAIVE
+			run_bible_experiments(solution_enum, k_s, threshold, false);
 		}else if(contains(args, "p")) {
 			run_pan_experiments();
 		}else if(contains(args, "pc")) {
 			run_pan_correctness_experiments();
 		}else if(contains(args, "j")) {//jaccard
 			run_pan_jaccard_experiments();
+		}else if(contains(args, "bound")) {
+			final int[] k_s= {3,4,5,6,7,8};
+			double[] thetas = {0.5,0.6,0.7,0.8,0.9};
+			for(double threshold : thetas) {
+				run_bible_experiments(SOLUTION,k_s, threshold, true);	
+			}
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}

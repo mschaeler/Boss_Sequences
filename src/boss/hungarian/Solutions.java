@@ -213,7 +213,7 @@ public class Solutions {
 					alignment_matrix[line][column] = similarity;//normalize
 					count_computed_cells++;
 				}//else keep it zero
-				prior_cell_similarity = similarity;//normalize
+				prior_cell_similarity = similarity;//normalize XXX only for ideal case
 				prev_min_value = max(local_similarity_matrix);
 				
 				//System.out.println(line+" "+column+" "+similarity);
