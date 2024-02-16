@@ -61,8 +61,8 @@ public class MatrixLoader {
 		//load_all_matrices();
 		//load_all__excerpt_matrices();
 		//get_org_docs_and_excerpts(0);
-		//path_to_matrices = path_to_pan_matrices;
-		path_to_matrices = path_to_jaccard_matrices;
+		path_to_matrices = path_to_pan_matrices;
+		//path_to_matrices = path_to_jaccard_matrices;
 		
 		PotthastMetrics.run();
 		PotthastMetrics.run_full_documents();

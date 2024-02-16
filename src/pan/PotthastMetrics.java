@@ -196,6 +196,15 @@ public class PotthastMetrics {
 			}
 			System.out.println();
 		}
+		System.out.println("Response-time only cluster extraction");
+		System.out.println("k\tt .9\tt .8\tt .7\tt .6");
+		for(int line=0;line<run_time_plagiarism_extraction.length;line++) {
+			System.out.print(line+3+"\t");//k
+			for(double time : run_time_plagiarism_extraction[line]) {
+				System.out.print(time+"\t");
+			}
+			System.out.println();
+		}
 	}
 	
 	static void run_single_pair(ArrayList<double[][]> pair_matrices) {
@@ -236,8 +245,11 @@ public class PotthastMetrics {
 		}
 	}
 	
+	static double[][] run_time_plagiarism_extraction = null;
 	static void run_single_pair_for_precision(ArrayList<double[][]> pair_matrices, ArrayList<double[][]> pair_excerpt_matrices) {
-		boolean header_written = false;
+		boolean header_written = false; 
+		if(run_time_plagiarism_extraction == null) {run_time_plagiarism_extraction = new double[pair_excerpt_matrices.size()][core_thresholds.length];}
+		
 		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
 			double[][] matrix = pair_matrices.get(k_minus_3);
 			ArrayList<double[][]> matrices = new ArrayList<double[][]>();
@@ -251,7 +263,10 @@ public class PotthastMetrics {
 			ArrayList<double[][]> matrices_excerpt = new ArrayList<double[][]>();
 			matrices_excerpt.add(matrix_excerpt);
 			for(double core_threshold : core_thresholds) {
-				matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt, mark_cluster_seeds(matrix_excerpt, k_minus_3+3,core_threshold)));	
+				double start = System.currentTimeMillis();
+				matrices_excerpt.add(expand_cluster_seeds(matrix_excerpt, mark_cluster_seeds(matrix_excerpt, k_minus_3+3,core_threshold)));
+				double stop = System.currentTimeMillis();
+				run_time_plagiarism_extraction[k_minus_3][get_index(core_threshold, core_thresholds)] += (stop-start);
 			}			
 			
 			if(VERBOSE) {
@@ -277,6 +292,16 @@ public class PotthastMetrics {
 		}
 	}
 	
+	private static int get_index(double core_threshold, double[] coreThresholds) {
+		for(int index = 0;index<core_thresholds.length;index++) {
+			if(coreThresholds[index]==core_threshold) {
+				return index;
+			}
+		}
+		System.err.println("get_index() index not found retuning -1");
+		return -1;
+	}
+
 	private static double precision(double[][] marked_cells, double[][] marked_cells_excerpt, final int k_minus_3, final int i) {
 		boolean[] marked_lines = get_marked_lines(marked_cells);
 		double count_all_positives = count_greater_zero(marked_lines); 
