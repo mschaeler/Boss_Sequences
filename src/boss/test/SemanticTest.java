@@ -161,7 +161,7 @@ public class SemanticTest {
 	}
 	
 	public static void run_pan_experiments() {
-		final int[] k_s= {3,4,5,6,7,8};
+		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 		final double threshold = 0.7;
 		boolean header_written = false;
 		
@@ -180,12 +180,12 @@ public class SemanticTest {
 					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
 					for(Solutions s : solutions) {
 						//run_times = s.run_naive();
-						//run_times = s.run_baseline();
+						run_times = s.run_baseline();
 						//run_times = s.run_incremental_cell_pruning();
 						//run_times = s.run_incremental_cell_pruning_deep();
 						//run_times = s.run_candidates();
 						//run_times = s.run_candidates_deep();
-						run_times = s.run_solution();
+						//run_times = s.run_solution();
 						//run_times = s.run_bound_tightness_exp();
 						
 						all_run_times.add(run_times);
@@ -241,7 +241,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"bound"};//if no experiment specified run the bible experiment 
+			String[] temp = {"exmpl"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -261,6 +261,9 @@ public class SemanticTest {
 			for(double threshold : thetas) {
 				run_bible_experiments(SOLUTION,k_s, threshold, true);	
 			}
+		}else if(contains(args, "exmpl")){
+			//Print example from the paper
+			print_example();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
@@ -273,6 +276,56 @@ public class SemanticTest {
 		}*/	
 	}
 	
+	private static void print_example() {
+		
+		String[] mets_info_esv = {"ESV","1:2","Ester"};
+		String[] chapter_name = {"--1"};
+		String[] verse_esv = {"2","That in those days, when the king Ahasuerus sat on the throne of his kingdom, which was in Shushan the palace,"};
+		String[] mets_info_kj = {"King James","1:2","Ester"};
+		String[] verse_kj = {"2","in those days when King Ahasuerus sat on his royal throne in Susa, the citadel,"};
+		
+		ArrayList<String[]> raw_book = new ArrayList<String[]>(2);
+		raw_book.add(mets_info_esv);
+		raw_book.add(chapter_name);
+		raw_book.add(verse_esv);
+		Book esv = Importer.to_book(raw_book, Book.LANGUAGE_ENGLISH);
+		
+		raw_book.clear();
+		raw_book.add(mets_info_kj);
+		raw_book.add(chapter_name);
+		raw_book.add(verse_kj);
+		Book kj = Importer.to_book(raw_book, Book.LANGUAGE_ENGLISH);
+		
+		System.out.println(esv);
+		System.out.println(kj);
+		
+		ArrayList<Book> books = new ArrayList<Book>(2); 
+		ArrayList<Book> tokenized_books;
+		
+		books.add(esv);
+		books.add(kj);
+		
+		tokenized_books = Tokenizer.run(books, new BasicTokenizer()); 
+		for(Book b : tokenized_books) {
+			System.out.println(b);
+		}
+		int k=3;
+		double threshold = 0.5;
+		ArrayList<Solutions> solutions = prepare_solution(books,k=3,threshold, false);
+		for(Solutions s : solutions) {
+			System.out.println("Tokenized seqeuences");
+			Solutions.out(s.raw_paragraph_b1);
+			Solutions.out(s.raw_paragraph_b2);
+			s.run_baseline();
+			System.out.println("Semantic alignment matrix");
+			out(s.alignement_matrix);
+			System.out.println("Jaccard alignment matrix");
+			out(s.jaccard_windows());
+		}
+		
+		
+	}
+
 	public static void run_pan_jaccard_experiments() {
 		System.out.println("run_pan_jaccard_experiments()");
 		//final int[] k_s = { 3, 4, 5, 6, 7, 8 };// TODO make global s.t. we can use it everywhere

@@ -10,7 +10,7 @@ public interface Config {
 	 */
 	boolean JACCARC_COLLAPSE_SET_IDS = true;
 	
-	boolean REMOVE_STOP_WORDS = false;
+	boolean REMOVE_STOP_WORDS = true;
 	
 	/**
 	 * German stop words

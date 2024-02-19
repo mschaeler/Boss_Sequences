@@ -38,8 +38,8 @@ public class Solutions {
 	public final int[][] k_with_windows_b1;
 	public final int[][] k_with_windows_b2;
 	
-	final int[] raw_paragraph_b1;
-	final int[] raw_paragraph_b2;
+	public final int[] raw_paragraph_b1;
+	public final int[] raw_paragraph_b2;
 	
 	public final double[][] alignement_matrix;
 	
@@ -1682,7 +1682,7 @@ public class Solutions {
 		}
 	}
 	
-	private void out(int[] arr) {
+	public static void out(int[] arr) {
 		for(int d : arr) {
 			System.out.print(d+"\t");
 		}
