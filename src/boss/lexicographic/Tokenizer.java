@@ -3,6 +3,10 @@ package boss.lexicographic;
 import java.util.ArrayList;
 import java.util.HashSet;
 import plus.data.Book;
+import org.apache.lucene.analysis.PorterStemmer;
+
+import boss.util.Config;
+
 
 public abstract class Tokenizer {
 	public Tokenizer() {
@@ -47,7 +51,11 @@ public abstract class Tokenizer {
 		}else if(language == Book.LANGUAGE_GERMAN){
 			regex_characters_to_keep = "[^a-zA-Z������� ]";
 		}else if(language == Book.LANGUAGE_ENGLISH){
-			regex_characters_to_keep = "[^a-zA-Z ]";
+			if(Config.REMOVE_NUMBERS) {
+				regex_characters_to_keep = "[^a-zA-Z ]";//default
+			}else {
+				regex_characters_to_keep = "[^a-zA-Z0-9 ]";//for Jaccard
+			}
 		}else{
 			System.err.println("Tokenizer.replace_non_alphabetic_characters(String,int): unknown language using [^a-zA-ZΑ-Ωα-ωäöüÄÖÜßίϊ�?όάέ�?ϋΰήώ ]");
 			regex_characters_to_keep = "[^a-zA-ZΑ-Ωα-ωäöüÄÖÜßίϊ�?όάέ�?ϋΰήώ ]";
@@ -99,5 +107,24 @@ public abstract class Tokenizer {
 		String[] s = stop_word_removal(p.last_intermediate_result(), p.my_chapter.book.language); 
 		p.inter_mediate_results.add(s);
 		p.step_name.add("Stopword removal");
+	}
+	static void stem(TokenizedParagraph p) {
+		String[] s = stemming(p.last_intermediate_result(), p.my_chapter.book.language); 
+		p.inter_mediate_results.add(s);
+		p.step_name.add("Stemming");
+	}
+	private static String[] stemming(String[] words, int language) {
+		if(language!=Book.LANGUAGE_ENGLISH) {
+			System.err.println("Stemmer supports only english");
+			return words;
+		}
+		PorterStemmer stemmer = new PorterStemmer();
+		String[] ret = new String[words.length];
+		for(int i=0;i<words.length;i++) {
+			String t = words[i];
+			String stemmed_t = stemmer.stem(t);
+			ret[i] = stemmed_t;
+		}
+		return ret;
 	}
 }

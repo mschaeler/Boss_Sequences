@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 import boss.embedding.MatchesWithEmbeddings;
+import boss.util.Config;
 import boss.util.MyArrayList;
 
 public class Solutions {
@@ -117,17 +118,93 @@ public class Solutions {
 	}
 	
 	/**
+	 * For Jaccard only
+	 * 
+	 * @param raw_paragraphs_b1
+	 * @param raw_paragraphs_b2
+	 * @param k
+	 * @param threshold
+	 * @param embedding_vector_index
+	 */
+	public Solutions(ArrayList<int[]> raw_paragraphs_b1, ArrayList<int[]> raw_paragraphs_b2, final int k, final double threshold) {
+		this.k = k;
+		this.k_double = (double) k;
+		this.threshold = threshold;
+		this.threshold_times_k = threshold * k;
+		this.num_paragraphs = raw_paragraphs_b1.size();
+		if(num_paragraphs!=1) {
+			System.err.println("Solutions() - Expecting book granularity");
+		}
+		MAX_SIM_ADDITION_NEW_NODE = 1.0 / k_double; 
+		
+		this.raw_paragraph_b1 = raw_paragraphs_b1.get(0);
+		this.raw_paragraph_b2 = raw_paragraphs_b2.get(0);
+		this.k_with_windows_b1 = create_windows(raw_paragraph_b1, k);
+		this.k_with_windows_b2 = create_windows(raw_paragraph_b2, k);
+		this.embedding_vector_index = null;
+		
+		//Prepare the buffers for the alignment matrixes
+		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
+		
+		HashSet<Integer> tokens_b1 = new HashSet<Integer>();
+		HashSet<Integer> tokens_b2 = new HashSet<Integer>();
+		
+		int max_id = 0;
+		for(int[] p : raw_paragraphs_b1) {
+			for(int id : p) {
+				tokens_b1.add(id);
+				if(id>max_id) {
+					max_id = id;
+				}
+			}
+		}
+		this.tokens_b1 = new int[tokens_b1.size()];
+		int i=0;
+		for(int id : tokens_b1) {
+			this.tokens_b1[i++] = id;
+		}
+		Arrays.sort(this.tokens_b1);
+		
+		for(int[] p : raw_paragraphs_b2) {//Second paragraph
+			for(int id : p) {
+				tokens_b2.add(id);
+				if(id>max_id) {
+					max_id = id;
+				}
+			}
+		}
+		
+		this.tokens_b2 = new int[tokens_b2.size()];
+		i=0;
+		for(int id : tokens_b2) {
+			this.tokens_b2[i++] = id;
+		}
+		Arrays.sort(this.tokens_b2);
+		
+		this.max_id = max_id;
+		
+		this.col_maxima = new double[k];
+	}
+	
+	/**
 	 * 
 	 * @param raw_paragraphs all the paragraphs
 	 * @param k - window size
 	 * @return
 	 */
 	private int[][] create_windows(int[] raw_paragraph, final int k) {	
-		int[][] windows = new int[raw_paragraph.length-k+1][k];//pre-allocate the storage space for the
-		for(int i=0;i<windows.length;i++){
-			//create one window
-			for(int j=0;j<k;j++) {
-				windows[i][j] = raw_paragraph[i+j];
+		int[][] windows; 
+		if(raw_paragraph.length-k+1<0) {
+			System.err.println("Solutions.create_windows(): raw_paragraph.length-k+1<0");
+			windows = new int[1][];
+			windows[0] = raw_paragraph.clone();
+		}else{
+			windows = new int[raw_paragraph.length-k+1][k];//pre-allocate the storage space for the
+			for(int i=0;i<windows.length;i++){
+				//create one window
+				for(int j=0;j<k;j++) {
+					windows[i][j] = raw_paragraph[i+j];
+				}
 			}
 		}
 		return windows;
@@ -556,6 +633,92 @@ public class Solutions {
 		return idx_min_pointer;
 	}
 
+	public static ArrayList<String[]> memory_consumptions = null;
+	public double[] run_memory_consumption_measurement() {
+		print_special_configurations();
+		HungarianDeep solver = new HungarianDeep(k);
+		System.out.println("Solutions.run_memory_consumption_measurement() k="+k+" threshold="+threshold+" "+solver.get_name());
+		USE_GLOBAL_MATRIX = true;
+		if(memory_consumptions==null) {
+			memory_consumptions = new ArrayList<String[]>();
+		}
+		
+		//Some variable
+		double[] run_times = new double[num_paragraphs];
+		double stop,start;
+		final double[][] current_lines = new double[k][];
+		USE_GLOBAL_MATRIX = true;
+		final ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(alignement_matrix.length);
+		final BitSet candidates = new BitSet(alignement_matrix[0].length);
+		
+		final double[][] global_matrix_book  = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
+		
+		
+		final MyArrayList[] neighborhood_index = create_neihborhood_index(dense_global_matrix_buffer);
+		int size_neighborhood_index = 0;
+		for(MyArrayList list : neighborhood_index) {
+			if(list!=null) {
+				size_neighborhood_index+=list.size();
+			}
+		}
+		
+		start = System.currentTimeMillis();
+		final BitSet[] inverted_window_index = create_indexes_bit_vectors();//XXX includes neighborhood computation, which can be re-used
+		double stop_idx_creation = System.currentTimeMillis();
+		
+		int size_bit_vector = 0;
+		for(BitSet bs : inverted_window_index) {
+			if(bs != null) {//not dense, only for all tokens of b1
+				size_bit_vector += bs.size();
+			}
+		}
+		
+		for(int line=0;line<alignement_matrix.length;line++) {
+			candidates.clear();//may contain result from prior line
+			for(int token_id : k_with_windows_b1[line]) {
+				final BitSet temp = inverted_window_index[token_id];
+				candidates.or(temp);
+			}
+			//condense bool[] to runs with from to
+			MyArrayList candidates_condensed = condense(candidates);
+			all_candidates.add(candidates_condensed);
+		}
+		double stop_candidates = System.currentTimeMillis();
+		
+		int size_all_candidates = 0;
+		for(MyArrayList cand : all_candidates) {
+			size_all_candidates += cand.size();
+		}
+		
+		int size_global_matrix = size(global_matrix_book); 
+
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		
+		int size = size(alignement_matrix);
+		
+		int size_double = 8;
+		int size_int = 4;
+		System.out.println("theta="+threshold+"\t"+(stop-start)+"\tms\t"+size*size_double+"\t"+size_global_matrix*size_double+"\t"+size_bit_vector/8+"\t"+size_neighborhood_index*size_int+"\t"+size_all_candidates);
+		String[] temp = {
+			threshold+""
+			,size*size_double+""
+			,size_global_matrix*size_double+""
+			,size_bit_vector/8+""
+			,size_neighborhood_index*size_int+""
+			,size_all_candidates+""
+		};
+		memory_consumptions.add(temp);
+		//clean up
+		count_candidates = 0;
+		count_survived_pruning = 0;
+		count_survived_second_pruning = 0;
+		count_survived_third_pruning = 0;
+		count_cells_exceeding_threshold = 0;
+		return run_times;
+	}
+	
 	public double[] run_solution() {
 		print_special_configurations();
 		HungarianDeep solver = new HungarianDeep(k);
@@ -1793,7 +1956,7 @@ public class Solutions {
 		return global_cost_matrix;
 	}
 	
-	private double[][] fill_similarity_matrix_deep() {
+	public double[][] fill_similarity_matrix_deep() {
 		final double[][] matrix = new double[raw_paragraph_b1.length][raw_paragraph_b2.length];
 		
 		for(int line=0;line<raw_paragraph_b1.length;line++) {
@@ -1840,18 +2003,20 @@ public class Solutions {
 	}
 	
 	public double[][] jaccard_windows(){
-		HashSet<Integer> duplicates = new HashSet<Integer>();
-		final double[][] global_cost_matrix_book = fill_similarity_matrix();
-		for(int id=0;id<global_cost_matrix_book.length;id++) {
-			if(duplicates.contains(id)) {
-				continue;
-			}
-			final double[] line = global_cost_matrix_book[id];
-			for(int other_id=id+1;other_id<line.length;other_id++) {
-				if(line[other_id]==1.0d) {
-					duplicates.add(other_id);
-					replace(k_with_windows_b1, id, other_id);
-					replace(k_with_windows_b2, id, other_id);
+		if(!Config.STEM_WORDS) {//In case we do not stem, replace all sets having maximal similarity s.t. it counts for jaccard as overlap
+			HashSet<Integer> duplicates = new HashSet<Integer>();
+			final double[][] global_cost_matrix_book = fill_similarity_matrix();
+			for(int id=0;id<global_cost_matrix_book.length;id++) {
+				if(duplicates.contains(id)) {
+					continue;
+				}
+				final double[] line = global_cost_matrix_book[id];
+				for(int other_id=id+1;other_id<line.length;other_id++) {
+					if(line[other_id]==1.0d) {
+						duplicates.add(other_id);
+						replace(k_with_windows_b1, id, other_id);
+						replace(k_with_windows_b2, id, other_id);
+					}
 				}
 			}
 		}
@@ -1889,8 +2054,6 @@ public class Solutions {
 		for(int t : tokens_t2) {
 			if(tokens_hashed.contains(t)) {
 				size_intersection++;
-			}else{
-				//TODO same semantic, but different set?
 			}
 		}
 		//size union
@@ -1900,6 +2063,17 @@ public class Solutions {
 		int size_union = tokens_hashed.size();
 		
 		double jaccard_sim = (double) size_intersection / (double) size_union;
+		
+		/*double jaccard_sim_c = (double) size_intersection / (double)(tokens_t1.length+tokens_t2.length-size_intersection);
+		
+		if(jaccard_sim!=jaccard_sim_c) {
+			System.err.println("jaccard_sim!=jaccard_sim_c");
+		}*/
+		
+		if(jaccard_sim>=0.8) {
+			System.out.println(Arrays.toString(tokens_t1));
+			System.out.println(Arrays.toString(tokens_t2));
+		}
 		
 		return jaccard_sim;
 	}

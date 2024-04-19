@@ -69,6 +69,22 @@ public class MatrixLoader {
 		PotthastMetrics.out_aggregated_result();
 	}
 	
+	public static void run_eval_jaccard() {
+		path_to_matrices = path_to_jaccard_matrices;
+		
+		PotthastMetrics.run();
+		PotthastMetrics.run_full_documents();
+		PotthastMetrics.out_aggregated_result();
+	}
+	
+	public static void run_eval_seda() {
+		path_to_matrices = path_to_pan_matrices;
+		
+		PotthastMetrics.run();
+		PotthastMetrics.run_full_documents();
+		PotthastMetrics.out_aggregated_result();
+	}
+	
 	static List<String> get_all_susp_src_directories(){
 		return get_all_susp_src_directories(listFilesUsingFilesList(path_to_pan_matrices)); 
 	}

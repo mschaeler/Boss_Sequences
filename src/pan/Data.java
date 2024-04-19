@@ -253,9 +253,13 @@ public interface Data {
 			System.out.println(pair.get(1));
 		}*/
 		
-		for(int id=0;id<plagiats.length;id++) {
+		/*for(int id=0;id<plagiats.length;id++) {
 			int[] offsets = Data.offsets_in_tokens(id);
 			System.out.println(Arrays.toString(offsets));
+		}*/
+		for(int id=0;id<plagiats.length;id++) {
+			System.out.print(plagiats[id][0]+"\t"+offsets[id][0]+"\t"+offsets[id][1]+"\t");
+			System.out.println(plagiats[id][1]+"\t"+offsets[id][2]+"\t"+offsets[id][3]);
 		}
 		
 	}

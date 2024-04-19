@@ -3,6 +3,7 @@ package boss.test;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,7 +43,7 @@ public class SemanticTest {
 	static String result_path_pan = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
 	static String result_path_bible = "./results/bible_results_"+System.currentTimeMillis()+".tsv";
 	
-	public static void run_bible_experiments(int solution_enum, int[] k_s, double threshold, boolean only_english) {
+	static void run_bible_experiments(int solution_enum, int[] k_s, double threshold, boolean only_english) {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//MAPPING_GRANUALRITY = GRANULARITY_CHAPTER_TO_CHAPTER;
 		result_path_bible+="_"+solution_enum;
@@ -74,6 +75,7 @@ public class SemanticTest {
 	static final int BASELINE = 1;
 	static final int NAIVE    = 2;
 	static final int BOUND_TIGHTNESS    = 3;
+	static final int MEMORY_CONSUMPTION    = 4;
 	
 	static boolean header_written = false;
 	static void run(ArrayList<Book> books, double threshold, int num_repititions, int[] k_s, int solution_enum) {
@@ -95,6 +97,8 @@ public class SemanticTest {
 						run_times = s.run_naive();
 					}else if(solution_enum == BOUND_TIGHTNESS) {
 						run_times = s.run_bound_tightness_exp();
+					}else if(solution_enum == MEMORY_CONSUMPTION) {
+						run_times = s.run_memory_consumption_measurement();
 					}else{
 						System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 					}
@@ -160,7 +164,7 @@ public class SemanticTest {
 		all_run_times.clear();
 	}
 	
-	public static void run_pan_experiments() {
+	static void run_pan_experiments() {
 		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 		final double threshold = 0.7;
 		boolean header_written = false;
@@ -241,13 +245,13 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"exmpl"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
 			final int[] k_s= {3,4,5,6,7,8};
 			final double threshold = 0.7;
-			int solution_enum = NAIVE; //SOLUTION, BASELINE, NAIVE
+			int solution_enum = SOLUTION; //SOLUTION, BASELINE, NAIVE
 			run_bible_experiments(solution_enum, k_s, threshold, false);
 		}else if(contains(args, "p")) {
 			run_pan_experiments();
@@ -261,9 +265,29 @@ public class SemanticTest {
 			for(double threshold : thetas) {
 				run_bible_experiments(SOLUTION,k_s, threshold, true);	
 			}
+		}else if(contains(args, "m")) {
+			final int[] k_s= {3};//The same for all k's
+			double[] thetas = {0.5,0.6,0.7,0.8,0.9};
+			int solution_enum = MEMORY_CONSUMPTION; //SOLUTION, BASELINE, NAIVE, MEMORY_CONSUMPTION
+			for(double threshold : thetas) {
+				run_bible_experiments(solution_enum,k_s, threshold, false);	
+			}
+			System.out.println("theta\t"+"Size Matrix A\t"+"Size GSM\t"+"Size B\t"+" Size N\t"+" Size All candidate runs");
+			for(String[] line : Solutions.memory_consumptions) {
+				System.out.println(to_tsv(line));
+			}
 		}else if(contains(args, "exmpl")){
 			//Print example from the paper
 			print_example();
+		}else if(contains(args, "eval_jacc")){
+			//Print results to console and write aggregated results to file: Jaccard
+			MatrixLoader.run_eval_jaccard();
+		}else if(contains(args, "eval_seda")){
+			//Print results to console and write aggregated results to file: SeDA
+			MatrixLoader.run_eval_seda();
+		}else if(contains(args, "pjp")){//print jaccard paragraphs
+			//Print results to console and write aggregated results to file: SeDA
+			print_jaccard_texts();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
@@ -276,6 +300,14 @@ public class SemanticTest {
 		}*/	
 	}
 	
+	private static String to_tsv(String[] arr) {
+		String ret = arr[0];
+		for(int i=1;i<arr.length;i++) {
+			ret+="\t"+arr[i];
+		}
+		return ret;
+	}
+
 	private static void print_example() {
 		
 		String[] mets_info_esv = {"ESV","1:2","Ester"};
@@ -311,7 +343,7 @@ public class SemanticTest {
 		}
 		int k=3;
 		double threshold = 0.5;
-		ArrayList<Solutions> solutions = prepare_solution(books,k=3,threshold, false);
+		ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, false);
 		for(Solutions s : solutions) {
 			System.out.println("Tokenized seqeuences");
 			Solutions.out(s.raw_paragraph_b1);
@@ -321,12 +353,16 @@ public class SemanticTest {
 			out(s.alignement_matrix);
 			System.out.println("Jaccard alignment matrix");
 			out(s.jaccard_windows());
+			System.out.println("GSM");
+			out(s.fill_similarity_matrix_deep());
+			System.out.println("SIM()");
+			out(Solutions.dense_global_matrix_buffer);
 		}
-		
-		
 	}
 
-	public static void run_pan_jaccard_experiments() {
+	static void run_pan_jaccard_experiments() {
+		Config.STEM_WORDS = true;
+		Config.REMOVE_NUMBERS = false;
 		System.out.println("run_pan_jaccard_experiments()");
 		//final int[] k_s = { 3, 4, 5, 6, 7, 8 };// TODO make global s.t. we can use it everywhere
 		final double threshold = 0.5;// XXX - should set to zero?
@@ -337,14 +373,15 @@ public class SemanticTest {
 			f.mkdir();
 		}
 		
+		HashMap<String, Integer> token_ids = w2i_pan();
+		
 		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
 		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			Solutions.dense_global_matrix_buffer = null;
 			SemanticTest.embedding_vector_index_buffer = null;
 			for (int k : Config.k_s) {
 
-				boolean pan_embeddings = true;
-				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
+				ArrayList<Solutions> solutions = prepare_solution_jaccard(src_plagiat_pair, k, threshold, token_ids);//TODO
 				for (Solutions s : solutions) {
 					double[][] matrix = s.jaccard_windows();
 					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
@@ -355,8 +392,10 @@ public class SemanticTest {
 		}
 
 		boolean quit = false;
-		if (quit)
+		if (quit) {
+			Config.STEM_WORDS = false;
 			return;// XXX
+		}
 
 		PanResult.connectivity_threshold = 0.5;
 		System.out.println("****************************************************************");
@@ -369,8 +408,7 @@ public class SemanticTest {
 			SemanticTest.embedding_vector_index_buffer = null;
 			for (int k : Config.k_s) {
 
-				boolean pan_embeddings = true;
-				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair, k, threshold, pan_embeddings);
+				ArrayList<Solutions> solutions = prepare_solution_jaccard(src_plagiat_pair, k, threshold, token_ids);//TODO
 				for (Solutions s : solutions) {
 					double[][] matrix = PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2);
 					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
@@ -379,6 +417,50 @@ public class SemanticTest {
 				}
 			}
 		}
+		Config.STEM_WORDS = false;
+		Config.REMOVE_NUMBERS = true;
+	}
+	
+	static void print_jaccard_texts() {
+		Config.STEM_WORDS = true;
+		Config.REMOVE_NUMBERS = false;
+		System.out.println("print_jaccard_texts()");
+
+		
+		//TODO create result dir if not exists
+		File  f = new File("./results/jaccard_paragraphs"); 
+		if(!f.exists()) {
+			f.mkdir();
+		}
+		
+		HashMap<String, Integer> token_ids = w2i_pan();
+		
+		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			String name = "./results/jaccard_paragraphs/" + src_plagiat_pair.get(0).book_name + "_"
+					+ src_plagiat_pair.get(1).book_name;
+			prepare_and_print(src_plagiat_pair,name, token_ids);	
+		}
+
+		boolean quit = false;
+		if (quit) {
+			Config.STEM_WORDS = false;
+			return;// XXX
+		}
+
+		PanResult.connectivity_threshold = 0.5;
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Entire Documents****************");
+		System.out.println("****************************************************************");
+
+		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			String name = "./results/jaccard_paragraphs/" + src_plagiat_pair.get(0).book_name + "_"
+					+ src_plagiat_pair.get(1).book_name;
+			prepare_and_print(src_plagiat_pair,name, token_ids);	
+		}
+		Config.STEM_WORDS = false;
+		Config.REMOVE_NUMBERS = true;
 	}
 	
 	private static void inc(HashMap<Double, Double> map, double key, double value) {
@@ -390,7 +472,7 @@ public class SemanticTest {
 		}
 	}
 
-	public static void run_pan_correctness_experiments() {
+	static void run_pan_correctness_experiments() {
 		
 		//final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.5;//XXX - should set to zero?
@@ -584,7 +666,7 @@ public class SemanticTest {
 		return false;
 	}
 
-	public static void test_node_deletion_in_hungarian() {
+	static void test_node_deletion_in_hungarian() {
 		int k = 3;
 		HungarianKevinSternAlmpified HKS = new HungarianKevinSternAlmpified(k);
 		double[][] cost_matrix = {
@@ -718,6 +800,151 @@ public class SemanticTest {
 		return ret;
 	}
 	
+	/**
+	 * Words to integer for Jaccard
+	 * @return
+	 */
+	static HashMap<String, Integer> w2i_pan(){
+		HashSet<String> all_tokens = new HashSet<String>(10000);
+		
+		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		for (ArrayList<Book> books : all_src_plagiats_pairs) {
+			ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+			ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
+			for(String s : all_tokens_ordered) {
+				all_tokens.add(s);
+			}
+		}
+		
+		ArrayList<String> all_tokens_ordered = new ArrayList<String>(all_tokens.size());
+		for(String s : all_tokens) {
+			all_tokens_ordered.add(s);
+		}
+		Collections.sort(all_tokens_ordered);
+		HashMap<String, Integer> dict = new HashMap<String,Integer>(all_tokens_ordered.size());//TODO
+		for(int key=0;key<all_tokens_ordered.size();key++) {
+			String s = all_tokens_ordered.get(key);
+			dict.put(s, key);
+		}
+		return dict;
+	}
+	
+	static void prepare_and_print(ArrayList<Book> books, String file_name, HashMap<String, Integer> token_ids) {
+		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		//System.out.println("SemanticTest.prepare_experiment() [START]");
+		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+		
+		//For each pair of books (i,j)
+		for(int i=0;i<tokenized_books.size();i++) {
+			Book tokenized_book_1 = tokenized_books.get(i);
+			for(int j=i+1;j<tokenized_books.size();j++) {
+				Book tokenized_book_2 = tokenized_books.get(j);	
+				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
+				
+				System.out.println(tokenized_book_1);
+				System.out.println(tokenized_book_2);
+				
+				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
+				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
+				
+				get_tokens(tokenized_book_1, tokenized_book_2, raw_book_1, raw_book_2);
+				
+				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
+				
+				out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
+				out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+				
+				to_file(tokenized_book_1, tokenized_book_2, raw_book_1.get(0), raw_paragraphs_b1.get(0),raw_book_2.get(0), raw_paragraphs_b2.get(0), file_name);
+			}
+		}
+	}
+	
+	private static void to_file(Book tokenized_book_1, Book tokenized_book_2, String[] raw_book_1, int[] set_ids_1,
+			String[] raw_book_2, int[] set_ids_2, String file_name) {
+		File f = new File(file_name+".txt");
+		try (FileWriter writer = new FileWriter(f);
+				BufferedWriter bw = new BufferedWriter(writer)) {
+
+				//bw.write(tokenized_book_1.toString()+"\n");
+				//bw.write(tokenized_book_2.toString()+"\n");
+				
+				String words = "";
+				String ids = "";
+				String pos ="";
+				for(int i=0;i<raw_book_1.length;i++) {
+					words += raw_book_1[i]+"\t";
+					ids += set_ids_1[i]+"\t";
+					pos += i+"\t";
+				}
+				
+				bw.write(words+"\n");
+				bw.write(ids+"\n");
+				bw.write(pos+"\n");
+				
+				words = "";
+				ids = "";
+				pos ="";
+				for(int i=0;i<raw_book_2.length;i++) {
+					words += raw_book_2[i]+"\t";
+					ids += set_ids_2[i]+"\t";
+					pos += i+"\t";
+				}
+				
+				bw.write(words+"\n");
+				bw.write(ids+"\n");
+				bw.write(pos+"\n");
+
+			} catch (IOException e) {
+				System.err.format("IOException: %s%n", e);
+			}
+	}
+	
+	/**
+	 * For Jaccard only
+	 * @param books
+	 * @param k
+	 * @param threshold
+	 * @param pan_embeddings
+	 * @param token_ids
+	 * @return
+	 */
+	static ArrayList<Solutions> prepare_solution_jaccard(ArrayList<Book> books, final int k, final double threshold, HashMap<String, Integer> token_ids) {
+		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		//System.out.println("SemanticTest.prepare_experiment() [START]");
+		ArrayList<Solutions> ret = new ArrayList<Solutions>(books.size());
+		
+		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+		
+		//For each pair of books (i,j)
+		for(int i=0;i<tokenized_books.size();i++) {
+			Book tokenized_book_1 = tokenized_books.get(i);
+			for(int j=i+1;j<tokenized_books.size();j++) {
+				Book tokenized_book_2 = tokenized_books.get(j);	
+				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
+				
+				//System.out.println(tokenized_book_1);
+				//System.out.println(tokenized_book_2);
+				
+				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
+				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
+				
+				get_tokens(tokenized_book_1, tokenized_book_2, raw_book_1, raw_book_2);
+				
+				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
+				
+				//out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
+				//out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+				
+				Solutions exp = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold);
+				ret.add(exp);
+			}
+		}
+		//System.out.println("SemanticTest.prepare_experiment() [DONE]");
+		return ret;
+	}
+
 	static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold, boolean pan_embeddings) {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//System.out.println("SemanticTest.prepare_experiment() [START]");
@@ -744,6 +971,9 @@ public class SemanticTest {
 				Book tokenized_book_2 = tokenized_books.get(j);	
 				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
 				
+				System.out.println(tokenized_book_1);
+				System.out.println(tokenized_book_2);
+				
 				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
 				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
 				
@@ -752,6 +982,9 @@ public class SemanticTest {
 				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
 				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
 				
+				out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
+				out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+				
 				Solutions exp = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
 				ret.add(exp);
 			}
@@ -759,7 +992,22 @@ public class SemanticTest {
 		//System.out.println("SemanticTest.prepare_experiment() [DONE]");
 		return ret;
 	}
-	
+
+	private static void out(String[] raw_book, int[] raw_paragraphs) {
+		if(raw_book.length!=raw_paragraphs.length) {
+			System.err.println("out(String[] raw_book, int[] raw_paragraphs) raw_book.length!=raw_paragraphs.length");
+		}
+		String words = "";
+		String ids = "";
+		for(int i=0;i<raw_book.length;i++) {
+			words += raw_book[i]+"\t";
+			ids += raw_paragraphs[i]+"\t";
+		}
+		System.out.println(words);
+		System.out.println(ids);
+		
+	}
+
 	private static void get_tokens_paragraph_to_chapter(final Book b_1, final Book b_2, final ArrayList<String[]> raw_book_b1, final ArrayList<String[]> raw_book_b2){
 		for(int c=0;c<b_1.my_chapters.size();c++) {
 			Chapter chapter_b1 = b_1.my_chapters.get(c);

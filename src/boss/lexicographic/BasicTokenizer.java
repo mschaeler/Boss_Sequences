@@ -20,6 +20,9 @@ public class BasicTokenizer extends Tokenizer {
 	void tokenize(TokenizedParagraph p) {
 		Tokenizer.remove_non_alphabetic_characters(p);
 		Tokenizer.to_lower_case(p);
+		if(Config.STEM_WORDS) {
+			Tokenizer.stem(p);
+		}
 		if(Config.REMOVE_STOP_WORDS){
 			Tokenizer.remover_stop_words(p);
 		}
