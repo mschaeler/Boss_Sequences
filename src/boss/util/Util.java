@@ -45,4 +45,40 @@ public class Util {
 		}
 		return ret;
 	}
+	public static String outTSV(int[] array) {
+		if (array == null)
+			return "Null array";
+
+		StringBuffer buffer = new StringBuffer(array.length*5);
+		for (int index = 0; index < array.length - 1; index++) {
+			buffer.append(array[index] + "\t ");
+		}
+		buffer.append(array[array.length - 1] + "\t");
+
+		return buffer.toString();
+	}
+	public static String outTSV(String[] array) {
+		if (array == null)
+			return "Null array";
+
+		StringBuffer buffer = new StringBuffer(array.length*5);
+		for (int index = 0; index < array.length - 1; index++) {
+			buffer.append(array[index] + "\t ");
+		}
+		buffer.append(array[array.length - 1] + "\t");
+
+		return buffer.toString();
+	}
+	public static String outTSV(ArrayList<String> array) {
+		if (array == null)
+			return "Null array";
+
+		StringBuffer buffer = new StringBuffer(array.size()*5);
+		for (int index = 0; index < array.size() - 1; index++) {
+			buffer.append(array.get(index) + "\t ");
+		}
+		buffer.append(array.get(array.size() - 1) + "\t");
+
+		return buffer.toString();
+	}
 }

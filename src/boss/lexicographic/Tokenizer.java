@@ -38,7 +38,7 @@ public abstract class Tokenizer {
 		return ret;
 	}
 	
-	static String replace_non_alphabetic_characters(String s, int language){
+	public static String replace_non_alphabetic_characters(String s, int language){
 		String regex_characters_to_keep = null;
 		if(language == Book.LANGUAGE_LATIN) {
 			regex_characters_to_keep = "[^a-zA-Z ]";
@@ -67,7 +67,7 @@ public abstract class Tokenizer {
 	static String[] split_at_lower_case_whitespace(String s){
 		return s.toLowerCase().split("\\s+");
 	}
-	static String[] to_lower_case(String[] array){
+	public static String[] to_lower_case(String[] array){
 		String[] ret = new String[array.length];
 		for(int i=0;i<ret.length;i++) {
 			ret[i] = array[i].toLowerCase();
@@ -75,7 +75,7 @@ public abstract class Tokenizer {
 		return ret;
 	}
 	
-	static String[] stop_word_removal(String[] words, int language) {
+	public static String[] stop_word_removal(String[] words, int language) {
 		HashSet<String> stop_words = StopWords.get_stop_words(language);
 		String[] ret = new String[words.length];
 		for(int i=0;i<words.length;i++) {
@@ -113,7 +113,7 @@ public abstract class Tokenizer {
 		p.inter_mediate_results.add(s);
 		p.step_name.add("Stemming");
 	}
-	private static String[] stemming(String[] words, int language) {
+	public static String[] stemming(String[] words, int language) {
 		if(language!=Book.LANGUAGE_ENGLISH) {
 			System.err.println("Stemmer supports only english");
 			return words;
@@ -122,9 +122,15 @@ public abstract class Tokenizer {
 		String[] ret = new String[words.length];
 		for(int i=0;i<words.length;i++) {
 			String t = words[i];
-			String stemmed_t = stemmer.stem(t);
+			String stemmed_t = null;
+			if(t!=null) {
+				stemmed_t = stemmer.stem(t);
+			}
 			ret[i] = stemmed_t;
 		}
 		return ret;
+	}
+	public static String remove_duplicate_whitespaces(String s) {
+		return s.trim().replaceAll(" +", " ");
 	}
 }

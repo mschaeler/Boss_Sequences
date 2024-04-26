@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -194,6 +195,15 @@ public class MatrixLoader {
 	public static ArrayList<double[][]> load_all_matrices_of_pair(String f) {
 		int[] k_s = Config.k_s;
 		return load_all_matrices_of_pair(new File(f), k_s) ;
+	}
+	public static HashMap<Integer,double[][]> load_all_matrices_of_pair_hashed(String f) {
+		int[] k_s = Config.k_s;
+		ArrayList<double[][]> temp =  load_all_matrices_of_pair(new File(f), k_s);
+		HashMap<Integer,double[][]> ret = new HashMap<Integer, double[][]>(temp.size());
+		for(int i=0;i<k_s.length;i++) {
+			ret.put(k_s[i], temp.get(i));
+		}
+		return ret;
 	}
 	static ArrayList<double[][]> load_all_matrices_of_pair(File dir, int[] k_s) {
 		ArrayList<double[][]> ret = new ArrayList<double[][]>();

@@ -27,7 +27,10 @@ import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
 import boss.util.Config;
 import boss.util.Pair;
+import boss.util.Util;
+import pan.Jaccard;
 import pan.MatrixLoader;
+import pan.PanMetrics;
 import pan.PanResult;
 import plus.data.Book;
 import plus.data.Chapter;
@@ -255,9 +258,9 @@ public class SemanticTest {
 			run_bible_experiments(solution_enum, k_s, threshold, false);
 		}else if(contains(args, "p")) {
 			run_pan_experiments();
-		}else if(contains(args, "pc")) {
+		}/*else if(contains(args, "pc")) {
 			run_pan_correctness_experiments();
-		}else if(contains(args, "j")) {//jaccard
+		}*/else if(contains(args, "j")) {//jaccard
 			run_pan_jaccard_experiments();
 		}else if(contains(args, "bound")) {
 			final int[] k_s= {3,4,5,6,7,8};
@@ -281,7 +284,8 @@ public class SemanticTest {
 			print_example();
 		}else if(contains(args, "eval_jacc")){
 			//Print results to console and write aggregated results to file: Jaccard
-			MatrixLoader.run_eval_jaccard();
+			//MatrixLoader.run_eval_jaccard();
+			PanMetrics.run_jaccard();
 		}else if(contains(args, "eval_seda")){
 			//Print results to console and write aggregated results to file: SeDA
 			MatrixLoader.run_eval_seda();
@@ -373,57 +377,31 @@ public class SemanticTest {
 			f.mkdir();
 		}
 		
-		HashMap<String, Integer> token_ids = w2i_pan();
+		ArrayList<Book>[] all_document_pairs = pan.Data.load_all_entire_documents();
+		HashMap<String, Integer> token_ids = w2i_pan(all_document_pairs);
 		
-		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
-		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-			Solutions.dense_global_matrix_buffer = null;
-			SemanticTest.embedding_vector_index_buffer = null;
-			for (int k : Config.k_s) {
-
-				ArrayList<Solutions> solutions = prepare_solution_jaccard(src_plagiat_pair, k, threshold, token_ids);//TODO
-				for (Solutions s : solutions) {
-					double[][] matrix = s.jaccard_windows();
-					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
-							+ src_plagiat_pair.get(1).book_name;
-					matrix_to_file(name, k, matrix);
-				}
-			}
-		}
-
-		boolean quit = false;
-		if (quit) {
-			Config.STEM_WORDS = false;
-			return;// XXX
-		}
-
-		PanResult.connectivity_threshold = 0.5;
 		System.out.println("****************************************************************");
 		System.out.println("******************************* Entire Documents****************");
 		System.out.println("****************************************************************");
-
-		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
-		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-			Solutions.dense_global_matrix_buffer = null;
-			SemanticTest.embedding_vector_index_buffer = null;
+		
+		for (ArrayList<Book> src_plagiat_pair : all_document_pairs) {
+			Jaccard j = new Jaccard(src_plagiat_pair, token_ids);
+			
 			for (int k : Config.k_s) {
-
-				ArrayList<Solutions> solutions = prepare_solution_jaccard(src_plagiat_pair, k, threshold, token_ids);//TODO
-				for (Solutions s : solutions) {
-					double[][] matrix = PanResult.jaccard_windows(s.k_with_windows_b1, s.k_with_windows_b2);
-					String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
-							+ src_plagiat_pair.get(1).book_name;// TODO change name
-					matrix_to_file(name, k, matrix);
-				}
+				double[][] matrix = j.jaccard_windows(k);
+				String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
+						+ src_plagiat_pair.get(1).book_name;
+				matrix_to_file(name, k, matrix);
 			}
 		}
 		Config.STEM_WORDS = false;
 		Config.REMOVE_NUMBERS = true;
 	}
 	
-	static void print_jaccard_texts() {
+	public static void print_jaccard_texts() {
 		Config.STEM_WORDS = true;
 		Config.REMOVE_NUMBERS = false;
+		Jaccard.verbose_level = Jaccard.print_final_token;
 		System.out.println("print_jaccard_texts()");
 
 		
@@ -433,13 +411,17 @@ public class SemanticTest {
 			f.mkdir();
 		}
 		
-		HashMap<String, Integer> token_ids = w2i_pan();
+		ArrayList<Book>[] all_document_pairs = pan.Data.load_all_entire_documents();
 		
-		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
-		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+		HashMap<String, Integer> token_ids = w2i_pan(all_document_pairs);
+		
+		ArrayList<Book>[] plagiarism_pairs = pan.Data.load_all_plagiarism_excerpts();
+		ArrayList<Jaccard> plagiarism_pairs_jaccard = new ArrayList<Jaccard>(plagiarism_pairs.length);
+		for (ArrayList<Book> src_plagiat_pair : plagiarism_pairs) {
 			String name = "./results/jaccard_paragraphs/" + src_plagiat_pair.get(0).book_name + "_"
 					+ src_plagiat_pair.get(1).book_name;
-			prepare_and_print(src_plagiat_pair,name, token_ids);	
+			System.out.println(name);	
+			plagiarism_pairs_jaccard.add(new Jaccard(src_plagiat_pair.get(0), src_plagiat_pair.get(1), token_ids));
 		}
 
 		boolean quit = false;
@@ -448,17 +430,33 @@ public class SemanticTest {
 			return;// XXX
 		}
 
-		PanResult.connectivity_threshold = 0.5;
 		System.out.println("****************************************************************");
 		System.out.println("******************************* Entire Documents****************");
 		System.out.println("****************************************************************");
 
-		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
-		for (ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+		ArrayList<Jaccard> docs = new ArrayList<Jaccard>(plagiarism_pairs.length);
+		for (int i=0;i<all_document_pairs.length;i++) {
+			ArrayList<Book> src_plagiat_pair = all_document_pairs[i];
 			String name = "./results/jaccard_paragraphs/" + src_plagiat_pair.get(0).book_name + "_"
 					+ src_plagiat_pair.get(1).book_name;
-			prepare_and_print(src_plagiat_pair,name, token_ids);	
+			System.out.println(name);
+			Jaccard j = new Jaccard(src_plagiat_pair.get(0), src_plagiat_pair.get(1), token_ids);
+			j.get_ground_truth(plagiarism_pairs_jaccard.get(i));
+			docs.add(j);
 		}
+		
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Ground Truths ******************");
+		System.out.println("****************************************************************");
+		Jaccard.materialized_ground_truth = new HashMap<String, int[]>();
+		for(int i=0;i<docs.size();i++) {
+			Jaccard j = docs.get(i);
+			String name = "./results/jaccard_paragraphs/" + j.b_1.book_name + "_"
+					+ j.b_2.book_name;
+			System.out.println(name+"\t"+Util.outTSV(j.ground_truth));
+			Jaccard.materialized_ground_truth.put(j.b_1.book_name + "_"+ j.b_2.book_name, j.ground_truth);
+		}
+		
 		Config.STEM_WORDS = false;
 		Config.REMOVE_NUMBERS = true;
 	}
@@ -472,7 +470,7 @@ public class SemanticTest {
 		}
 	}
 
-	static void run_pan_correctness_experiments() {
+	/*static void run_pan_correctness_experiments() {
 		
 		//final int[] k_s= {3,4,5,6,7,8};
 		final double threshold = 0.5;//XXX - should set to zero?
@@ -509,8 +507,6 @@ public class SemanticTest {
 		boolean quit = false;
 		if(quit) return;//XXX
 		
-		
-		PanResult.connectivity_threshold = 0.5;
 		System.out.println("****************************************************************");
 		System.out.println("******************************* Entire Documents****************");
 		System.out.println("****************************************************************");
@@ -519,7 +515,7 @@ public class SemanticTest {
 			System.out.println();
 		}*/
 		
-		
+		/*
 		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
 		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			Solutions.dense_global_matrix_buffer = null;
@@ -585,7 +581,7 @@ public class SemanticTest {
 			}
 			PanResult.out_agg();
 		}
-	}
+	}*/
 	
 	public static String outTSV(double[] array) {
 		if (array == null)
@@ -804,14 +800,16 @@ public class SemanticTest {
 	 * Words to integer for Jaccard
 	 * @return
 	 */
-	static HashMap<String, Integer> w2i_pan(){
+	static HashMap<String, Integer> w2i_pan(ArrayList<Book>[] all_document_pairs){
 		HashSet<String> all_tokens = new HashSet<String>(10000);
 		
-		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
-		for (ArrayList<Book> books : all_src_plagiats_pairs) {
-			ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
-			ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
-			for(String s : all_tokens_ordered) {
+		for (ArrayList<Book> books : all_document_pairs) {
+			Jaccard j = new Jaccard(books.get(0), books.get(1));
+			
+			for(String s : j.text_tokens_b_1) {
+				all_tokens.add(s);
+			}
+			for(String s : j.text_tokens_b_2) {
 				all_tokens.add(s);
 			}
 		}
