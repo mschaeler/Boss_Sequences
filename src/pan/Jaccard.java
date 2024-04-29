@@ -228,8 +228,17 @@ public class Jaccard {
 		
 		return ground_truth;
 	}
+	
+	public static int[] get_ground_truth(int[] int_tokens_b_1, int[] int_tokens_b_2, int[] int_tokens_excerpt_1, int[] int_tokens_excerpt_2) {
+		int[] offsets_b1 = find(int_tokens_b_1, int_tokens_excerpt_1);
+		int[] offsets_b2 = find(int_tokens_b_2, int_tokens_excerpt_2);
+		
+		int[] ground_truth = {offsets_b1[0],offsets_b1[1],offsets_b2[0],offsets_b2[1]}; 
+		
+		return ground_truth;
+	}
 
-	private int[] find(int[] array, int[] sub_array) {
+	private static int[] find(int[] array, int[] sub_array) {
 		for(int i=0;i<array.length;i++) {//TODO - sub_array.length
 			if(array[i]==sub_array[0]) { //found possible start
 				if(find(array, sub_array, i)) {
@@ -241,7 +250,7 @@ public class Jaccard {
 		System.err.println("Jaccard.find(int[],int[]) Did not find the excerpt");
 		return null;
 	}
-	private boolean find(int[] array, int[] sub_array, final int offset) {
+	private static boolean find(int[] array, int[] sub_array, final int offset) {
 		for(int i=0;i<sub_array.length;i++) {
 			if(array[offset+i]!=sub_array[i]) {
 				return false;

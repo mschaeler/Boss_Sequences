@@ -288,10 +288,14 @@ public class SemanticTest {
 			PanMetrics.run_jaccard();
 		}else if(contains(args, "eval_seda")){
 			//Print results to console and write aggregated results to file: SeDA
-			MatrixLoader.run_eval_seda();
+			//MatrixLoader.run_eval_seda();
+			PanMetrics.run_seda();
 		}else if(contains(args, "pjp")){//print jaccard paragraphs
-			//Print results to console and write aggregated results to file: SeDA
+			//Print results to console and write aggregated results to file: Jaccard
 			print_jaccard_texts();
+		}else if(contains(args, "psp")){//print seda paragraphs
+			//Print results to console and write aggregated results to file: SeDA
+			print_seda_texts();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
@@ -396,6 +400,81 @@ public class SemanticTest {
 		}
 		Config.STEM_WORDS = false;
 		Config.REMOVE_NUMBERS = true;
+	}
+	
+	public static void print_seda_texts() {
+		System.out.println("print_seda_texts()");
+		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
+		
+		//TODO create result dir if not exists
+		File  f = new File("./results/seda_paragraphs"); 
+		if(!f.exists()) {
+			f.mkdir();
+		}
+		
+		ArrayList<Book>[] all_document_pairs = pan.Data.load_all_entire_documents();
+		
+		HashMap<String, Integer> token_ids = w2i_seda(all_document_pairs);
+		ArrayList<int[]> susp_excerpts_encoded = new ArrayList<int[]>();
+		ArrayList<int[]> src_excerpts_encoded = new ArrayList<int[]>();
+		ArrayList<Book>[] plagiarism_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for (ArrayList<Book> src_plagiat_pair : plagiarism_pairs) {
+			String name = "./results/seda_paragraphs/" + src_plagiat_pair.get(0).book_name + "_"
+					+ src_plagiat_pair.get(1).book_name;
+			System.out.println(name);	
+			ArrayList<Book> tokenized_books = Tokenizer.run(src_plagiat_pair, new BasicTokenizer());
+			ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
+			ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
+			
+			get_tokens(tokenized_books.get(0), tokenized_books.get(1), raw_book_1, raw_book_2);
+			ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+			ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
+			
+			out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
+			out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+			
+			susp_excerpts_encoded.add(raw_paragraphs_b1.get(0));
+			src_excerpts_encoded.add(raw_paragraphs_b2.get(0));
+		}
+
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Entire Documents****************");
+		System.out.println("****************************************************************");
+
+		ArrayList<int[]> susp_encoded= new ArrayList<int[]>();
+		ArrayList<int[]> src_encoded = new ArrayList<int[]>();
+		for (int i=0;i<all_document_pairs.length;i++) {
+			ArrayList<Book> src_plagiat_pair = all_document_pairs[i];
+			String name = "./results/seda_paragraphs/" + src_plagiat_pair.get(0).book_name + "_"
+					+ src_plagiat_pair.get(1).book_name;
+			System.out.println(name);
+			ArrayList<Book> tokenized_books = Tokenizer.run(src_plagiat_pair, new BasicTokenizer());
+			ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
+			ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
+			
+			get_tokens(tokenized_books.get(0), tokenized_books.get(1), raw_book_1, raw_book_2);
+			ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
+			ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
+			
+			out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
+			out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+			
+			susp_encoded.add(raw_paragraphs_b1.get(0));
+			src_encoded.add(raw_paragraphs_b2.get(0));
+		}
+		
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Ground Truths ******************");
+		System.out.println("****************************************************************");
+		Jaccard.materialized_ground_truth = new HashMap<String, int[]>();
+		for(int i=0;i<all_document_pairs.length;i++) {
+			ArrayList<Book> books = all_document_pairs[i];
+			String name = "./results/seda_paragraphs/" + books.get(0).book_name + "_"
+					+ books.get(1).book_name;
+			int[] ground_truth = Jaccard.get_ground_truth(susp_encoded.get(i), src_encoded.get(i), susp_excerpts_encoded.get(i), src_excerpts_encoded.get(i));
+			System.out.println(name+"\t"+Util.outTSV(ground_truth));
+			Jaccard.materialized_ground_truth.put( books.get(0).book_name + "_"+  books.get(1).book_name, ground_truth);
+		}
 	}
 	
 	public static void print_jaccard_texts() {
@@ -810,6 +889,36 @@ public class SemanticTest {
 				all_tokens.add(s);
 			}
 			for(String s : j.text_tokens_b_2) {
+				all_tokens.add(s);
+			}
+		}
+		
+		ArrayList<String> all_tokens_ordered = new ArrayList<String>(all_tokens.size());
+		for(String s : all_tokens) {
+			all_tokens_ordered.add(s);
+		}
+		Collections.sort(all_tokens_ordered);
+		HashMap<String, Integer> dict = new HashMap<String,Integer>(all_tokens_ordered.size());//TODO
+		for(int key=0;key<all_tokens_ordered.size();key++) {
+			String s = all_tokens_ordered.get(key);
+			dict.put(s, key);
+		}
+		return dict;
+	}
+	
+	/**
+	 * Words to integer for SeDA
+	 * Difference is the Tokenizer
+	 * @return
+	 */
+	static HashMap<String, Integer> w2i_seda(ArrayList<Book>[] all_document_pairs){
+		HashSet<String> all_tokens = new HashSet<String>(10000);
+		
+		for (ArrayList<Book> books : all_document_pairs) {
+			ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+			ArrayList<String> temp = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
+			
+			for(String s : temp) {
 				all_tokens.add(s);
 			}
 		}

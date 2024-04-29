@@ -19,13 +19,14 @@ public class PanMetrics {//TODO micro average
 	public static void run_seda() {
 		PanResult.clear();
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_pan_matrices;
+		SemanticTest.print_seda_texts();//to get the ground truth
 		new PanMetrics().run();
 	}
 	
 	public static void run_jaccard() {
 		PanResult.clear();
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_jaccard_matrices;
-		SemanticTest.print_jaccard_texts();
+		SemanticTest.print_jaccard_texts();//to get the ground truth
 		new PanMetrics().run();
 	}
 	
@@ -42,12 +43,17 @@ public class PanMetrics {//TODO micro average
 		for(double t : thresholds) {
 			System.out.print("\t"+t);
 		}
+		System.out.print("\t\tGranularity");
+		for(double t : thresholds) {
+			System.out.print("\t"+t);
+		}
 		System.out.println();
 		ArrayList<String> micro_metric = new ArrayList<String>();
 		for(int k : k_s) {
 			//macro
 			String precision="k="+k;
 			String recall="k="+k;
+			String granulartiy="k="+k;
 			//micro
 			String micro_precision="k="+k;
 			String micro_recall="k="+k;
@@ -55,6 +61,7 @@ public class PanMetrics {//TODO micro average
 				ArrayList<PanResult> r = PanResult.get_results(k,t);
 				double avg_recall    = 0;
 				double avg_precision = 0;
+				double avg_gran		 = 0;
 				double sum_all_true_postives   = 0.0d;
 				double sum_found_true_postives = 0.0d;
 				double sum_retrieved		   = 0.0d;
@@ -63,6 +70,7 @@ public class PanMetrics {//TODO micro average
 					//System.out.println(pr);
 					avg_recall 	  += pr.recall;
 					avg_precision += pr.precision;
+					avg_gran 	  += pr.granularity;
 					sum_all_true_postives   += pr.all_true_positives;
 					sum_found_true_postives += pr.found_true_positives;
 					sum_retrieved		    += pr.retrieved_elements;
@@ -72,6 +80,8 @@ public class PanMetrics {//TODO micro average
 				recall+="\t"+avg_recall;
 				avg_precision /= (double) r.size();
 				precision+="\t"+avg_precision;
+				avg_gran /= (double) r.size();
+				granulartiy+="\t"+avg_gran;
 				//micro metrics
 				double m_recall = sum_found_true_postives / sum_all_true_postives;
 				micro_recall+="\t"+m_recall;
@@ -79,7 +89,7 @@ public class PanMetrics {//TODO micro average
 				micro_precision+="\t"+m_precision;
 			
 			}
-			System.out.println(precision+"\t\t"+recall);
+			System.out.println(precision+"\t\t"+recall+"\t\t"+granulartiy);
 			micro_metric.add(micro_precision+"\t\t"+micro_recall);
 		}
 		System.out.println();
@@ -132,48 +142,23 @@ public class PanMetrics {//TODO micro average
 					final boolean[] marked_src  = new boolean[marked_cells[0].length+k-1];
 					get_marked_lines(marked_cells, marked_susp, marked_src, k);
 					
-					double true_positives = get_true_positives(ground_truth_susp, ground_truth_src, marked_susp, marked_src);
+					//double true_positives = get_true_positives(ground_truth_susp, ground_truth_src, marked_susp, marked_src);
+					double true_positives_2 = get_true_positives(base_line, marked_cells, k);
+					/*if(true_positives == true_positives_2) {
+						System.out.println("true_positives == true_positives_2");
+					}else if(true_positives > true_positives_2) {
+						System.out.println("true_positives > true_positives_2");
+					}else {
+						System.err.println("true_positives < true_positives_2");
+					}*/
+					
 					double retrieved_elements = get_retrieved_elements(marked_susp, marked_src);
 					
-					double recall = true_positives / real_count_true_positives;
-					double precision = (retrieved_elements>0) ? true_positives / retrieved_elements : 0;
+					double recall = true_positives_2 / real_count_true_positives;
+					double precision = (retrieved_elements>0) ? true_positives_2 / retrieved_elements : 0;
 					
-					
-					/*BitSet marked_susp = get_marked_lines(marked_cells, k);
-					BitSet marked_src  = get_marked_columns(marked_cells, k);
-					BitSet temp;
-					
-					//true positives
-					double true_positives  = 0;
-					temp = (BitSet) ground_truth_susp.clone();
-					temp.and(marked_susp);
-					true_positives += temp.cardinality();
-					temp = (BitSet) ground_truth_src.clone();
-					temp.and(marked_src);
-					true_positives += temp.cardinality();
-					
-					double recall = true_positives / real_count_true_positives;
-					double retrieved_elements = marked_susp.cardinality() + marked_src.cardinality();
-					double precision = (retrieved_elements>0) ? true_positives / retrieved_elements : 0;
-					
-					
-					/*double count_found_true_positive_tokens;
-					count_found_true_positive_tokens = count_true_positives(marked_cells_susp, base_line[0],base_line[1]);
-					count_found_true_positive_tokens += count_true_positives(marked_cells_src, base_line[2],base_line[3]);
-					
-					
-					double count_false_positive_tokens;
-					count_false_positive_tokens = count_false_positive_tokens(marked_cells_susp, base_line[0],base_line[1]);
-					count_false_positive_tokens += count_false_positive_tokens(marked_cells_src, base_line[2],base_line[3]);
-					
-					double count_all_positive_tokens;
-					count_all_positive_tokens = count_all_positive_tokens(marked_cells_susp);
-					count_all_positive_tokens += count_all_positive_tokens(marked_cells_src);
-					
-					double case_precision = count_all_positive_tokens / real_count_true_positives;
-					double case_recall    = count_found_true_positive_tokens / real_count_true_positives;*/
-					double granularity 	  = gran(marked_susp);
-					PanResult pr = new PanResult(name, k, core_threshold, precision, recall, granularity, real_count_true_positives, true_positives, retrieved_elements);
+					double granularity 	  = gran(marked_susp, base_line[0], base_line[1]);
+					PanResult pr = new PanResult(name, k, core_threshold, precision, recall, granularity, real_count_true_positives, true_positives_2, retrieved_elements);
 					System.out.println(pr);
 				}
 			}
@@ -181,6 +166,24 @@ public class PanMetrics {//TODO micro average
 		out_results();
 	}
 	
+	double get_true_positives(int[] base_line, double[][] marked_cells, final int k) {
+		boolean[] marked_susp = new boolean[marked_cells.length];
+		boolean[] marked_src = new boolean[marked_cells[0].length];
+		
+		//Scan only in border of real plagiarism case
+		for(int l=base_line[0];l<=base_line[1]-k+1;l++) {
+			double[] line = marked_cells[l];
+			for(int c=base_line[2];c<=base_line[3]-k+1;c++) {
+				if(line[c]>=IS_REACHABLE_CELL) {
+					marked_susp[l] = true;
+					marked_src[c]  = true;
+				}
+			}
+		}
+		double found_true_positives = get_retrieved_elements(marked_susp, marked_src);
+		return found_true_positives;
+	}
+
 	double get_retrieved_elements(boolean[] marked_susp, boolean[] marked_src) {
 		double retrieved_elements = 0.0d;
 		for(boolean b : marked_susp) {
@@ -345,11 +348,12 @@ public class PanMetrics {//TODO micro average
 		return count;
 	}
 	
-	double gran(boolean[] marked_lines) {		
+	double gran(boolean[] marked_lines, int susp_ground_truth_from, int susp_ground_truth_to) {		
 		double count = 0.0d;
 		boolean was_found = false;
 		
-		for(boolean b : marked_lines) {
+		for(int i=susp_ground_truth_from;i<=susp_ground_truth_to;i++) {
+			boolean b = marked_lines[i];
 			if(was_found) {
 				if(b) {
 					//still in the same found fragment
