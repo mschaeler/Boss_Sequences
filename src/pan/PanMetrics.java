@@ -19,8 +19,8 @@ public class PanMetrics {//TODO micro average
 	public static void run_seda() {
 		PanResult.clear();
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_pan_matrices;
-		SemanticTest.print_seda_texts();//to get the ground truth
-		new PanMetrics().run();
+		//SemanticTest.print_seda_texts();//to get the ground truth
+		new PanMetrics().run_seda_();
 	}
 	
 	public static void run_jaccard() {
@@ -107,10 +107,70 @@ public class PanMetrics {//TODO micro average
 		}
 	}
 	
+	String get_excerpts(String name, List<String> ex) {
+		String[] tokens = name.split("_");// susp_00228_src_05889 -> [susp, 00228 , src, 05889]
+		for(String e : ex) {
+			if(e.contains(tokens[1]) && e.contains("_"+tokens[3])) {
+				return e;
+			}
+		}
+		System.err.println("get_excerpts(String, List<String>) did not find excerpt of "+name);
+		return null;
+	}
+	
+	void run_seda_() {
+		List<String> l = MatrixLoader.get_all_susp_src_directories();
+		List<String> ex = MatrixLoader.get_all_excerpt_directories();
+		
+		for(int i=0;i<l.size();i++) {//For each data set pair
+			//String dir  = l.get(i);
+			String name = l.get(i);
+			String excerpts = get_excerpts(name, ex);
+			
+			HashMap<Integer,double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair_hashed(name);
+			HashMap<Integer,double[][]> my_excerpts_matrices = MatrixLoader.load_all_matrices_of_pair_hashed(excerpts);
+			
+			for(Entry<Integer, double[][]> e : my_matrices.entrySet()) {//For each window size k
+				final int k = e.getKey();
+				double[][] matrix = e.getValue();
+				double[][] e_matrix = my_excerpts_matrices.get(k);
+				final double real_count_true_positives = e_matrix.length+e_matrix[0].length;//This is the matrix of the part being the plagiarism cse
+				
+				for(double core_threshold : core_thresholds) {// For each core_threshold
+					double start = System.currentTimeMillis();
+					double[][] marked_cells = (expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k, core_threshold)));//TODO measure time
+					double stop = System.currentTimeMillis();
+					final boolean[] marked_susp = new boolean[marked_cells.length+k-1]; 
+					final boolean[] marked_src  = new boolean[marked_cells[0].length+k-1];
+					get_marked_lines(marked_cells, marked_susp, marked_src, k);
+					
+					double[][] e_marked_cells = (expand_cluster_seeds(e_matrix, mark_cluster_seeds(e_matrix, k, core_threshold)));
+					final boolean[] e_marked_susp = new boolean[marked_cells.length+k-1]; 
+					final boolean[] e_marked_src  = new boolean[marked_cells[0].length+k-1];
+					get_marked_lines(e_marked_cells, e_marked_susp, e_marked_src, k);
+					
+					
+					//double true_positives = get_true_positives(ground_truth_susp, ground_truth_src, marked_susp, marked_src);
+					double true_positives_2 = get_true_positives(e_marked_cells, k);
+
+					
+					double retrieved_elements = get_retrieved_elements(marked_susp, marked_src);
+					
+					double recall = true_positives_2 / real_count_true_positives;
+					double precision = (retrieved_elements>0) ? true_positives_2 / retrieved_elements : 0;
+					
+					double granularity 	  = gran(e_marked_susp);
+					PanResult pr = new PanResult(name, k, core_threshold, precision, recall, granularity, real_count_true_positives, true_positives_2, retrieved_elements);
+					System.out.println(pr);
+				}
+			}
+		}
+		out_results();
+	}
+	
+	
+	
 	void run() {
-		/**
-		 * all_matrices.(pair_id).(k-3)
-		 */
 		List<String> l = MatrixLoader.get_all_susp_src_directories();
 		
 		for(int i=0;i<l.size();i++) {//For each data set pair
@@ -164,6 +224,30 @@ public class PanMetrics {//TODO micro average
 			}
 		}
 		out_results();
+	}
+	
+	/**
+	 * For excerpts
+	 * @param marked_cells
+	 * @param k
+	 * @return
+	 */
+	double get_true_positives(double[][] marked_cells, final int k) {
+		boolean[] marked_susp = new boolean[marked_cells.length];
+		boolean[] marked_src = new boolean[marked_cells[0].length];
+		
+		//Scan only in border of real plagiarism case
+		for(int l=0;l<marked_cells.length;l++) {
+			double[] line = marked_cells[l];
+			for(int c=0;c<line.length;c++) {
+				if(line[c]>=IS_REACHABLE_CELL) {
+					marked_susp[l] = true;
+					marked_src[c]  = true;
+				}
+			}
+		}
+		double found_true_positives = get_retrieved_elements(marked_susp, marked_src);
+		return found_true_positives;
 	}
 	
 	double get_true_positives(int[] base_line, double[][] marked_cells, final int k) {
@@ -345,6 +429,29 @@ public class PanMetrics {//TODO micro average
 				count++;
 			}
 		}
+		return count;
+	}
+	
+	double gran(boolean[] marked_lines) {		
+		double count = 0.0d;
+		boolean was_found = false;
+		
+		for(int i=0;i<marked_lines.length;i++) {
+			boolean b = marked_lines[i];
+			if(was_found) {
+				if(b) {
+					//still in the same found fragment
+				}else {
+					was_found = false;
+				}
+			}else{
+				if(b) {//hit a new found fragment
+					count++;
+					was_found = true;
+				}//else still not in a found fragment
+			}
+		}
+		
 		return count;
 	}
 	

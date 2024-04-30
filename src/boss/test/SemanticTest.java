@@ -248,7 +248,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_seda"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -258,9 +258,9 @@ public class SemanticTest {
 			run_bible_experiments(solution_enum, k_s, threshold, false);
 		}else if(contains(args, "p")) {
 			run_pan_experiments();
-		}/*else if(contains(args, "pc")) {
+		}else if(contains(args, "pc")) {
 			run_pan_correctness_experiments();
-		}*/else if(contains(args, "j")) {//jaccard
+		}else if(contains(args, "j")) {//jaccard
 			run_pan_jaccard_experiments();
 		}else if(contains(args, "bound")) {
 			final int[] k_s= {3,4,5,6,7,8};
@@ -549,39 +549,32 @@ public class SemanticTest {
 		}
 	}
 
-	/*static void run_pan_correctness_experiments() {
-		
+	static void run_pan_correctness_experiments() {
+		Config.REMOVE_STOP_WORDS = false;
 		//final int[] k_s= {3,4,5,6,7,8};
-		final double threshold = 0.5;//XXX - should set to zero?
+		final double threshold = 0.0;//XXX - should set to zero?
 				
 		File  f = new File("./results/pan_results"); 
 		if(!f.exists()) {
 			f.mkdir();
 		}
 		
-		ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
-		double[] connectivity_thresholds = {0.7};
-		for(double connectivity_threshold : connectivity_thresholds) {
-			for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
-				Solutions.dense_global_matrix_buffer = null;
-				SemanticTest.embedding_vector_index_buffer = null;
-				for(int k : Config.k_s) {
-					
-					boolean pan_embeddings = true;
-					ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
-					for(Solutions s : solutions) {
-						s.run_solution();
-						//PanResult.connectivity_threshold = connectivity_threshold;
-						//PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
-						String name = "./results/pan_results/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
-						matrix_to_file(name, k, s.alignement_matrix);
-					}
+		ArrayList<Book>[] all_src_plagiats_pairs;
+		
+		all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for(int k : Config.k_s) {
+				
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_naive();//Threshold is 0. So, we should the naive version.
+					String name = "./results/pan_results/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, s.alignement_matrix);
 				}
 			}
-			//PanResult.out();
-			
-			PanResult.out_agg();
-			PanResult.clear();
 		}
 		boolean quit = false;
 		if(quit) return;//XXX
@@ -589,12 +582,7 @@ public class SemanticTest {
 		System.out.println("****************************************************************");
 		System.out.println("******************************* Entire Documents****************");
 		System.out.println("****************************************************************");
-		/*for(int k : k_s) {
-			PanResult.all_results[k].get(0).out_my_matrices();
-			System.out.println();
-		}*/
-		
-		/*
+
 		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
 		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
 			Solutions.dense_global_matrix_buffer = null;
@@ -604,63 +592,14 @@ public class SemanticTest {
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 				for(Solutions s : solutions) {
-					s.run_solution();					
-					//PanResult r = new PanResult(s);//also adds it to the static class variable collecting all results
+					s.run_naive();					
 					String name = "./results/pan_results/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
 					matrix_to_file(name, k, s.alignement_matrix);
 				}
 			}
 		}
-		//PanResult.out();
-		PanResult.out_agg();
-		
-		PanResult.clear();
-		
-		boolean do_all = false;
-		
-		if(do_all) {
-			System.out.println("****************************************************************");
-			System.out.println("******************************* All Documents ******************");
-			System.out.println("****************************************************************");
-			try {
-				ArrayList<Book> suspicious_docs = new ArrayList<Book>();
-				for (int susp_id = 0; susp_id < Importer.PAN11_SUSP.length; susp_id++) {
-					suspicious_docs.add(Importer.get_book_pan11(Importer.PAN11_SUSP[susp_id], Book.LANGUAGE_ENGLISH));
-				}
-				ArrayList<Book> source_docs = new ArrayList<Book>();
-				for (int source_id = 0; source_id < Importer.PAN11_SUSP.length; source_id++) {
-					source_docs.add(Importer.get_book_pan11(Importer.PAN11_SRC[source_id], Book.LANGUAGE_ENGLISH));
-				}
-				
-				for (int i=0;i<suspicious_docs.size();i++) {
-					Book susp = suspicious_docs.get(i);
-					System.out.println("Susp_id= "+i+" of "+suspicious_docs.size());
-					for(Book src : source_docs) {
-						ArrayList<Book> pair = new ArrayList<Book>(2);
-						pair.add(susp);
-						pair.add(src);
-						
-						Solutions.dense_global_matrix_buffer = null;
-						SemanticTest.embedding_vector_index_buffer = null;
-						for(int k : Config.k_s) {
-							
-							boolean pan_embeddings = true;
-							ArrayList<Solutions> solutions = prepare_solution(pair,k,threshold, pan_embeddings);
-							for(Solutions s : solutions) {
-								s.run_solution();
-								//new PanResult(s);//also adds it to the static class variable collecting all results
-								String name = "./results/pan_results/"+pair.get(0).book_name+"_"+pair.get(1).book_name;
-								matrix_to_file(name, k, s.alignement_matrix);
-							}
-						}
-					}
-				}
-			} catch (Exception e) {
-				System.err.println(e);
-			}
-			PanResult.out_agg();
-		}
-	}*/
+		Config.REMOVE_STOP_WORDS = true;
+	}
 	
 	public static String outTSV(double[] array) {
 		if (array == null)
