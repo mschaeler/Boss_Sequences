@@ -85,6 +85,7 @@ public class PotthastMetrics {
 		 */
 		ArrayList<ArrayList<double[][]>> all_matrices;
 		all_matrices = MatrixLoader.load_all_excerpt_matrices();
+		List<String> names = MatrixLoader.get_all_excerpt_directories(MatrixLoader.listFilesUsingFilesList(MatrixLoader.path_to_pan_matrices));
 			
 		recall_results = new ArrayList[all_matrices.get(0).size()][core_thresholds.length];
 		gran_results = new ArrayList[all_matrices.get(0).size()][core_thresholds.length];
@@ -96,7 +97,7 @@ public class PotthastMetrics {
 		}
 		
 		for(int pair_id=0;pair_id<all_matrices.size();pair_id++) {
-			run_single_pair(all_matrices.get(pair_id));
+			run_single_pair(all_matrices.get(pair_id),names.get(pair_id));
 		}
 		System.out.println("Average Recall");
 		System.out.println();
@@ -131,6 +132,7 @@ public class PotthastMetrics {
 			}
 			System.out.println();
 		}
+		PanMetrics.out_results();
 	}
 	
 	private static double avg(ArrayList<Double> arrayList) {
@@ -205,9 +207,10 @@ public class PotthastMetrics {
 			}
 			System.out.println();
 		}
+		PanMetrics.out_results();
 	}
 	
-	static void run_single_pair(ArrayList<double[][]> pair_matrices) {
+	static void run_single_pair(ArrayList<double[][]> pair_matrices, String name) {
 		boolean header_written = false;
 		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
 			double[][] matrix = pair_matrices.get(k_minus_3);
@@ -242,7 +245,31 @@ public class PotthastMetrics {
 				}
 				System.out.println();
 			}
-		}
+		}/* For debugging
+		for(int k_minus_3 = 0;k_minus_3<pair_matrices.size();k_minus_3++) {
+			double[][] matrix = pair_matrices.get(k_minus_3);
+			final int k = k_minus_3 +3;
+
+			for(double core_threshold : core_thresholds) {
+				final double[][] marked = expand_cluster_seeds(matrix,mark_cluster_seeds(matrix, k_minus_3+3, core_threshold));
+				
+				double precision = -1.0d; 
+				double recall = recall(marked);
+				double gran = gran(marked); 
+				double all_true_positives = matrix.length; 
+				boolean[] found_cells_susp = get_marked_lines(marked);
+				boolean[] found_cells_src  = get_marked_columns(marked);
+				double found_true_positives = count_greater_zero(found_cells_susp);
+				double retrieved_elements = -1;
+				
+				PanResult pr = new PanResult(name, k, core_threshold, precision, recall, gran, all_true_positives, found_true_positives, retrieved_elements);
+				System.out.println(pr);
+				all_true_positives = found_cells_susp.length+found_cells_src.length;
+				found_true_positives = count_greater_zero(found_cells_susp)+count_greater_zero(found_cells_src);
+				PanResult pr_2 = new PanResult(name+"_c", k, core_threshold, precision, recall, gran, all_true_positives, found_true_positives, retrieved_elements);
+				System.out.println(pr_2);
+			}
+		}*/
 	}
 	
 	static double[][] run_time_plagiarism_extraction = null;
@@ -303,26 +330,49 @@ public class PotthastMetrics {
 	}
 
 	private static double precision(double[][] marked_cells, double[][] marked_cells_excerpt, final int k_minus_3, final int i) {
-		boolean[] marked_lines = get_marked_lines(marked_cells);
-		double count_all_positives = count_greater_zero(marked_lines); 
+		boolean[] marked_susp = get_marked_lines(marked_cells);
+		boolean[] marked_src  = get_marked_columns(marked_cells);
+		double retrieved = count_greater_zero(marked_susp); 
 		
-		boolean[] marked_lines_excerpt = get_marked_lines(marked_cells_excerpt);
-		double count_true_positives = count_greater_zero(marked_lines_excerpt);
+		boolean[] marked_lines_excerpt   = get_marked_lines(marked_cells_excerpt);
+		boolean[] marked_columns_excerpt = get_marked_columns(marked_cells_excerpt);
+		double found_true_positives = count_greater_zero(marked_lines_excerpt);
 		
-		double precision = count_true_positives / count_all_positives;
+		double precision = (retrieved>0) ? found_true_positives / retrieved : 0;
 		
-		precsion_results_all_positves[k_minus_3][i-1] += count_all_positives;
-		precsion_results_true_positives[k_minus_3][i-1] += count_true_positives;
+		precsion_results_all_positves[k_minus_3][i-1] += retrieved;
+		precsion_results_true_positives[k_minus_3][i-1] += found_true_positives;
 		if(!Double.isNaN(precision) && !Double.isInfinite(precision)) {
 			precsion_results[k_minus_3][i-1].add(precision);
-		}		
+		}
+		
+		String name = "???";
+		final int k = k_minus_3 +3;
+		double all_true_positives = marked_cells_excerpt.length;
+		double recall = found_true_positives / all_true_positives;
+		double gran = gran(marked_cells_excerpt); 
+		 
+		double core_threshold = core_thresholds[i-1];
+		
+		PanResult pr = new PanResult(name, k, core_threshold, precision, recall, gran, all_true_positives, found_true_positives, retrieved);
+		System.out.println(pr);
+		
+		name += "_c";
+		found_true_positives = count_greater_zero(marked_lines_excerpt) + count_greater_zero(marked_columns_excerpt);
+		retrieved = count_greater_zero(marked_susp) + count_greater_zero(marked_src);
+		all_true_positives = marked_cells_excerpt.length + marked_cells_excerpt[0].length;
+		recall = found_true_positives / all_true_positives;
+		precision = (retrieved>0) ? found_true_positives / retrieved : 0;
+		
+		pr = new PanResult(name, k, core_threshold, precision, recall, gran, all_true_positives, found_true_positives, retrieved);
+		System.out.println(pr);
 		return precision;
 	}
 
 	private static double gran(double[][] marked_cells) {
 		boolean[] marked_lines = get_marked_lines(marked_cells);
 		
-		double count = 1.0d;
+		double count = 0.0d;
 		boolean was_found = false;
 		
 		for(boolean b : marked_lines) {
@@ -350,12 +400,12 @@ public class PotthastMetrics {
 		return count / (double)marked_lines.length;
 	}
 	
-	boolean[] get_marked_columns(double[][] marked_cells) {
+	static boolean[] get_marked_columns(double[][] marked_cells) {
 		boolean[] marked_columns = new boolean[marked_cells[0].length];
 		for(double[] line : marked_cells) {
-			for(int i=0;i<line.length;i++) {
-				if(line[i]>=IS_REACHABLE_CELL) {
-					marked_columns[i] = true;
+			for(int c=0;c<line.length;c++) {
+				if(line[c]>=IS_REACHABLE_CELL) {
+					marked_columns[c] = true;
 				}
 			}
 		}

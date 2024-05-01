@@ -288,8 +288,8 @@ public class SemanticTest {
 			PanMetrics.run_jaccard();
 		}else if(contains(args, "eval_seda")){
 			//Print results to console and write aggregated results to file: SeDA
-			//MatrixLoader.run_eval_seda();
-			PanMetrics.run_seda();
+			MatrixLoader.run_eval_seda();
+			//PanMetrics.run_seda();
 		}else if(contains(args, "pjp")){//print jaccard paragraphs
 			//Print results to console and write aggregated results to file: Jaccard
 			print_jaccard_texts();
