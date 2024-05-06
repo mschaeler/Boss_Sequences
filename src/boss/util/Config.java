@@ -34,10 +34,18 @@ public class Config {
 	public static int USED_STOP_WORD_LIST = 2;
 	
 	/**
+	 * Basically a cell may contain some tokens belonging to a plagiarism case and others that do not. 
+	 * If this variable is set to true, a cell is deemed a true-positive palgiat, iff all tokens in it are part of the plagiat.
+	 * If this variable is set to false, a cell is deemed a true-positive palgiat, iff at least one tokens in it is part of the plagiat. 
+	 * Applies to Jaccard only. For SeDA it is always true.
+	 */
+	public static boolean USE_FULL_PLAGIAT_CELLS = true;
+	
+	/**
 	 * Window sizes.
 	 */
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32};
-	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+	public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
-	public static int[] k_s= {8};
+	//public static int[] k_s= {8};
 }

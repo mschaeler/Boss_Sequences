@@ -354,8 +354,9 @@ public class PotthastMetrics {
 		 
 		double core_threshold = core_thresholds[i-1];
 		
-		PanResult pr = new PanResult(name, k, core_threshold, precision, recall, gran, all_true_positives, found_true_positives, retrieved);
-		System.out.println(pr);
+		PanResult pr;
+		//PanResult pr = new PanResult(name, k, core_threshold, precision, recall, gran, all_true_positives, found_true_positives, retrieved);
+		//System.out.println(pr);
 		
 		name += "_c";
 		found_true_positives = count_greater_zero(marked_lines_excerpt) + count_greater_zero(marked_columns_excerpt);

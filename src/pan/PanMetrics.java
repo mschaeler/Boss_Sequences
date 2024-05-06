@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import boss.test.SemanticTest;
+import boss.util.Config;
 
 public class PanMetrics {//TODO micro average
 	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
@@ -59,6 +60,13 @@ public class PanMetrics {//TODO micro average
 			String micro_recall="k="+k;
 			for(double t : thresholds) {
 				ArrayList<PanResult> r = PanResult.get_results(k,t);
+				/*if(k==15) {
+					System.out.println("Raw results for k="+k+" theta="+t);
+					for(PanResult pr : r) {
+						System.out.println(pr);
+					}
+					System.out.println();
+				}*/
 				double avg_recall    = 0;
 				double avg_precision = 0;
 				double avg_gran		 = 0;
@@ -149,11 +157,7 @@ public class PanMetrics {//TODO micro average
 					final boolean[] e_marked_src  = new boolean[marked_cells[0].length+k-1];
 					get_marked_lines(e_marked_cells, e_marked_susp, e_marked_src, k);
 					
-					
-					//double true_positives = get_true_positives(ground_truth_susp, ground_truth_src, marked_susp, marked_src);
-					double true_positives_2 = get_true_positives(e_marked_cells, k);
-
-					
+					double true_positives_2 = get_retrieved_elements(e_marked_susp, e_marked_src);
 					double retrieved_elements = get_retrieved_elements(marked_susp, marked_src);
 					
 					double recall = true_positives_2 / real_count_true_positives;
@@ -176,22 +180,15 @@ public class PanMetrics {//TODO micro average
 		for(int i=0;i<l.size();i++) {//For each data set pair
 			//String dir  = l.get(i);
 			String name = l.get(i);
-			int[] base_line = get_base_line(name);
+			int[] base_line_in_tokens = get_base_line(name);
 			
-			final double real_count_true_positives = (base_line[1]-base_line[0]+1)+(base_line[3]-base_line[2]+1);//inclusively
-			//final Detection ground_truth = new Detection(base_line); 
-			BitSet ground_truth_susp = new BitSet();
-			for(int pos=base_line[0];pos<=base_line[1];pos++) {
-				ground_truth_susp.set(pos);
-			}
-			BitSet ground_truth_src = new BitSet();
-			for(int pos=base_line[2];pos<=base_line[3];pos++) {
-				ground_truth_src.set(pos);
-			}
+			
 			
 			HashMap<Integer,double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair_hashed(name);
 			for(Entry<Integer, double[][]> e : my_matrices.entrySet()) {//For each window size k
 				final int k = e.getKey();
+				final int[] base_line = get_baseline_in_windows(base_line_in_tokens, k);
+				final double real_count_true_positives = (base_line[1]-base_line[0]+1)+(base_line[3]-base_line[2]+1);//inclusively
 				double[][] matrix = e.getValue();
 				for(double core_threshold : core_thresholds) {// For each core_threshold
 					double start = System.currentTimeMillis();
@@ -226,6 +223,25 @@ public class PanMetrics {//TODO micro average
 		out_results();
 	}
 	
+	private int[] get_baseline_in_windows(int[] base_line_in_tokens, int k) {
+		//if(k==15)
+		//	System.out.println(k);
+		int[] base_line = new int[base_line_in_tokens.length];
+		System.arraycopy(base_line_in_tokens, 0, base_line, 0, base_line_in_tokens.length);//it remains as it is
+		if(Config.USE_FULL_PLAGIAT_CELLS) {
+			//modify the end of the plagiarism run.
+			base_line[1] -=k+1;
+			if(base_line[1]<base_line[0]) {
+				base_line[1]=base_line[0];
+			}
+			base_line[3] -=k+1;
+			if(base_line[3]<base_line[2]) {
+				base_line[3]=base_line[2];
+			}
+		}
+		return base_line;
+	}
+
 	/**
 	 * For excerpts
 	 * @param marked_cells
@@ -236,7 +252,6 @@ public class PanMetrics {//TODO micro average
 		boolean[] marked_susp = new boolean[marked_cells.length];
 		boolean[] marked_src = new boolean[marked_cells[0].length];
 		
-		//Scan only in border of real plagiarism case
 		for(int l=0;l<marked_cells.length;l++) {
 			double[] line = marked_cells[l];
 			for(int c=0;c<line.length;c++) {
