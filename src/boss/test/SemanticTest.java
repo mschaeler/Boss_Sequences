@@ -248,7 +248,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_seda"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -383,6 +383,26 @@ public class SemanticTest {
 		
 		ArrayList<Book>[] all_document_pairs = pan.Data.load_all_entire_documents();
 		HashMap<String, Integer> token_ids = w2i_pan(all_document_pairs);
+		
+		ArrayList<Book>[] all_src_plagiats_pairs;
+		
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Excerpt Documents****************");
+		System.out.println("****************************************************************");
+		
+		all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Jaccard j = new Jaccard(src_plagiat_pair, token_ids);
+			
+			for (int k : Config.k_s) {
+				double[][] matrix = j.jaccard_windows(k);
+				String name = "./results/jaccard_results/" + src_plagiat_pair.get(0).book_name + "_"
+						+ src_plagiat_pair.get(1).book_name;
+				matrix_to_file(name, k, matrix);
+			}
+		}
+		boolean quit = true;
+		if(quit) return;//XXX
 		
 		System.out.println("****************************************************************");
 		System.out.println("******************************* Entire Documents****************");
@@ -814,6 +834,10 @@ public class SemanticTest {
 		return ret;
 	}
 	
+	public static HashMap<String, Integer> w2i_pan(){
+		return w2i_pan(pan.Data.load_all_entire_documents());
+	}
+	
 	/**
 	 * Words to integer for Jaccard
 	 * @return
@@ -991,7 +1015,7 @@ public class SemanticTest {
 		return ret;
 	}
 
-	static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold, boolean pan_embeddings) {
+	public static ArrayList<Solutions> prepare_solution(ArrayList<Book> books, final int k, final double threshold, boolean pan_embeddings) {
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		//System.out.println("SemanticTest.prepare_experiment() [START]");
 		ArrayList<Solutions> ret = new ArrayList<Solutions>(books.size());
@@ -1212,7 +1236,7 @@ public class SemanticTest {
 				TokenizedParagraph tp = (TokenizedParagraph) p;
 				String[] array = tp.last_intermediate_result();
 				for(String s : array) {
-					if(s!=null) {
+					if(s!=null && !s.equals("")) {
 						temp.add(s);
 					}
 				}

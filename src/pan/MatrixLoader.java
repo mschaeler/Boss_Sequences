@@ -201,7 +201,11 @@ public class MatrixLoader {
 		ArrayList<double[][]> temp =  load_all_matrices_of_pair(new File(f), k_s);
 		HashMap<Integer,double[][]> ret = new HashMap<Integer, double[][]>(temp.size());
 		for(int i=0;i<k_s.length;i++) {
-			ret.put(k_s[i], temp.get(i));
+			try {
+				ret.put(k_s[i], temp.get(i));	
+			} catch (Exception e) {
+				System.err.println(e);
+			}
 		}
 		return ret;
 	}

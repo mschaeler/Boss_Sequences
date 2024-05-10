@@ -1,39 +1,48 @@
 package pan;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
-
-import boss.test.SemanticTest;
 import boss.util.Config;
 
 public class PanMetrics {//TODO micro average
 	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
+	//static final double[] core_thresholds = {0.8,0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.70,0.69,0.68};
 	static final double IS_CORE_CELL = 1.0d;
 	static final double IS_REACHABLE_CELL = 0.5d;
-	public static double CORE_CELL_THRESHOLD = 0.9d;
 	public static double REACHABILITY_CELL_THRESHOLD = 0.5d;
 	
+	String name;
+	PanMetrics(String name){
+		this.name = name;
+		print_config();
+	}
+	
+	private void print_config() {
+		System.out.println("PanMetrics("+name+") Config.PLAGIAT_GRANUALRITY="+Config.PLAGIAT_GRANUALRITY+ " USE_CONNECTIVITY_THRESHOLD="+Config.USE_CONNECTIVITY_THRESHOLD+" Config.REMOVE_STOP_WORDS="+Config.REMOVE_STOP_WORDS+" IS_REACHABLE_CELL="+IS_REACHABLE_CELL);
+	}
 	
 	public static void run_seda() {
 		PanResult.clear();
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_pan_matrices;
 		//SemanticTest.print_seda_texts();//to get the ground truth
-		new PanMetrics().run_seda_();
+		new PanMetrics("SeDA").run_seda_();
 	}
 	
 	public static void run_jaccard() {
 		PanResult.clear();
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_jaccard_matrices;
-		SemanticTest.print_jaccard_texts();//to get the ground truth
-		new PanMetrics().run();
+		//SemanticTest.print_jaccard_texts();//to get the ground truth
+		new PanMetrics("Jaccard").run_seda_();
 	}
 	
-	public static void out_results() {
+	public void out_results() {
 		System.out.println();
-		System.out.println("Aggregated Results of PAN 11");
+		System.out.print("Aggregated Results of PAN 11\t");
+		print_config();
 		ArrayList<Integer> k_s = PanResult.get_all_k_values();
 		ArrayList<Double> thresholds = PanResult.get_all_thresholds();
 		System.out.print("Precision macro");
@@ -115,7 +124,7 @@ public class PanMetrics {//TODO micro average
 		}
 	}
 	
-	String get_excerpts(String name, List<String> ex) {
+	private String get_excerpts(String name, List<String> ex) {
 		String[] tokens = name.split("_");// susp_00228_src_05889 -> [susp, 00228 , src, 05889]
 		for(String e : ex) {
 			if(e.contains(tokens[1]) && e.contains("_"+tokens[3])) {
@@ -126,7 +135,7 @@ public class PanMetrics {//TODO micro average
 		return null;
 	}
 	
-	void run_seda_() {
+	public void run_seda_() {
 		List<String> l = MatrixLoader.get_all_susp_src_directories();
 		List<String> ex = MatrixLoader.get_all_excerpt_directories();
 		
@@ -142,39 +151,135 @@ public class PanMetrics {//TODO micro average
 				final int k = e.getKey();
 				double[][] matrix = e.getValue();
 				double[][] e_matrix = my_excerpts_matrices.get(k);
-				final double real_count_true_positives = e_matrix.length+e_matrix[0].length;//This is the matrix of the part being the plagiarism cse
+				final int[] baseline = find_baseline(matrix, e_matrix, k);//different for each k
+				
+				if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_TOKEN) {
+					if(baseline[1]-baseline[0]!=e_matrix.length){
+						System.err.println("susp: "+e_matrix.length+" vs."+(baseline[1]-baseline[0])+" "+Arrays.toString(baseline)+" "+k);
+					}
+					if(baseline[3]-baseline[2]!=e_matrix[0].length){
+						System.err.println("src: "+e_matrix[0].length+" vs."+(baseline[3]-baseline[2])+" "+Arrays.toString(baseline)+" "+k);
+					}
+				}
 				
 				for(double core_threshold : core_thresholds) {// For each core_threshold
 					double start = System.currentTimeMillis();
-					double[][] marked_cells = (expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k, core_threshold)));//TODO measure time
+					double[][] marked_cells;
+					if(Config.USE_CONNECTIVITY_THRESHOLD) {
+						marked_cells = (expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k, core_threshold)));//TODO measure time
+					}else{
+						marked_cells = (mark_cluster_seeds(matrix, k, core_threshold));
+					}
+					 
 					double stop = System.currentTimeMillis();
-					final boolean[] marked_susp = new boolean[marked_cells.length+k-1]; 
-					final boolean[] marked_src  = new boolean[marked_cells[0].length+k-1];
-					get_marked_lines(marked_cells, marked_susp, marked_src, k);
 					
-					double[][] e_marked_cells = (expand_cluster_seeds(e_matrix, mark_cluster_seeds(e_matrix, k, core_threshold)));
-					final boolean[] e_marked_susp = new boolean[marked_cells.length+k-1]; 
-					final boolean[] e_marked_src  = new boolean[marked_cells[0].length+k-1];
-					get_marked_lines(e_marked_cells, e_marked_susp, e_marked_src, k);
+					boolean[] marked_susp = null; 
+					boolean[] marked_src = null;
+					if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_CELL) {
+						marked_susp = new boolean[marked_cells.length+k-1]; 
+						marked_src  = new boolean[marked_cells[0].length+k-1];
+					}else if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_TOKEN) {
+						marked_susp = new boolean[marked_cells.length+k-1]; 
+						marked_src  = new boolean[marked_cells[0].length+k-1];
+					}else {
+						System.err.println("init() not supported Config.PLAGIAT_GRANUALRITY "+Config.PLAGIAT_GRANUALRITY);
+					}
+					get_marked_tokens(marked_cells, marked_susp, marked_src, k);
 					
-					double true_positives_2 = get_retrieved_elements(e_marked_susp, e_marked_src);
+					double[][] ex_marked_cells = (expand_cluster_seeds(e_matrix, mark_cluster_seeds(e_matrix, k, core_threshold)));//TODO measure time
+					if(Config.USE_CONNECTIVITY_THRESHOLD) {
+						ex_marked_cells = (expand_cluster_seeds(e_matrix, mark_cluster_seeds(e_matrix, k, core_threshold)));//TODO measure time
+					}else{
+						ex_marked_cells = (mark_cluster_seeds(e_matrix, k, core_threshold));//TODO measure time
+					}
+					
+					boolean[] ex_marked_susp = null; 
+					boolean[] ex_marked_src = null;
+					if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_CELL) {
+						ex_marked_susp = new boolean[ex_marked_cells.length+k-1]; 
+						ex_marked_src  = new boolean[ex_marked_cells[0].length+k-1];
+					}else if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_TOKEN) {
+						ex_marked_susp = new boolean[ex_marked_cells.length+k-1]; 
+						ex_marked_src  = new boolean[ex_marked_cells[0].length+k-1];
+					}else {
+						System.err.println("init() not supported Config.PLAGIAT_GRANUALRITY "+Config.PLAGIAT_GRANUALRITY);
+					}
+					get_marked_tokens(ex_marked_cells, ex_marked_susp, ex_marked_src, k);
+					
+					double true_positives = get_retrieved_elements(ex_marked_susp, ex_marked_src);
 					double retrieved_elements = get_retrieved_elements(marked_susp, marked_src);
+					final double real_count_true_positives = ex_marked_susp.length+ex_marked_src.length;
 					
-					double recall = true_positives_2 / real_count_true_positives;
-					double precision = (retrieved_elements>0) ? true_positives_2 / retrieved_elements : 0;
+					double recall = true_positives / real_count_true_positives;
+					if(recall>1) {
+						System.err.println("recall>1");
+					}
+					double precision = (retrieved_elements>0) ? true_positives / retrieved_elements : 0;
 					
-					double granularity 	  = gran(e_marked_susp);
-					PanResult pr = new PanResult(name, k, core_threshold, precision, recall, granularity, real_count_true_positives, true_positives_2, retrieved_elements);
+					double granularity 	  = gran(marked_susp, baseline[0], baseline[1]);
+					PanResult pr = new PanResult(name, k, core_threshold, precision, recall, granularity, real_count_true_positives, true_positives, retrieved_elements);
 					System.out.println(pr);
 				}
 			}
 		}
 		out_results();
 	}
+
+	private double get_real_count_true_positives(final int[] baseline) {
+		return (baseline[1]-baseline[0])+(baseline[3]-baseline[2]);
+	}
 	
 	
-	
-	void run() {
+	private double get_true_positives(int[] baseline, boolean[] marked_susp, boolean[] marked_src) {
+		double count = 0;
+		for(int i=baseline[0];i<baseline[1];i++) {
+			if(marked_susp[i]) {
+				count++;
+			}
+		}
+		for(int i=baseline[2];i<baseline[3];i++) {
+			if(marked_src[i]) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	private int[] find_baseline(final double[][] matrix, final double[][] excerpt_matrix, final int k) {
+		for(int line=0;line<matrix.length;line++) {
+			for(int column=0;column<matrix[0].length;column++) {
+				if(matrix[line][column]==excerpt_matrix[0][0]) {//Found possible start
+					if(found(matrix,excerpt_matrix,line,column)) {
+						if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_CELL) {
+							int[] baseline = {line, line+excerpt_matrix.length+k-1,column,column+excerpt_matrix[0].length+k-1};
+							return baseline;	
+						}else if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_TOKEN) {
+							int[] baseline = {line, line+excerpt_matrix.length,column,column+excerpt_matrix[0].length};
+							return baseline;
+						}else {
+							System.err.println("find_baseline() mnot supported Config.PLAGIAT_GRNAUALRITY "+Config.PLAGIAT_GRANUALRITY);
+							return null;
+						}
+					}
+				}
+			}
+		}
+		System.err.println("find_baseline() : did not find ther excerpt returnin null");
+		return null;
+	}
+
+	private boolean found(double[][] matrix, double[][] excerpt_matrix, final int start_line, final int start_column) {
+		for(int l=start_line;l<excerpt_matrix.length;l++) {
+			for(int c=start_column;c<excerpt_matrix[0].length;c++) {
+				if(matrix[start_line+l][start_column+c]!=excerpt_matrix[l][c]) {
+					return false;//found first difference
+				}
+			}
+		}
+		return true;
+	}
+
+	private void run() {
 		List<String> l = MatrixLoader.get_all_susp_src_directories();
 		
 		for(int i=0;i<l.size();i++) {//For each data set pair
@@ -182,13 +287,11 @@ public class PanMetrics {//TODO micro average
 			String name = l.get(i);
 			int[] base_line_in_tokens = get_base_line(name);
 			
-			
-			
 			HashMap<Integer,double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair_hashed(name);
 			for(Entry<Integer, double[][]> e : my_matrices.entrySet()) {//For each window size k
 				final int k = e.getKey();
-				final int[] base_line = get_baseline_in_windows(base_line_in_tokens, k);
-				final double real_count_true_positives = (base_line[1]-base_line[0]+1)+(base_line[3]-base_line[2]+1);//inclusively
+				final int[] base_line = get_baseline_based_on_plag_genaularity(base_line_in_tokens, k);
+				final double real_count_true_positives = get_real_count_true_positives(base_line);
 				double[][] matrix = e.getValue();
 				for(double core_threshold : core_thresholds) {// For each core_threshold
 					double start = System.currentTimeMillis();
@@ -197,17 +300,9 @@ public class PanMetrics {//TODO micro average
 					
 					final boolean[] marked_susp = new boolean[marked_cells.length+k-1]; 
 					final boolean[] marked_src  = new boolean[marked_cells[0].length+k-1];
-					get_marked_lines(marked_cells, marked_susp, marked_src, k);
+					get_marked_tokens(marked_cells, marked_susp, marked_src, k);
 					
-					//double true_positives = get_true_positives(ground_truth_susp, ground_truth_src, marked_susp, marked_src);
-					double true_positives_2 = get_true_positives(base_line, marked_cells, k);
-					/*if(true_positives == true_positives_2) {
-						System.out.println("true_positives == true_positives_2");
-					}else if(true_positives > true_positives_2) {
-						System.out.println("true_positives > true_positives_2");
-					}else {
-						System.err.println("true_positives < true_positives_2");
-					}*/
+					double true_positives_2 = get_true_positives(base_line, marked_susp, marked_src);
 					
 					double retrieved_elements = get_retrieved_elements(marked_susp, marked_src);
 					
@@ -223,12 +318,12 @@ public class PanMetrics {//TODO micro average
 		out_results();
 	}
 	
-	private int[] get_baseline_in_windows(int[] base_line_in_tokens, int k) {
+	private int[] get_baseline_based_on_plag_genaularity(int[] base_line_in_tokens, int k) {
 		//if(k==15)
 		//	System.out.println(k);
 		int[] base_line = new int[base_line_in_tokens.length];
 		System.arraycopy(base_line_in_tokens, 0, base_line, 0, base_line_in_tokens.length);//it remains as it is
-		if(Config.USE_FULL_PLAGIAT_CELLS) {
+		if(Config.PLAGIAT_GRANUALRITY == Config.PLAGIAT_GRANUALRITY_CELL) {
 			//modify the end of the plagiarism run.
 			base_line[1] -=k+1;
 			if(base_line[1]<base_line[0]) {
@@ -248,7 +343,7 @@ public class PanMetrics {//TODO micro average
 	 * @param k
 	 * @return
 	 */
-	double get_true_positives(double[][] marked_cells, final int k) {
+	private double get_true_positives(double[][] marked_cells, final int k) {
 		boolean[] marked_susp = new boolean[marked_cells.length];
 		boolean[] marked_src = new boolean[marked_cells[0].length];
 		
@@ -264,26 +359,8 @@ public class PanMetrics {//TODO micro average
 		double found_true_positives = get_retrieved_elements(marked_susp, marked_src);
 		return found_true_positives;
 	}
-	
-	double get_true_positives(int[] base_line, double[][] marked_cells, final int k) {
-		boolean[] marked_susp = new boolean[marked_cells.length];
-		boolean[] marked_src = new boolean[marked_cells[0].length];
-		
-		//Scan only in border of real plagiarism case
-		for(int l=base_line[0];l<=base_line[1]-k+1;l++) {
-			double[] line = marked_cells[l];
-			for(int c=base_line[2];c<=base_line[3]-k+1;c++) {
-				if(line[c]>=IS_REACHABLE_CELL) {
-					marked_susp[l] = true;
-					marked_src[c]  = true;
-				}
-			}
-		}
-		double found_true_positives = get_retrieved_elements(marked_susp, marked_src);
-		return found_true_positives;
-	}
 
-	double get_retrieved_elements(boolean[] marked_susp, boolean[] marked_src) {
+	private double get_retrieved_elements(boolean[] marked_susp, boolean[] marked_src) {
 		double retrieved_elements = 0.0d;
 		for(boolean b : marked_susp) {
 			if(b) {
@@ -298,67 +375,39 @@ public class PanMetrics {//TODO micro average
 		return retrieved_elements;
 	}
 
-	double get_true_positives(BitSet ground_truth_susp, BitSet ground_truth_src, boolean[] marked_susp, boolean[] marked_src) {
-		double true_positives = 0.0d;
-		for (int i = ground_truth_susp.nextSetBit(0); i != -1; i = ground_truth_susp.nextSetBit(i + 1)) {
-		    if(marked_susp[i]) {//we also found it
-		    	true_positives++;
-		    }
-		}
-		for (int i = ground_truth_src.nextSetBit(0); i != -1; i = ground_truth_src.nextSetBit(i + 1)) {
-		    if(marked_src[i]) {//we also found it
-		    	true_positives++;
-		    }
-		}
-		return true_positives;
-	}
-
-	void get_marked_lines(double[][] marked_cells, boolean[] marked_susp, boolean[] marked_src, int k) {
-		for(int l=0;l<marked_cells.length;l++) {
-			double[] line = marked_cells[l];
-			for(int c=0;c<line.length;c++) {
-				if(line[c]>=IS_REACHABLE_CELL) {
-					marked_susp[l] = true;
-					marked_src[c]  = true;
+	private void get_marked_tokens(double[][] marked_cells, boolean[] marked_susp, boolean[] marked_src, int k) {
+		if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_CELL) {
+			for(int l=0;l<marked_cells.length;l++) {
+				double[] line = marked_cells[l];
+				for(int c=0;c<line.length;c++) {
+					if(line[c]>=IS_REACHABLE_CELL) {
+						marked_susp[l] = true;//this cell only
+						marked_src[c]  = true;	
+					}
 				}
 			}
-		}
-		
-	}
-
-	BitSet get_marked_lines(double[][] marked_cells, final int k) {
-		BitSet marked_lines = new BitSet(marked_cells.length);
-		for(int l=0;l<marked_cells.length;l++) {
-			double[] line = marked_cells[l];
-			for(int c=0;c<line.length;c++) {
-				if(line[c]>=IS_REACHABLE_CELL) {
-					marked_lines.set(l);
-					//break;//XXX
+		}else if(Config.PLAGIAT_GRANUALRITY==Config.PLAGIAT_GRANUALRITY_TOKEN) {
+			for(int l=0;l<marked_cells.length;l++) {
+				double[] line = marked_cells[l];
+				for(int c=0;c<line.length;c++) {
+					if(line[c]>=IS_REACHABLE_CELL) {
+						mark(marked_susp, l, k);//mark k tokens
+						mark(marked_src, c, k);	
+					}
 				}
 			}
+		}else {
+			System.err.println("init() not supported Config.PLAGIAT_GRANUALRITY "+Config.PLAGIAT_GRANUALRITY);
 		}
-		//TODO jetzt nur auf Zellen Basis -> Token Basis
-		return marked_lines;
+	}
+
+	private final void mark(final boolean[] marked_token, final int start, final int k) {
+		for(int offset=start;offset<=start+k-1;offset++) {
+			marked_token[offset] = true;
+		}
 	}
 	
-	BitSet get_marked_columns(double[][] marked_cells, final int k) {
-		final int num_lines = marked_cells.length;
-		final int num_columns = marked_cells[0].length;
-		
-		BitSet marked_columns = new BitSet(num_columns);
-		for(int c=0;c<num_columns;c++) {
-			for(int l=0;l<num_lines;l++) {
-				if(marked_cells[l][c] >=IS_REACHABLE_CELL) {
-					marked_columns.set(c);
-					//break;//XXX
-				} 
-			}
-		}
-		//TODO jetzt nur auf Zellen Basis -> Token Basis
-		return marked_columns;
-	}
-	
-	double[][] mark_cluster_seeds(double[][] matrix, final int k, final double core_threshold){
+	private double[][] mark_cluster_seeds(double[][] matrix, final int k, final double core_threshold){
 		final int num_lines = matrix.length;
 		final int num_columns = matrix[0].length;
 		double[][] cluster_seeds = new double[num_lines][num_columns];
@@ -374,7 +423,7 @@ public class PanMetrics {//TODO micro average
 		return cluster_seeds;
 	}
 	
-	boolean is_core_cell(double[][] matrix, int line, int column, final double threshold) {
+	private boolean is_core_cell(double[][] matrix, int line, int column, final double threshold) {
 		double cell_similarity = matrix[line][column];
 		if(cell_similarity>threshold) {
 			return true;
@@ -383,7 +432,7 @@ public class PanMetrics {//TODO micro average
 		}
 	}
 
-	double[][] expand_cluster_seeds(double[][] matrix, double[][] cluster_seeds){
+	private double[][] expand_cluster_seeds(double[][] matrix, double[][] cluster_seeds){
 		final int num_lines = matrix.length;
 		final int num_columns = matrix[0].length;
 		for(int line=0;line<num_lines;line++) {
@@ -396,7 +445,7 @@ public class PanMetrics {//TODO micro average
 		return cluster_seeds;
 	}
 	
-	void expand_cluster_seed_cell(final double[][] matrix, final double[][] cluster_seeds, final int line, final int column) {
+	private void expand_cluster_seed_cell(final double[][] matrix, final double[][] cluster_seeds, final int line, final int column) {
 		final int num_lines = matrix.length;
 		final int num_columns = matrix[0].length;
 		
@@ -406,75 +455,17 @@ public class PanMetrics {//TODO micro average
 				double current_label = cluster_seeds[l][c];
 				if(similarity>=REACHABILITY_CELL_THRESHOLD && current_label!=IS_CORE_CELL && current_label!=IS_REACHABLE_CELL) {
 					cluster_seeds[l][c] = IS_REACHABLE_CELL;
-					expand_cluster_seed_cell(matrix, cluster_seeds, l, c);
+					//expand_cluster_seed_cell(matrix, cluster_seeds, l, c);
 				}
 			}
 		}
-	}
+	}	
 	
-	double count_all_positive_tokens(boolean[] marked_cells) {
-		double count = 0;
-		for(int pos = 0;pos<marked_cells.length;pos++) {//exclusively
-			if(marked_cells[pos]) {
-				count++;
-			}
-		}
-		return count;
-	}
-	
-	double count_false_positive_tokens(boolean[] marked_cells, int start, int stop) {
-		double count = 0;
-		for(int pos = 0;pos<start;pos++) {//exclusively
-			if(marked_cells[pos]) {
-				count++;
-			}
-		}
-		for(int pos = stop+1;pos<=marked_cells.length;pos++) {//exclusively
-			if(marked_cells[pos]) {
-				count++;
-			}
-		}
-		return count;
-	}
-
-	double count_true_positives(boolean[] marked_cells, int start, int stop) {
-		double count = 0;
-		for(int pos = start;pos<=stop;pos++) {//inclusively
-			if(marked_cells[pos]) {
-				count++;
-			}
-		}
-		return count;
-	}
-	
-	double gran(boolean[] marked_lines) {		
+	private double gran(boolean[] marked_lines, int susp_ground_truth_from, int susp_ground_truth_to) {		
 		double count = 0.0d;
 		boolean was_found = false;
 		
-		for(int i=0;i<marked_lines.length;i++) {
-			boolean b = marked_lines[i];
-			if(was_found) {
-				if(b) {
-					//still in the same found fragment
-				}else {
-					was_found = false;
-				}
-			}else{
-				if(b) {//hit a new found fragment
-					count++;
-					was_found = true;
-				}//else still not in a found fragment
-			}
-		}
-		
-		return count;
-	}
-	
-	double gran(boolean[] marked_lines, int susp_ground_truth_from, int susp_ground_truth_to) {		
-		double count = 0.0d;
-		boolean was_found = false;
-		
-		for(int i=susp_ground_truth_from;i<=susp_ground_truth_to;i++) {
+		for(int i=susp_ground_truth_from;i<susp_ground_truth_to;i++) {
 			boolean b = marked_lines[i];
 			if(was_found) {
 				if(b) {
@@ -493,7 +484,7 @@ public class PanMetrics {//TODO micro average
 		return count;
 	}
 
-	int[] get_base_line(String name) {
+	private int[] get_base_line(String name) {
 		int[] base_line = Jaccard.materialized_ground_truth.get(name);
 		if(base_line==null) {
 			System.err.println("PanMetrics.get_base_line(String name) no such baseline for "+name);

@@ -132,7 +132,7 @@ public class PotthastMetrics {
 			}
 			System.out.println();
 		}
-		PanMetrics.out_results();
+		//PanMetrics.out_results();
 	}
 	
 	private static double avg(ArrayList<Double> arrayList) {
@@ -207,7 +207,7 @@ public class PotthastMetrics {
 			}
 			System.out.println();
 		}
-		PanMetrics.out_results();
+		//PanMetrics.out_results();
 	}
 	
 	static void run_single_pair(ArrayList<double[][]> pair_matrices, String name) {
