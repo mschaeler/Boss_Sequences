@@ -22,7 +22,7 @@ public class PanMetrics {//TODO micro average
 	}
 	
 	private void print_config() {
-		System.out.println("PanMetrics("+name+") Config.PLAGIAT_GRANUALRITY="+Config.PLAGIAT_GRANUALRITY+ " USE_CONNECTIVITY_THRESHOLD="+Config.USE_CONNECTIVITY_THRESHOLD+" Config.REMOVE_STOP_WORDS="+Config.REMOVE_STOP_WORDS+" IS_REACHABLE_CELL="+IS_REACHABLE_CELL);
+		System.out.println("PanMetrics("+name+") Config.PLAGIAT_GRANUALRITY="+Config.PLAGIAT_GRANUALRITY+ " USE_CONNECTIVITY_THRESHOLD="+Config.USE_CONNECTIVITY_THRESHOLD+" Config.REMOVE_STOP_WORDS="+Config.REMOVE_STOP_WORDS+" IS_REACHABLE_CELL="+IS_REACHABLE_CELL+" Config.USE_TXT_ALIGN_PREPROCESSING="+Config.USE_TXT_ALIGN_PREPROCESSING);
 	}
 	
 	public static void run_seda() {

@@ -29,6 +29,10 @@ public class Config {
 	 */
 	public static final int DD_STOP_WORDS = 2;
 	/**
+	 * Affects how competitors preprocess documents
+	 */
+	public static final boolean USE_TXT_ALIGN_PREPROCESSING = true;
+	/**
 	 * ENUM for the used stop words list : DE_STOP_WORDS, EN_STOP_WORDS, or DD_STOP_WORDS from boss.lexicographic.StopWords class
 	 */
 	public static int USED_STOP_WORD_LIST = 2;
@@ -48,4 +52,6 @@ public class Config {
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 	public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
 	//public static int[] k_s= {8};
+	
+	public static boolean USE_TXT_ALIGN_FIX = true;
 }

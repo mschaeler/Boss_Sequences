@@ -1,10 +1,14 @@
 package txtalign;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,11 +16,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Random;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.lucene.analysis.PorterStemmer;
 
 import boss.load.Importer;
 import boss.test.SemanticTest;
+import boss.util.Config;
 import pan.MatrixLoader;
 
 public class TxtAlign {
@@ -25,22 +32,22 @@ public class TxtAlign {
 	static int MAXLENGTH = 0x7fffffff;
 
 	static String output_folder = "output";
-	static String query_path = Importer.PAN11_PREFIX_SUSP;
+	static String query_path = Importer.PAN11_PREFIX_SUSP.replace("suspicious-document", "");
 
 	// int K = 128;
 	// double theta = 0.8;
 	static double theta = 0.3;
-	static int K = 128;
+	static int K = 16;
 	static int tau = 16;
 
-	static String src_path = Importer.PAN11_PREFIX_SRC; // path of the source folder
+	static String src_path = Importer.PAN11_PREFIX_SRC.replace("source-document", ""); // path of the source folder
 	// threshold
 	static HashMap<String, Integer> word2id; // map from word to id
 	static ArrayList<String> id2word; // map from id to word
 	static ArrayList<Integer> orginal_pos; // stores the original place for words
 
 	static int hash_func = 0;
-	static ArrayList<Pair> ab;
+	static ArrayList<Pair> ab = new ArrayList<Pair>();
 
 	public static void main(String[] args) {
 		System.out.println("This is txtalign-index-sentence-search");
@@ -71,13 +78,12 @@ public class TxtAlign {
 		HashSet<String> stopWords = new HashSet<String>();
 		for (String sw : boss.lexicographic.StopWords.DONG_DENG_STOPWORDS) {// store stopwords
 			stopWords.add(sw);
-		}
-		;
+		};
 		// buildDic(src_path, query_path, stopWords, "all_words.txt");
 
-		HashMap<String, Integer> word2id = new HashMap<String, Integer>();
+		HashMap<String, Integer> word2id = read_all_words("./data/all_words.txt");
 		// TODO make cofigurable loadWords("all_words.txt", word2id);
-		word2id = SemanticTest.w2i_pan();
+		//word2id = SemanticTest.w2i_pan();
 
 		HashMap<String, Integer> word2fre = new HashMap<String, Integer>();
 		// loadWordsFre("frequency.txt", word2fre);
@@ -103,15 +109,15 @@ public class TxtAlign {
 		ArrayList<ArrayList<Integer>> docs = new ArrayList<ArrayList<Integer>>(doc_num);
 		ArrayList<ArrayList<Integer>> docs_ppos = new ArrayList<ArrayList<Integer>>(doc_num);
 		ArrayList<ArrayList<Integer>> docs_offset = new ArrayList<ArrayList<Integer>>(doc_num);
+		for(int id=0;id<doc_num;id++) {
+			docs.add(new ArrayList<Integer>());
+			docs_ppos.add(new ArrayList<Integer>());
+			docs_offset.add(new ArrayList<Integer>());
+		}
 		int did = 0;
 		int total_doc_size = 0;
 		for (String file : files) {
-			word2int(file, docs.get(did), docs_ppos.get(did), docs_offset.get(did), word2id, id2word, stopWords);// TODO
-																													// was
-																													// muss
-																													// davon
-																													// initialisiert
-																													// sein
+			word2int(file, docs.get(did), docs_ppos.get(did), docs_offset.get(did), word2id, id2word, stopWords);
 			total_doc_size += docs.get(did).size();
 			did++;
 		}
@@ -124,20 +130,15 @@ public class TxtAlign {
 
 		long total_window_num = 0;
 		// generate composite windows for source folder
-		ArrayList<ArrayList<CompositeWindow>> docs_cws = new ArrayList<ArrayList<CompositeWindow>>(doc_num); // store
-																												// compact
-																												// windows
-																												// of
-																												// each
-																												// document
-																												// in
-																												// the
-																												// given
-																												// folder
+		// store compact windows of each document in the given folder
+		ArrayList<ArrayList<CompositeWindow>> docs_cws = new ArrayList<ArrayList<CompositeWindow>>(doc_num); 
+		for(int i=0;i<doc_num;i++) {
+			docs_cws.add(new ArrayList<CompositeWindow>());
+		}
 		for (int docid = 0; docid < doc_num; docid++) {
 			// Generate2KSketch(app_docs_cws[docid], docs[docid], docs_ppos[docid]);
 			// brute_force(docs[docid]);//TODO
-			new SketchGeneration(docs_cws.get(docid), docs.get(docid), docs_ppos.get(docid), ab);
+			SketchGeneration(docs_cws.get(docid), docs.get(docid), docs_ppos.get(docid), ab);
 		}
 
 		stop = System.currentTimeMillis();
@@ -477,15 +478,16 @@ public class TxtAlign {
 
 	}
 
+	static int other_id = -2;
 	private static void word2int(String file, ArrayList<Integer> doc, ArrayList<Integer> ppos,
 			ArrayList<Integer> offsets, HashMap<String, Integer> word2id, ArrayList<String> id2word,
 			HashSet<String> stopwords) {
 		// Static variables across the function
 		//final int mulWordId = -1;
 
-		final String delim = "\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ";
+		final String delim = "[\"#$%&\'()*+,-./:;<=>?@\\[\\]^_`{|}~ ]";
 		// final String period_str = "\n\t\r\x0b\x0c,.!?;!";
-		final String period_str = "\n\t\r,.!?;!";// no line tabs in Java
+		final String period_str = "[\n\t\r,.!?;!]";// no line tabs in Java
 
 		// Read from file ...
 		String docstr = read(file);
@@ -517,8 +519,17 @@ public class TxtAlign {
 				 */
 
 				Integer wid = word2id.get(stem_word);
+				if(Config.USE_TXT_ALIGN_FIX) {
+					if(wid==null) {
+						wid = word2id.get(stem_word.toLowerCase());
+					}
+				}
 				if (wid == null) {
-					System.err.println("wid == null");
+					wid = other_id;
+					if(Config.USE_TXT_ALIGN_FIX) {
+						word2id.put(stem_word, wid);
+					}
+					System.err.println("wid == null for \""+stem_word +"\" using "+other_id-- +" in "+file+" Sentence "+s);
 				}
 				doc.add(wid);
 				offsets.add(wordOffsets.get(i) + offset);
@@ -531,6 +542,24 @@ public class TxtAlign {
 		}
 	}
 
+	public static HashMap<String, Integer> read_all_words(String file) {
+		HashMap<String, Integer> w2i = new HashMap<String, Integer>(400000);//about 400k words in the file 
+		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+
+			String line = br.readLine();
+			int id = 0;
+			while (line != null) {
+				w2i.put(line, id++);
+				line = br.readLine();
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return w2i;
+	}
+	
 	private static String read(String file) {
 		StringBuilder sb = new StringBuilder();
 		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
@@ -571,15 +600,29 @@ public class TxtAlign {
 				}
 			}
 			offsets.add(startPos);
-			res.add(t);
+			res.add(t.toLowerCase());
 			offset += t.length() + 1;
 		}
 	}
 
-	private static void getFiles(String directory, ArrayList<String> files) {
-		List<String> temp = MatrixLoader.listFilesUsingFilesList(directory);
+	private static void getFiles(String dir, ArrayList<String> files) {
+		File directory = new File(dir);
+		if(!directory.exists()) {
+			System.err.println(dir+" does not exist");
+		}
+		List<String> temp = null;
+	    try (Stream<Path> stream = Files.list(Paths.get(dir))) {
+	        temp=stream
+	          .filter(file -> !Files.isDirectory(file))
+	          .map(Path::getFileName)
+	          .map(Path::toString)
+	          .collect(Collectors.toList());
+	    }catch (Exception e) {
+			System.err.println(e);
+		}
+		
 		for (String s : temp) {
-			files.add(s);
+			files.add(dir+s);
 		}
 	}
 
@@ -711,11 +754,12 @@ public class TxtAlign {
 			// next generate sketches
 			int x = pos;
 			ArrayList<Integer> L = new ArrayList<Integer>();
-			while (x != TAIL_ID && L.size() < K)
+			while (x!=MY_NAN && x != TAIL_ID && L.size() < K)//FIX x!=MY_NAN 
 			{
 				x = skiplist[x].next;
-				if (x == TAIL_ID || occurrences[x].prev < pos)
-					L.add(x);
+				if (x!=MY_NAN)
+					if(x != TAIL_ID || occurrences[x].prev < pos)//FIX x!=MY_NAN
+						L.add(x);
 			}
 
 			// for (auto rit = L.rbegin(); rit != L.rend(); ++rit)

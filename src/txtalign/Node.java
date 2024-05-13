@@ -14,4 +14,7 @@ public class Node {
         prev = -999;
         next = -999;
     }
+	public String toString() {
+		return "prev="+prev+" next="+next;
+	}
 }

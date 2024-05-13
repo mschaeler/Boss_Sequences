@@ -5,6 +5,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.PorterStemmer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.util.Version;
+
+import boss.lexicographic.StopWords;
 import boss.lexicographic.Tokenizer;
 import boss.util.Config;
 import boss.util.Util;
@@ -54,10 +62,10 @@ public class Jaccard {
 		this.b_1 = b_1;
 		this.b_2 = b_2;
 		
-		text_tokens_b_1 = tokenize(b_1);
+		text_tokens_b_1 = (Config.USE_TXT_ALIGN_PREPROCESSING) ? tokenize_txt_align(b_1) : tokenize(b_1);
 		//if(verbose_level>=print_final_token) {System.out.println("final B1\t\t"+Util.outTSV(text_tokens_b_1));}
 		int_tokens_b_1 = new int[text_tokens_b_1.size()];
-		text_tokens_b_2 = tokenize(b_2);
+		text_tokens_b_2 = (Config.USE_TXT_ALIGN_PREPROCESSING) ? tokenize_txt_align(b_2) : tokenize(b_2);
 		//if(verbose_level>=print_final_token) {System.out.println("final B2\t\t"+Util.outTSV(text_tokens_b_2));}
 		int_tokens_b_2 = new int[text_tokens_b_2.size()];
 	}
@@ -79,11 +87,49 @@ public class Jaccard {
 			Integer token_id = token_ids.get(s);
 			if(token_id==null) {
 				System.err.println("Jaccard.encode() token_id==null for "+s);
-				int_tokens[pos] = -1;
+				int_tokens[pos] = -1;//XXX in org code arbitrary behavior
 			}else{
 				int_tokens[pos] = token_id.intValue();
 			}
 		}
+	}
+	
+	ArrayList<String> tokenize_txt_align(Book b){
+		HashSet<String> stopwords = StopWords.get_DONG_DENG_STOPWORDS();
+		String org = b.to_single_line_string();
+		
+		/*Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_35, stopwords); //TODO
+		TokenStream stream = analyzer.tokenStream("field", org);
+		stream.reset();
+		
+		while (stream.incrementToken()) {
+		    String stem = stream.getAttribute(CharTermAttribute.class).toString();
+		    // doing something with the stem
+		    System.out.print(stem+ " ");
+		}*/
+		
+		if(verbose_level>=print_everything) {System.out.println("org=\t\t\t"+org);}
+		final String delim = "[\"#$%&\'()*+,-./:;<=>?@\\[\\]^_`{|}~ ]";
+		// final String period_str = "\n\t\r\x0b\x0c,.!?;!";
+		final String period_str = "[\n\t\r,.!?;!]";// no line tabs in Java
+		
+		String[] sentences = org.split(period_str);
+		if(verbose_level>=print_everything) {System.out.println("sentences=\t\t"+Arrays.toString(sentences));}
+		
+		ArrayList<String> ret = new ArrayList<String>();
+		PorterStemmer stemmer = new PorterStemmer();
+		
+		for(String sentence : sentences) {
+			String[] tokens = sentence.split(delim);
+			for(String t : tokens) {
+				String stem_word = stemmer.stem(t.toLowerCase());
+				if(!stopwords.contains(stem_word)) {
+					ret.add(stem_word);	
+				}
+			}
+		}
+		
+		return ret;
 	}
 	
 	ArrayList<String> tokenize(Book b){

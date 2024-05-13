@@ -17,6 +17,9 @@ public class Pair implements Comparable<Pair>{
 			return Integer.compare(second, arg0.second);
 		}
 	}
+	public String toString() {
+		return "("+first+", "+second+")";
+	}
 }
 
 

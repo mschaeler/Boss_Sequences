@@ -35,6 +35,7 @@ import pan.PanResult;
 import plus.data.Book;
 import plus.data.Chapter;
 import plus.data.Paragraph;
+import txtalign.TxtAlign;
 
 public class SemanticTest {	
 	static int MAPPING_GRANUALRITY;
@@ -248,7 +249,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_seda"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -401,7 +402,7 @@ public class SemanticTest {
 				matrix_to_file(name, k, matrix);
 			}
 		}
-		boolean quit = true;
+		boolean quit = false;
 		if(quit) return;//XXX
 		
 		System.out.println("****************************************************************");
@@ -843,6 +844,9 @@ public class SemanticTest {
 	 * @return
 	 */
 	static HashMap<String, Integer> w2i_pan(ArrayList<Book>[] all_document_pairs){
+		if(Config.USE_TXT_ALIGN_PREPROCESSING) {
+			return TxtAlign.read_all_words("./data/all_words.txt");
+		}
 		HashSet<String> all_tokens = new HashSet<String>(10000);
 		
 		for (ArrayList<Book> books : all_document_pairs) {
