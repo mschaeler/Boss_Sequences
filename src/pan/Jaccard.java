@@ -1,5 +1,8 @@
 package pan;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -81,13 +84,20 @@ public class Jaccard {
 		if(verbose_level>=print_final_token) System.out.println("id's src\t\t"+Util.outTSV(int_tokens_b_2));
 	}
 	
+	int other_id = -1;
 	void encode(final ArrayList<String> text_tokens, final int[] int_tokens, HashMap<String, Integer> token_ids){
 		for(int pos=0;pos<text_tokens.size();pos++) {
 			String s = text_tokens.get(pos);
 			Integer token_id = token_ids.get(s);
 			if(token_id==null) {
-				System.err.println("Jaccard.encode() token_id==null for "+s);
-				int_tokens[pos] = -1;//XXX in org code arbitrary behavior
+				if(Config.USE_TXT_ALIGN_FIX) {
+					System.out.println("Jaccard.encode() token_id==null for "+s+" using "+other_id);
+					token_ids.put(s, other_id);
+					int_tokens[pos] = other_id--;
+				}else {
+					System.err.println("Jaccard.encode() token_id==null for "+s);
+					int_tokens[pos] = -1;//XXX in org code arbitrary behavior
+				}
 			}else{
 				int_tokens[pos] = token_id.intValue();
 			}
@@ -98,14 +108,20 @@ public class Jaccard {
 		HashSet<String> stopwords = StopWords.get_DONG_DENG_STOPWORDS();
 		String org = b.to_single_line_string();
 		
-		/*Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_35, stopwords); //TODO
-		TokenStream stream = analyzer.tokenStream("field", org);
-		stream.reset();
 		
-		while (stream.incrementToken()) {
-		    String stem = stream.getAttribute(CharTermAttribute.class).toString();
-		    // doing something with the stem
-		    System.out.print(stem+ " ");
+		Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_35, stopwords); //TODO
+		/*Reader reader = new StringReader(org);
+		TokenStream stream = analyzer.tokenStream("field", reader);
+		try {
+			stream.reset();
+			while (stream.incrementToken()) {
+			    String stem = stream.getAttribute(CharTermAttribute.class).toString();
+			    // doing something with the stem
+			    System.out.print(stem+ " ");
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}*/
 		
 		if(verbose_level>=print_everything) {System.out.println("org=\t\t\t"+org);}
@@ -122,13 +138,40 @@ public class Jaccard {
 		for(String sentence : sentences) {
 			String[] tokens = sentence.split(delim);
 			for(String t : tokens) {
-				String stem_word = stemmer.stem(t.toLowerCase());
-				if(!stopwords.contains(stem_word)) {
-					ret.add(stem_word);	
+				if(Config.USE_TXT_ALIGN_CORRECT_STEMMING) {
+					if(Config.USE_TXT_ALIGN_LEMMATIZING) {//Lemmatizing. This way we prevent empty words, find all the stop words and make better use of the word list.
+						Reader r = new StringReader(t);
+						TokenStream ts = analyzer.tokenStream("field", r);
+						try {
+							ts.reset();
+							while (ts.incrementToken()) {
+							    t = ts.getAttribute(CharTermAttribute.class).toString();
+							    if(!stopwords.contains(t)) {//@FIX in original code
+									String stem_word = stemmer.stem(t.toLowerCase());
+									if(!stopwords.contains(stem_word)) {
+										ret.add(stem_word);	
+									}
+							    }
+							}
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}else if(!stopwords.contains(t)) {//@FIX in original code
+						String stem_word = stemmer.stem(t.toLowerCase());
+						if(!stopwords.contains(stem_word)) {
+							ret.add(stem_word);	
+						}
+					}
+				}else{//Stemming only. As in original code.
+					String stem_word = stemmer.stem(t.toLowerCase());
+					if(!stopwords.contains(stem_word)) {
+						ret.add(stem_word);	
+					}
 				}
 			}
 		}
-		
+		analyzer.close();
 		return ret;
 	}
 	

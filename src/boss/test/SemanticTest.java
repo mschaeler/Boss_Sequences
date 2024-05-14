@@ -249,7 +249,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
+			String[] temp = {"j"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {

@@ -32,6 +32,8 @@ public class Config {
 	 * Affects how competitors preprocess documents
 	 */
 	public static final boolean USE_TXT_ALIGN_PREPROCESSING = true;
+	public static final boolean USE_TXT_ALIGN_LEMMATIZING = false;
+	public static final boolean USE_TXT_ALIGN_CORRECT_STEMMING = true;
 	/**
 	 * ENUM for the used stop words list : DE_STOP_WORDS, EN_STOP_WORDS, or DD_STOP_WORDS from boss.lexicographic.StopWords class
 	 */
