@@ -81,4 +81,13 @@ public class Util {
 
 		return buffer.toString();
 	}
+
+	public static boolean not_in(int val, int[] arr) {
+		for(int i : arr) {
+			if(i==val) {
+				return false;
+			}
+		}
+		return true;
+	}
 }

@@ -24,9 +24,9 @@ import boss.util.Config;
 import boss.util.Util;
 
 public class MatrixLoader {
-	static final String path_to_pan_matrices = "./results/pan_results/";
-	static final String path_to_jaccard_matrices = "./results/jaccard_results/";
-	static String path_to_matrices = path_to_jaccard_matrices;
+	public static final String path_to_pan_matrices = "./results/pan_results/";
+	public static final String path_to_jaccard_matrices = "./results/jaccard_results/";
+	public static String path_to_matrices = path_to_jaccard_matrices;
 	
 	public static List<String> listFilesUsingFilesList(String dir) {
 		File directory = new File(dir);
@@ -86,7 +86,7 @@ public class MatrixLoader {
 		PotthastMetrics.out_aggregated_result();
 	}
 	
-	static List<String> get_all_susp_src_directories(){
+	public static List<String> get_all_susp_src_directories(){
 		return get_all_susp_src_directories(listFilesUsingFilesList(path_to_pan_matrices)); 
 	}
 	
@@ -100,7 +100,7 @@ public class MatrixLoader {
 		return all_excerpt_directories;
 	}
 	
-	static List<String> get_all_excerpt_directories(){
+	public static List<String> get_all_excerpt_directories(){
 		return get_all_excerpt_directories(listFilesUsingFilesList(path_to_pan_matrices));
 	}
 	

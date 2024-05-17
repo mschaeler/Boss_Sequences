@@ -31,7 +31,7 @@ public class Config {
 	/**
 	 * Affects how competitors preprocess documents
 	 */
-	public static final boolean USE_TXT_ALIGN_PREPROCESSING = true;
+	public static final boolean USE_TXT_ALIGN_PREPROCESSING = false;
 	public static final boolean USE_TXT_ALIGN_LEMMATIZING = false;
 	public static final boolean USE_TXT_ALIGN_CORRECT_STEMMING = true;
 	/**
@@ -52,8 +52,8 @@ public class Config {
 	 */
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32};
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
-	public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
-	//public static int[] k_s= {8};
+	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
+	public static int[] k_s= {15};
 	
 	public static boolean USE_TXT_ALIGN_FIX = true;
 }

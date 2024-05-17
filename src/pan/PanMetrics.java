@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import boss.util.Config;
@@ -124,7 +125,7 @@ public class PanMetrics {//TODO micro average
 		}
 	}
 	
-	private String get_excerpts(String name, List<String> ex) {
+	public static String get_excerpts(String name, List<String> ex) {
 		String[] tokens = name.split("_");// susp_00228_src_05889 -> [susp, 00228 , src, 05889]
 		for(String e : ex) {
 			if(e.contains(tokens[1]) && e.contains("_"+tokens[3])) {
@@ -134,6 +135,148 @@ public class PanMetrics {//TODO micro average
 		System.err.println("get_excerpts(String, List<String>) did not find excerpt of "+name);
 		return null;
 	}
+	
+	/**
+	 * 
+	 * @param ground_truths
+	 * @param detections
+	 */
+	public static void run_xml_detections(ArrayList<Detection> ground_truths, ArrayList<Detection> detections) {
+		HashSet<String> all_susp_documents = new HashSet<String>();
+		HashSet<Integer> all_ks = new HashSet<Integer>(); 
+		HashSet<Double> all_thetas = new HashSet<Double>();
+		
+		for(Detection gt : ground_truths) {
+			 all_susp_documents.add(gt.susp);
+		}
+		for(Detection d : detections) {
+			all_ks.add(d.k);
+			all_thetas.add(d.theta);
+		}
+		
+		for(String f : all_susp_documents) {
+			System.out.println(f);
+		}
+		for(Integer k : all_ks) {
+			System.out.println(k);
+		}
+		for(Double theta : all_thetas) {
+			System.out.println(theta);
+		}
+		
+		for(String susp : all_susp_documents) {
+			//get all susp detections
+			ArrayList<Detection> src_documents = get_all_detections_by_name(susp, ground_truths);
+			for(Detection plagiat : src_documents) {
+				ArrayList<Detection> corresponding_detections = new ArrayList<Detection>();
+				for(Detection d : detections) {
+					if(d.susp.equals(plagiat.susp) && d.src.equals(plagiat.src)) {
+						corresponding_detections.add(d);
+					}
+				}
+				//for each k
+				for(int k : all_ks) {
+					//for each threshold
+					for(double theta : all_thetas) {
+						ArrayList<Detection> my_detections = get_detections(k, theta, corresponding_detections);
+						compute(plagiat, my_detections , susp, k, theta);
+					}
+				}
+				//get all the other detections having d.susp = susp but d.src not in src_documents
+				ArrayList<Detection> falsely_retrieved_documents = new ArrayList<Detection>();
+				for(Detection d : detections) {
+					if(d.susp.equals(susp) && !src_documents.contains(d.src)) {
+						falsely_retrieved_documents.add(d);
+					}
+				}
+			}
+		}
+		new PanMetrics("Org TxtAlign").out_results();
+	}
+	static void compute(Detection plagiat, ArrayList<Detection> my_detections, String name, int k, double theta) {
+		int max_position_susp = plagiat.this_offset+plagiat.this_length;
+		int max_position_src  = plagiat.source_offset+plagiat.source_length;
+		for(Detection my_d : my_detections) {
+			if(my_d.this_offset+my_d.this_length > max_position_susp) {
+				max_position_susp = my_d.this_offset+my_d.this_length;
+			}
+			if(my_d.source_offset+my_d.source_length > max_position_src) {
+				max_position_src = my_d.source_offset+my_d.source_length;
+			}
+		}
+		boolean[] found_susp = new boolean[max_position_susp];
+		boolean[] found_src  = new boolean[max_position_src];
+		for(Detection my_d : my_detections) {
+			mark_pos(found_susp, my_d.this_offset, my_d.this_offset+my_d.this_length);
+			mark_pos(found_src, my_d.source_offset, my_d.source_offset+my_d.source_length);
+		}
+		double all_true_positives = (plagiat.this_offset+plagiat.this_length)+(plagiat.source_offset+plagiat.source_length); 
+		double retrieved_elements = count(found_susp);
+		retrieved_elements += count(found_src);
+		
+		double found_true_positives = count(found_susp, plagiat.this_offset, plagiat.this_offset+plagiat.this_length);
+		found_true_positives += count(found_src, plagiat.source_offset, plagiat.source_offset+plagiat.source_length);
+		
+		double recall = found_true_positives / all_true_positives;
+		if(recall>1) {
+			System.err.println("recall>1");
+		}
+		double precision = (retrieved_elements>0) ? found_true_positives / retrieved_elements : 0;
+		PanResult pr = new PanResult(name, k, theta, precision, recall, my_detections.size(), all_true_positives, found_true_positives, retrieved_elements);
+		System.out.println(pr);
+	}
+	
+	private static double count(boolean[] arr, int from, int to) {
+		double count=0;
+		for(int pos=from;pos<to;pos++) {
+			if(arr[pos]) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	private static double count(boolean[] arr) {
+		double count=0;
+		for(boolean b : arr) {
+			if(b) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	private static void mark_pos(boolean[] arr, int from, int to) {
+		for(int pos=from;pos<to;pos++) {
+			arr[pos] = true;
+		}
+	}
+
+	private static ArrayList<Detection> get_detections(int k, double theta, ArrayList<Detection> corresponding_detections) {
+		ArrayList<Detection> res = new ArrayList<Detection>();
+		for(Detection d : corresponding_detections) {
+			if(d.k == k && d.theta == theta) {
+				res.add(d);
+			}
+		}
+		return res;
+	}
+
+	/**
+	 * get all susp detections from ground truth
+	 */
+	static ArrayList<Detection> get_all_detections_by_name(String name, ArrayList<Detection> detections ){
+		ArrayList<Detection> src_documents = new ArrayList<Detection>();
+		for(Detection gt : detections) {
+			 if(gt.susp.equals(name)) {
+				 System.out.println(gt);
+				 src_documents.add(gt);
+			 }
+		}
+		return src_documents;
+	}
+	
+	
 	
 	public void run_seda_() {
 		List<String> l = MatrixLoader.get_all_susp_src_directories();

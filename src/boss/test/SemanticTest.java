@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map.Entry;
 
 import boss.embedding.Embedding;
 import boss.embedding.MatchesWithEmbeddings;
@@ -26,6 +28,7 @@ import boss.load.Importer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
 import boss.util.Config;
+import boss.util.HistogramDouble;
 import boss.util.Pair;
 import boss.util.Util;
 import pan.Jaccard;
@@ -249,7 +252,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"j"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -286,10 +289,12 @@ public class SemanticTest {
 		}else if(contains(args, "eval_jacc")){
 			//Print results to console and write aggregated results to file: Jaccard
 			//MatrixLoader.run_eval_jaccard();
+			Config.REMOVE_STOP_WORDS = true;
 			PanMetrics.run_jaccard();
 		}else if(contains(args, "eval_seda")){
 			//Print results to console and write aggregated results to file: SeDA
 			//MatrixLoader.run_eval_seda();
+			Config.REMOVE_STOP_WORDS = false;
 			PanMetrics.run_seda();
 		}else if(contains(args, "pjp")){//print jaccard paragraphs
 			//Print results to console and write aggregated results to file: Jaccard
@@ -297,6 +302,8 @@ public class SemanticTest {
 		}else if(contains(args, "psp")){//print seda paragraphs
 			//Print results to console and write aggregated results to file: SeDA
 			print_seda_texts();
+		}else if(contains(args, "stats")) {
+			statistics();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
@@ -1284,4 +1291,109 @@ public class SemanticTest {
 		return encoding;
 	}
 
+	static void statistics(String path){
+		MatrixLoader.path_to_matrices = path;
+		List<String> l = MatrixLoader.get_all_susp_src_directories();
+		List<String> ex = MatrixLoader.get_all_excerpt_directories();
+		
+		HashMap<Integer, ArrayList<Double>> my_matrices_values = new HashMap<Integer, ArrayList<Double>>();
+		HashMap<Integer, ArrayList<Double>> my_excerpts_matrices_values = new HashMap<Integer, ArrayList<Double>>();
+		
+		for(int i=0;i<l.size();i++) {//For each data set pair //XXX l.size()
+			//String dir  = l.get(i);
+			String name = l.get(i);
+			String excerpts = PanMetrics.get_excerpts(name, ex);
+			
+			HashMap<Integer,double[][]> my_matrices = MatrixLoader.load_all_matrices_of_pair_hashed(name);
+			HashMap<Integer,double[][]> my_excerpts_matrices = MatrixLoader.load_all_matrices_of_pair_hashed(excerpts);
+			
+			for(Entry<Integer, double[][]> e : my_matrices.entrySet()) {//For each window size k
+				final int k = e.getKey();
+				if(k!=15) {
+					continue;
+				}
+				ArrayList<Double> vals = my_matrices_values.get(k); 
+				if(vals==null) {
+					vals = new ArrayList<Double>();
+					my_matrices_values.put(k, vals);
+				}
+				ArrayList<Double> ex_vals = my_excerpts_matrices_values.get(k);
+				if(ex_vals==null) {
+					ex_vals = new ArrayList<Double>();
+					my_excerpts_matrices_values.put(k, ex_vals);
+				}
+				System.out.println(k+" |vals|="+vals.size()+" |ex_vals|="+ex_vals.size()+" ");
+				{
+					double[][] matrix = e.getValue();
+					double[] col_max = new double[matrix[0].length];
+					double[] line_max = new double[matrix.length];
+					for(int line=0;line<matrix.length;line++) {
+						double[] arr = matrix[line];
+						for(int col=0;col<matrix[0].length;col++) {
+							double d = arr[col];
+							if(d>line_max[line]) {
+								line_max[line] = d;
+							}
+							if(d>col_max[col]) {
+								col_max[col] = d;
+							}
+						}
+					}
+					for(double d : line_max) {
+						vals.add(d);
+					}
+					for(double d : col_max) {
+						vals.add(d);
+					}
+				}
+				{
+					double[][] e_matrix = my_excerpts_matrices.get(k);
+					double[] col_max = new double[e_matrix[0].length];
+					double[] line_max = new double[e_matrix.length];
+					for(int line=0;line<e_matrix.length;line++) {
+						double[] arr = e_matrix[line];
+						for(int col=0;col<e_matrix[0].length;col++) {
+							double d = arr[col];
+							if(d>line_max[line]) {
+								line_max[line] = d;
+							}
+							if(d>col_max[col]) {
+								col_max[col] = d;
+							}
+						}
+					}
+					for(double d : line_max) {
+						ex_vals.add(d);
+					}
+					for(double d : col_max) {
+						ex_vals.add(d);
+					}
+				}
+			}
+			System.out.println();
+		}
+		for(Entry<Integer, ArrayList<Double>> e : my_matrices_values.entrySet()) {//For each window size k
+			final int k = e.getKey();
+			ArrayList<Double> vals = e.getValue(); 
+			ArrayList<Double> ex_vals = my_excerpts_matrices_values.get(k);
+			System.out.println();
+			System.out.println(k);
+			HistogramDouble h_vals = new HistogramDouble(vals);
+			HistogramDouble h_ex_vals = new HistogramDouble(ex_vals);
+			System.out.println("All values");
+			System.out.println(h_vals);
+			System.out.println("Values in Excerpts");
+			System.out.println(h_ex_vals);
+		}
+	}
+	
+	
+	static void statistics() {
+		//Jaccard
+		System.out.println("Jaccard");
+		statistics(MatrixLoader.path_to_jaccard_matrices);
+		//SeDA
+		System.out.println("SeDA");
+		statistics(MatrixLoader.path_to_pan_matrices);
+	}
 }
