@@ -76,8 +76,7 @@ public class WikiDataLoader {
 		return resultStringBuilder.toString();
 	}
 	
-	void prepare_solution(String line) {
-		ArrayList<String> tokens = tokenize_txt_align(line);
+	void prepare_solution(ArrayList<String> tokens) {
 		System.out.println("Words after pre-processing= "+tokens.size());
 		HashSet<String> unique_tokens = new HashSet<String>(tokens.size());
 		for(String s : tokens) {
@@ -89,11 +88,11 @@ public class WikiDataLoader {
 		for(String s : unique_tokens) {
 			unique_tokens_sorted.add(s);
 		}
-		System.out.println("unique_tokens_sorted");
+		//System.out.println("unique_tokens_sorted");
 		Collections.sort(unique_tokens_sorted);
-		for(String s : unique_tokens_sorted) {
+		/*for(String s : unique_tokens_sorted) {
 			System.out.println(s);
-		}
+		}*/
 		
 		HashMap<String, Integer> token_ids = SemanticTest.strings_to_int(unique_tokens_sorted);
 		this.embedding_vector_index = SemanticTest.create_embedding_vector_index(token_ids, unique_tokens_sorted, folder+embedding_path);
@@ -150,11 +149,32 @@ public class WikiDataLoader {
 	}
 	
 	private void run(String file) {
+		System.out.println("WikiDataLoader.run()");
 		String line = load_file(file);
-		System.out.println(line);
-		prepare_solution(line);
-		int solution_enum = SemanticTest.NAIVE;
-		run_solution(solution_enum);
+		ArrayList<String> tokens = tokenize_txt_align(line);
+		System.out.println("tokenize() returned "+tokens.size()+ "tokens");
+		for(int length : intput_sequence_length) {
+			System.out.println("*** Length = "+length);
+			if(length<=tokens.size()) {
+				ArrayList<String> input = shorten_to_length(tokens, length);
+				System.out.println(input);
+				prepare_solution(input);
+				int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
+				for(int solution_enum : all_solutions) {
+					run_solution(solution_enum);	
+				}
+			}else{
+				System.err.println("length>line.length()");
+			}
+		}
+	}
+
+	private ArrayList<String> shorten_to_length(ArrayList<String> tokens, int length) {
+		ArrayList<String> ret = new ArrayList<String>(length);
+		for(int i=0;i<length;i++){
+			ret.add(tokens.get(i));
+		}
+		return ret;
 	}
 
 	private void run_solution(int solution_enum) {
