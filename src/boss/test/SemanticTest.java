@@ -39,6 +39,7 @@ import plus.data.Book;
 import plus.data.Chapter;
 import plus.data.Paragraph;
 import txtalign.TxtAlign;
+import wikipedia.WikiDataLoader;
 
 public class SemanticTest {	
 	static int MAPPING_GRANUALRITY;
@@ -78,9 +79,9 @@ public class SemanticTest {
 		}
 	}
 	
-	static final int SOLUTION = 0;
-	static final int BASELINE = 1;
-	static final int NAIVE    = 2;
+	public static final int SOLUTION = 0;
+	public static final int BASELINE = 1;
+	public static final int NAIVE    = 2;
 	static final int BOUND_TIGHTNESS    = 3;
 	static final int MEMORY_CONSUMPTION    = 4;
 	
@@ -252,7 +253,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_jacc"};//if no experiment specified run the bible experiment 
+			String[] temp = {"wiki"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {
@@ -304,6 +305,8 @@ public class SemanticTest {
 			print_seda_texts();
 		}else if(contains(args, "stats")) {
 			statistics();
+		}else if(contains(args, "wiki")) {
+			WikiDataLoader.run();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
@@ -315,7 +318,7 @@ public class SemanticTest {
 			no_match_words(embeddings, threshold);	
 		}*/	
 	}
-	
+
 	private static String to_tsv(String[] arr) {
 		String ret = arr[0];
 		for(int i=1;i<arr.length;i++) {
@@ -1167,7 +1170,7 @@ public class SemanticTest {
 		return result;
 	}
 	
-	private static HashMap<Integer, double[]> create_embedding_vector_index(HashMap<String, Integer> token_ids, ArrayList<String> all_tokens_ordered, String file_path) {
+	public static HashMap<Integer, double[]> create_embedding_vector_index(HashMap<String, Integer> token_ids, ArrayList<String> all_tokens_ordered, String file_path) {
 		ArrayList<MatchesWithEmbeddings> embeddings = MatchesWithEmbeddings.load(file_path);
 		HashMap<Integer, double[]> index = new HashMap<Integer, double[]>(token_ids.size());
 		HashMap<String,Integer> look_up_index = new HashMap<String,Integer>(embeddings.size());
@@ -1282,7 +1285,7 @@ public class SemanticTest {
 		return result;
 	}
 
-	private static HashMap<String,Integer> strings_to_int(ArrayList<String> all_string_tokens){
+	public static HashMap<String,Integer> strings_to_int(ArrayList<String> all_string_tokens){
 		HashMap<String,Integer> encoding = new HashMap<String,Integer>(all_string_tokens.size());
 		int id = 0;
 		for(String s : all_string_tokens){

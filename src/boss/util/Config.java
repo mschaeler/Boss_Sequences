@@ -54,6 +54,7 @@ public class Config {
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 	//public static int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
 	public static int[] k_s= {15};
+	public static int[] wiki_k_s= {8,16,32};
 	
 	public static boolean USE_TXT_ALIGN_FIX = true;
 }
