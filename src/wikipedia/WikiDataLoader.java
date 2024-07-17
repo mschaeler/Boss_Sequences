@@ -30,11 +30,15 @@ import plus.data.Book;
 
 public class WikiDataLoader {
 	public static final int THOUSAND = 1000;
-	static final int[] intput_sequence_length = {2*THOUSAND, 20*THOUSAND, 200*THOUSAND, 2*THOUSAND*THOUSAND};
+	//static final int[] intput_sequence_length = {2*THOUSAND, 20*THOUSAND, 200*THOUSAND, 2*THOUSAND*THOUSAND};
+	static final int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND};//, 4*16*THOUSAND, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
+	//int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
+	int[] all_solutions = {SemanticTest.BASELINE};
 	
 	static String folder = "./data/wikipedia/";
-	static String test_file = "test-5000.txt";
-	static String embedding_path = "all_matches_wiki.tsv";
+	//static String test_file = "test-5000.txt";
+	static String test_file = "wiki-1024000.txt";
+	static String embedding_path = "all_words_wiki.tsv";
 	
 	static boolean header_written = false;
 	static String result_path = "./results/wiki_results"+System.currentTimeMillis()+".tsv";
@@ -88,7 +92,7 @@ public class WikiDataLoader {
 		for(String s : unique_tokens) {
 			unique_tokens_sorted.add(s);
 		}
-		//System.out.println("unique_tokens_sorted");
+		System.out.println("unique_tokens_sorted");
 		Collections.sort(unique_tokens_sorted);
 		/*for(String s : unique_tokens_sorted) {
 			System.out.println(s);
@@ -152,20 +156,38 @@ public class WikiDataLoader {
 		System.out.println("WikiDataLoader.run()");
 		String line = load_file(file);
 		ArrayList<String> tokens = tokenize_txt_align(line);
-		System.out.println("tokenize() returned "+tokens.size()+ "tokens");
+		//out_unique_tokens(tokens);
+		System.out.println("tokenize() returned "+tokens.size()+ " tokens");
 		for(int length : intput_sequence_length) {
 			System.out.println("*** Length = "+length);
 			if(length<=tokens.size()) {
 				ArrayList<String> input = shorten_to_length(tokens, length);
 				System.out.println(input);
 				prepare_solution(input);
-				int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
 				for(int solution_enum : all_solutions) {
 					run_solution(solution_enum);	
 				}
 			}else{
 				System.err.println("length>line.length()");
 			}
+		}
+	}
+
+	private void out_unique_tokens(ArrayList<String> tokens) {
+		HashSet<String> unique_tokens = new HashSet<String>(tokens.size());
+		for(String s : tokens) {
+			unique_tokens.add(s);
+			//System.out.println(s);
+		}
+		System.out.println("Unique words after pre-processing= "+unique_tokens.size());
+		ArrayList<String> unique_tokens_sorted = new ArrayList<String>(unique_tokens.size());
+		for(String s : unique_tokens) {
+			unique_tokens_sorted.add(s);
+		}
+		System.out.println("unique_tokens_sorted");
+		Collections.sort(unique_tokens_sorted);
+		for(String s : unique_tokens_sorted) {
+			System.out.println(s);
 		}
 	}
 
@@ -182,6 +204,7 @@ public class WikiDataLoader {
 		double[] run_times=null;
 		
 		for(int k : Config.wiki_k_s) {
+			Solutions.dense_global_matrix_buffer = null;
 			Solutions s = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
 			int repitions = 0;
 			double run_time = 0;
@@ -249,7 +272,7 @@ public class WikiDataLoader {
 		HashSet<String> stopwords = StopWords.get_DONG_DENG_STOPWORDS();		
 		Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_35, stopwords);
 		
-		if(verbose_level>=print_everything) {System.out.println("org=\t\t\t"+org);}
+		if(verbose_level>=print_everything) {System.out.println("org=\t\t\t"+org.subSequence(0, Math.min(1000, org.length()-1)));}
 		final String delim = "[\"#$%&\'()*+,-./:;<=>?@\\[\\]^_`{|}~ ]";
 		// final String period_str = "\n\t\r\x0b\x0c,.!?;!";
 		final String period_str = "[\n\t\r,.!?;!]";// no line tabs in Java
