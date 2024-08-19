@@ -173,7 +173,7 @@ public class SemanticTest {
 	}
 	
 	static void run_pan_experiments() {
-		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
 		final double threshold = 0.7;
 		boolean header_written = false;
 		
@@ -192,12 +192,12 @@ public class SemanticTest {
 					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
 					for(Solutions s : solutions) {
 						//run_times = s.run_naive();
-						run_times = s.run_baseline();
+						//run_times = s.run_baseline();
 						//run_times = s.run_incremental_cell_pruning();
 						//run_times = s.run_incremental_cell_pruning_deep();
 						//run_times = s.run_candidates();
 						//run_times = s.run_candidates_deep();
-						//run_times = s.run_solution();
+						run_times = s.run_solution();
 						//run_times = s.run_bound_tightness_exp();
 						
 						all_run_times.add(run_times);
@@ -253,17 +253,17 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"wiki"};//if no experiment specified run the bible experiment 
+			String[] temp = {"p"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
-		if(contains(args, "b")) {
+		if(contains(args, "b")) {//Bible response time
 			final int[] k_s= {3,4,5,6,7,8};
 			final double threshold = 0.7;
 			int solution_enum = SOLUTION; //SOLUTION, BASELINE, NAIVE
 			run_bible_experiments(solution_enum, k_s, threshold, false);
-		}else if(contains(args, "p")) {
+		}else if(contains(args, "p")) {//pan response time
 			run_pan_experiments();
-		}else if(contains(args, "pc")) {
+		}else if(contains(args, "pc")) {//pan correctness SeDA time old
 			run_pan_correctness_experiments();
 		}else if(contains(args, "j")) {//jaccard
 			run_pan_jaccard_experiments();
