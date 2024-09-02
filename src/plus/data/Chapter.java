@@ -64,7 +64,7 @@ public class Chapter {
 			ret += " "+my_paragraphs.get(i).to_single_line_string();
 		}
 		
-		return ret;
+		return ret+" ";
 	}
 	public int size() {
 		int size = 0;

@@ -147,4 +147,15 @@ public class Sequence {
 		}
 		System.out.println("Unique tokens *********************************");
 	}
+	public static ArrayList<String> get_unique_tokens_orderd(ArrayList<ArrayList<String>> tokenized_books) {
+		HashSet<String> hs = new HashSet<String>();
+		for(ArrayList<String> document : tokenized_books) {
+			for(String token : document) {
+				hs.add(token);
+			}
+		}
+		ArrayList<String> al = get_ordered_token_list(hs);
+		Collections.sort(al);
+		return al;
+	}
 }

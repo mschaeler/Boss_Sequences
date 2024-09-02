@@ -66,7 +66,7 @@ public class SemanticTest {
 		if(only_english) return;
 		
 		//Now the German corpus
-		SemanticTest.embedding_vector_index_buffer = null;//Need to laod the German embediings. Before we had the English ones.
+		SemanticTest.embedding_vector_index_buffer = null;//Need to load the German embeddings. Before we had the English ones.
 		books = ImporterAPI.get_all_german_books();
 		for(int i=0;i<books.size();i++) {
 			for(int j=i+1;j<books.size();j++) {
@@ -84,6 +84,7 @@ public class SemanticTest {
 	public static final int NAIVE    = 2;
 	static final int BOUND_TIGHTNESS    = 3;
 	static final int MEMORY_CONSUMPTION    = 4;
+	static final int DUMMY    = 5;
 	
 	static boolean header_written = false;
 	static void run(ArrayList<Book> books, double threshold, int num_repititions, int[] k_s, int solution_enum) {
@@ -107,6 +108,8 @@ public class SemanticTest {
 						run_times = s.run_bound_tightness_exp();
 					}else if(solution_enum == MEMORY_CONSUMPTION) {
 						run_times = s.run_memory_consumption_measurement();
+					}else if(solution_enum == DUMMY) {
+						run_times = s.run_dummy();
 					}else{
 						System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 					}
@@ -253,10 +256,10 @@ public class SemanticTest {
 				
 				for(int k : Config.k_s) {
 					Solutions s = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
-					run_times = s.run_naive();
+					//run_times = s.run_naive();
 					//run_times = s.run_baseline();
 					//run_times = s.run_solution();
-					//run_times = s.run_dummy();
+					run_times = s.run_dummy();
 					all_run_times.add(run_times);
 				}
 				for(int i=0;i<k_s.length;i++) {
@@ -309,13 +312,13 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"p"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_seda"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
-			final int[] k_s= {3,4,5,6,7,8};
+			final int[] k_s= Config.k_s;
 			final double threshold = 0.7;
-			int solution_enum = SOLUTION; //SOLUTION, BASELINE, NAIVE
+			int solution_enum = DUMMY; //SOLUTION, BASELINE, NAIVE, DUMMY
 			run_bible_experiments(solution_enum, k_s, threshold, false);
 		}else if(contains(args, "p")) {//pan response time
 			run_pan_experiments();
@@ -1090,8 +1093,14 @@ public class SemanticTest {
 		//System.out.println("SemanticTest.prepare_experiment() [START]");
 		ArrayList<Solutions> ret = new ArrayList<Solutions>(books.size());
 		
-		ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
-		ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens(tokenized_books));
+		//ArrayList<Book> tokenized_books = Tokenizer.run(books, new BasicTokenizer());
+		ArrayList<ArrayList<String>> tokenized_books = Tokenizer.tokenize(books);
+		ArrayList<String> all_tokens_ordered = Sequence.get_unique_tokens_orderd(tokenized_books);
+		/*System.out.println("*** Unique tokens Begin");
+		for(String s : all_tokens_ordered) {
+			System.out.println(s);
+		}
+		System.out.println("*** Unique tokens End");*/
 		HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
 		
 		HashMap<Integer, double[]> embedding_vector_index;
@@ -1106,24 +1115,14 @@ public class SemanticTest {
 		
 		//For each pair of books (i,j)
 		for(int i=0;i<tokenized_books.size();i++) {
-			Book tokenized_book_1 = tokenized_books.get(i);
 			for(int j=i+1;j<tokenized_books.size();j++) {
-				Book tokenized_book_2 = tokenized_books.get(j);	
-				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
+				System.out.println("New book pair "+books.get(i).text_name+" vs. "+books.get(j).text_name+" for k="+k);
+				 
+				ArrayList<int[]> raw_paragraphs_b1  = encode_(tokenized_books.get(i), token_ids);
+				ArrayList<int[]> raw_paragraphs_b2  = encode_(tokenized_books.get(j), token_ids);
 				
-				//System.out.println(tokenized_book_1);
-				//System.out.println(tokenized_book_2);
-				
-				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
-				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
-				
-				get_tokens(tokenized_book_1, tokenized_book_2, raw_book_1, raw_book_2);
-				
-				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
-				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
-				
-				//out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
-				//out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+				//out(tokenized_books.get(i), raw_paragraphs_b1.get(0));
+				//out(tokenized_books.get(j), raw_paragraphs_b2.get(0));
 				
 				Solutions exp = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
 				ret.add(exp);
@@ -1148,6 +1147,21 @@ public class SemanticTest {
 		
 	}
 
+	private static void out(ArrayList<String> raw_book, int[] raw_paragraphs) {
+		if(raw_book.size()!=raw_paragraphs.length) {
+			System.err.println("out(String[] raw_book, int[] raw_paragraphs) raw_book.length!=raw_paragraphs.length");
+		}
+		String words = "";
+		String ids = "";
+		for(int i=0;i<raw_book.size();i++) {
+			words += raw_book.get(i)+"\t";
+			ids += raw_paragraphs[i]+"\t";
+		}
+		System.out.println(words);
+		System.out.println(ids);
+		
+	}
+	
 	private static void get_tokens_paragraph_to_chapter(final Book b_1, final Book b_2, final ArrayList<String[]> raw_book_b1, final ArrayList<String[]> raw_book_b2){
 		for(int c=0;c<b_1.my_chapters.size();c++) {
 			Chapter chapter_b1 = b_1.my_chapters.get(c);

@@ -36,7 +36,7 @@ public class Importer {
 	public static final String[] PAN11_SUSP = {PAN11_PREFIX_SUSP+"00228.txt", PAN11_PREFIX_SUSP+"00574.txt", PAN11_PREFIX_SUSP+"00815.txt", PAN11_PREFIX_SUSP+"02161.txt", PAN11_PREFIX_SUSP+"02841.txt", PAN11_PREFIX_SUSP+"04032.txt", PAN11_PREFIX_SUSP+"04617.txt", PAN11_PREFIX_SUSP+"04751.txt", PAN11_PREFIX_SUSP+"04953.txt", PAN11_PREFIX_SUSP+"08405.txt", PAN11_PREFIX_SUSP+"09029.txt", PAN11_PREFIX_SUSP+"09922.txt", PAN11_PREFIX_SUSP+"10497.txt", PAN11_PREFIX_SUSP+"10751.txt"};
 	
 	public static final String INPUT_ENCODING  = "UTF8";
-	public static final String FIELD_SEPERATOR = "�";//looks like s space, but it is not...
+	public static final String FIELD_SEPERATOR = " ";
 	public static final String FIELD_SEPERATOR_PAN11 = " ";//looks like s space, but it is not...
 	
 	/**
