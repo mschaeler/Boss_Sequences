@@ -111,4 +111,40 @@ public class Sequence {
 		Collections.sort(ordered_tokens);
 		return ordered_tokens;
 	}
+	public static ArrayList<String> get_ordered_token_list(HashSet<String> unique_tokens){
+		ArrayList<String> ordered_tokens = new ArrayList<String>(unique_tokens.size());
+		for(String token : unique_tokens) {
+			ordered_tokens.add(token);
+		}
+		Collections.sort(ordered_tokens);
+		return ordered_tokens;
+	}
+	public static HashSet<String> get_unique_tokens_(ArrayList<String>[] src_plagiats_pair) {
+		HashSet<String> unique_tokens = new HashSet<String>();
+		
+		for(ArrayList<String> document : src_plagiats_pair) {
+			for(String token : document) {
+				unique_tokens.add(token);
+			}
+		}
+		
+		return unique_tokens;
+	}
+	public static void out_unique_tokens_ordered(ArrayList<ArrayList<String>>[] all_src_plagiats_pairs_tokinized) {
+		System.out.println("Unique tokens *********************************");
+		HashSet<String> hs = new HashSet<String>();
+		for(ArrayList<ArrayList<String>> pair : all_src_plagiats_pairs_tokinized) {
+			for(ArrayList<String> document : pair) {
+				for(String token : document) {
+					hs.add(token);
+				}
+			}
+		}
+		ArrayList<String> al = get_ordered_token_list(hs);
+		Collections.sort(al);
+		for(String s : al) {
+			System.out.println(s);
+		}
+		System.out.println("Unique tokens *********************************");
+	}
 }

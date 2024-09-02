@@ -34,7 +34,7 @@ public class Jaccard {
 	 * 0 print final tokens
 	 * 1 print everything
 	 */
-	public static int verbose_level = 1;
+	public static int verbose_level = 0;
 	/**
 	 * Suspicious document as Text
 	 */
@@ -65,10 +65,10 @@ public class Jaccard {
 		this.b_1 = b_1;
 		this.b_2 = b_2;
 		
-		text_tokens_b_1 = (Config.USE_TXT_ALIGN_PREPROCESSING) ? tokenize_txt_align(b_1) : tokenize(b_1);
+		text_tokens_b_1 = (Config.USE_TXT_ALIGN_PREPROCESSING) ? Tokenizer.tokenize_txt_align(b_1) : Tokenizer.tokenize(b_1, true);
 		//if(verbose_level>=print_final_token) {System.out.println("final B1\t\t"+Util.outTSV(text_tokens_b_1));}
 		int_tokens_b_1 = new int[text_tokens_b_1.size()];
-		text_tokens_b_2 = (Config.USE_TXT_ALIGN_PREPROCESSING) ? tokenize_txt_align(b_2) : tokenize(b_2);
+		text_tokens_b_2 = (Config.USE_TXT_ALIGN_PREPROCESSING) ? Tokenizer.tokenize_txt_align(b_2) : Tokenizer.tokenize(b_2, true);
 		//if(verbose_level>=print_final_token) {System.out.println("final B2\t\t"+Util.outTSV(text_tokens_b_2));}
 		int_tokens_b_2 = new int[text_tokens_b_2.size()];
 	}
@@ -103,110 +103,7 @@ public class Jaccard {
 			}
 		}
 	}
-	
-	ArrayList<String> tokenize_txt_align(Book b){
-		HashSet<String> stopwords = StopWords.get_DONG_DENG_STOPWORDS();
-		String org = b.to_single_line_string();
 		
-		
-		Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_35, stopwords); //TODO
-		/*Reader reader = new StringReader(org);
-		TokenStream stream = analyzer.tokenStream("field", reader);
-		try {
-			stream.reset();
-			while (stream.incrementToken()) {
-			    String stem = stream.getAttribute(CharTermAttribute.class).toString();
-			    // doing something with the stem
-			    System.out.print(stem+ " ");
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
-		
-		if(verbose_level>=print_everything) {System.out.println("org=\t\t\t"+org);}
-		final String delim = "[\"#$%&\'()*+,-./:;<=>?@\\[\\]^_`{|}~ ]";
-		// final String period_str = "\n\t\r\x0b\x0c,.!?;!";
-		final String period_str = "[\n\t\r,.!?;!]";// no line tabs in Java
-		
-		String[] sentences = org.split(period_str);
-		if(verbose_level>=print_everything) {System.out.println("sentences=\t\t"+Arrays.toString(sentences));}
-		
-		ArrayList<String> ret = new ArrayList<String>();
-		PorterStemmer stemmer = new PorterStemmer();
-		
-		for(String sentence : sentences) {
-			String[] tokens = sentence.split(delim);
-			for(String t : tokens) {
-				if(Config.USE_TXT_ALIGN_CORRECT_STEMMING) {
-					if(Config.USE_TXT_ALIGN_LEMMATIZING) {//Lemmatizing. This way we prevent empty words, find all the stop words and make better use of the word list.
-						Reader r = new StringReader(t);
-						TokenStream ts = analyzer.tokenStream("field", r);
-						try {
-							ts.reset();
-							while (ts.incrementToken()) {
-							    t = ts.getAttribute(CharTermAttribute.class).toString();
-							    if(!stopwords.contains(t)) {//@FIX in original code
-									String stem_word = stemmer.stem(t.toLowerCase());
-									if(!stopwords.contains(stem_word)) {
-										ret.add(stem_word);	
-									}
-							    }
-							}
-						} catch (IOException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					}else if(!stopwords.contains(t)) {//@FIX in original code
-						String stem_word = stemmer.stem(t.toLowerCase());
-						if(!stopwords.contains(stem_word)) {
-							ret.add(stem_word);	
-						}
-					}
-				}else{//Stemming only. As in original code.
-					String stem_word = stemmer.stem(t.toLowerCase());
-					if(!stopwords.contains(stem_word)) {
-						ret.add(stem_word);	
-					}
-				}
-			}
-		}
-		analyzer.close();
-		return ret;
-	}
-	
-	ArrayList<String> tokenize(Book b){
-		String org = b.to_single_line_string();
-		if(verbose_level>=print_everything) {System.out.println("org=\t\t\t"+org);}
-		String temp = Tokenizer.replace_non_alphabetic_characters(org, language);
-		if(verbose_level>=print_everything) {System.out.println("alpha numeric=\t\t"+temp);}
-		temp = Tokenizer.remove_duplicate_whitespaces(temp);
-		if(verbose_level>=print_everything) {System.out.println("whitespaces=\t\t"+temp);}
-		String[] tokens = temp.split(" ");
-		
-		tokens = Tokenizer.to_lower_case(tokens);
-		//if(verbose_level>=print_everything) System.out.println("to_lower_case\t\t"+Util.outTSV(tokens)); 
-		//tokens = Tokenizer.stop_word_removal(tokens, language);//sometimes stop words are modified upon stemming. Thus, check it twice.
-		if(verbose_level>=print_everything) System.out.println("stop_word_removal\t"+Util.outTSV(tokens));
-		tokens = Tokenizer.stemming(tokens, language);
-		if(verbose_level>=print_everything) System.out.println("stemming\t\t"+Util.outTSV(tokens));
-		tokens = Tokenizer.stop_word_removal(tokens, language);
-		if(verbose_level>=print_everything) System.out.println("stop_word_removal\t"+Util.outTSV(tokens));
-		
-		//TODO check for empty Strings, remove nulls
-		ArrayList<String> ret = new ArrayList<String>();
-		for(String s : tokens) {
-			if(s != null) {
-				if(s.length()!=0) {
-					ret.add(s);	
-				}
-			}
-		}
-		
-		return ret;
-	}
-	
-	
 	/**
 	 * 
 	 * @param raw_paragraphs all the paragraphs

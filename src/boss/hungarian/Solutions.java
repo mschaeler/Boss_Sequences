@@ -2097,4 +2097,8 @@ public class Solutions {
 		
 		System.out.println("create_dense_matrix()\t"+(stop-start)+" check sum=\t"+check_sum+" size="+size);
 	}
+
+	public double[] run_dummy() {
+		return col_maxima;
+	}
 }

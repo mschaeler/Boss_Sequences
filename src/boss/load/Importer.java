@@ -77,7 +77,7 @@ public class Importer {
 	 * @param path
 	 * @return
 	 */
-	private static ArrayList<String[]> get_data_from_file_pan11(String path){
+	static ArrayList<String[]> get_data_from_file_pan11(String path){
 		ArrayList<String[]> lines = new ArrayList<String[]>(1000);
 		try {
 			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(path), INPUT_ENCODING));
@@ -115,7 +115,7 @@ public class Importer {
 		return buffer.toString();
 	}
 	
-	private static Book to_book_pan11(ArrayList<String[]> raw_book, int language, String filename) {
+	static Book to_book_pan11(ArrayList<String[]> raw_book, int language, String filename) {
 		// String meta_info[] = raw_book.get(0);
 		String[] meta_info = {"PAN11", filename, "PAN11"};
 		Book b = new Book(get_text_name(meta_info), get_book_name(meta_info), language);

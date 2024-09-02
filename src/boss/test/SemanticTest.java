@@ -176,32 +176,88 @@ public class SemanticTest {
 		final int[] k_s= {3,4,5,6,7,8,9,10,11,12,13,14,15};
 		final double threshold = 0.7;
 		boolean header_written = false;
+		boolean pan_embeddings = true;
 		
 		MAPPING_GRANUALRITY = GRANULARITY_BOOK_TO_BOOK;
 		
-		ArrayList<Book> books;
-		for (int susp_id = 0; susp_id < Importer.PAN11_SRC.length; susp_id++) {
-			ArrayList<double[]> all_run_times = new ArrayList<double[]>();
-			double[] run_times;
 		
-			for (int src_id = 0; src_id < Importer.PAN11_SUSP.length; src_id++) {
-				books = ImporterAPI.get_pan_11_books(src_id, susp_id);
-				for(int k : k_s) {
-					Solutions.dense_global_matrix_buffer = null;
-					boolean pan_embeddings = true;
-					ArrayList<Solutions> solutions = prepare_solution(books,k,threshold, pan_embeddings);
-					for(Solutions s : solutions) {
-						//run_times = s.run_naive();
-						//run_times = s.run_baseline();
-						//run_times = s.run_incremental_cell_pruning();
-						//run_times = s.run_incremental_cell_pruning_deep();
-						//run_times = s.run_candidates();
-						//run_times = s.run_candidates_deep();
-						run_times = s.run_solution();
-						//run_times = s.run_bound_tightness_exp();
-						
-						all_run_times.add(run_times);
-					}
+		ArrayList<String> src_documents = ImporterAPI.get_raw_books_pan(true);
+		ArrayList<String> susp_documents = ImporterAPI.get_raw_books_pan(false);
+		/*int i=0;
+		for(String book : src_documents) {
+			System.out.println("Src "+(i++));
+			System.out.println(book);
+		}
+		i=0;
+		for(String book : susp_documents) {
+			System.out.println("Susp "+(i++));
+			System.out.println(book);
+		}*/
+		
+		ArrayList<ArrayList<String>> src_documents_tokenized = Tokenizer.tokenize_(src_documents);
+		ArrayList<ArrayList<String>> susp_documents_tokenized = Tokenizer.tokenize_(susp_documents);
+		
+		/*i=0;
+		for(ArrayList<String> book : src_documents_tokenized) {
+			System.out.println("Src "+(i++));
+			for(String s : book) {
+				System.out.print(s+" ");
+			}
+			System.out.println();
+		}
+		i=0;
+		for(ArrayList<String> book : susp_documents_tokenized) {
+			System.out.println("Susp "+(i++));
+			for(String s : book) {
+				System.out.print(s+" ");
+			}
+			System.out.println();
+		}*/
+		
+		
+		//ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		double[] run_times;
+		//Sequence.out_unique_tokens_ordered(all_src_plagiats_pairs_tokinized);
+		
+		ArrayList<String>[] src_plagiat_pair = new ArrayList[2];
+		
+		int doc_src_id=0;
+		for(ArrayList<String> src_doc : src_documents_tokenized) {
+			src_plagiat_pair[0] = src_doc;
+			int doc_susp_id=0;
+			for(ArrayList<String> susp_doc : susp_documents_tokenized) {
+				src_plagiat_pair[1] = susp_doc;
+				Solutions.dense_global_matrix_buffer = null;
+				//SemanticTest.embedding_vector_index_buffer = null;
+				ArrayList<double[]> all_run_times = new ArrayList<double[]>();
+				
+				ArrayList<String> all_tokens_ordered = Sequence.get_ordered_token_list(Sequence.get_unique_tokens_(src_plagiat_pair));
+				HashMap<String, Integer> token_ids = strings_to_int(all_tokens_ordered);
+				
+				HashMap<Integer, double[]> embedding_vector_index;
+				if(embedding_vector_index_buffer==null) {
+					boolean ignore_stopwords = false;//XXX
+					String file_path = Embedding.get_embedding_path(Book.LANGUAGE_ENGLISH, ignore_stopwords, pan_embeddings);
+					embedding_vector_index = create_embedding_vector_index(token_ids,all_tokens_ordered,file_path);
+					embedding_vector_index_buffer = embedding_vector_index;
+				}else{
+					embedding_vector_index = embedding_vector_index_buffer;
+				}
+				
+				ArrayList<int[]> raw_paragraphs_b1  = encode_(src_plagiat_pair[0], token_ids);
+				ArrayList<int[]> raw_paragraphs_b2  = encode_(src_plagiat_pair[1], token_ids);
+				
+				System.out.println("src_id="+(doc_src_id)+" susp_id="+(doc_susp_id++));
+				System.out.println(Arrays.toString(raw_paragraphs_b1.get(0)));
+				System.out.println(Arrays.toString(raw_paragraphs_b2.get(0)));
+				
+				for(int k : Config.k_s) {
+					Solutions s = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
+					run_times = s.run_naive();
+					//run_times = s.run_baseline();
+					//run_times = s.run_solution();
+					//run_times = s.run_dummy();
+					all_run_times.add(run_times);
 				}
 				for(int i=0;i<k_s.length;i++) {
 					System.out.print("k="+k_s[i]+"\t");
@@ -220,7 +276,7 @@ public class SemanticTest {
 					//String result_path = "./results/pan_results_"+System.currentTimeMillis()+".tsv";
 				    try {
 				        BufferedWriter output = new BufferedWriter(new FileWriter(result_path_pan, true));
-
+	
 				        // Writes the string to the file
 				        if(!header_written) {
 					        for(int i=0;i<k_s.length;i++) {
@@ -238,7 +294,6 @@ public class SemanticTest {
 							output.newLine();
 						}
 				        
-
 				        // Closes the writer
 				        output.close();
 				      }catch (Exception e) {
@@ -247,6 +302,7 @@ public class SemanticTest {
 				}
 				all_run_times.clear();
 			}
+			doc_src_id++;
 		}
 	}
 	
@@ -1055,8 +1111,8 @@ public class SemanticTest {
 				Book tokenized_book_2 = tokenized_books.get(j);	
 				System.out.println("New book pair "+tokenized_book_1.text_name+" vs. "+tokenized_book_2.text_name);
 				
-				System.out.println(tokenized_book_1);
-				System.out.println(tokenized_book_2);
+				//System.out.println(tokenized_book_1);
+				//System.out.println(tokenized_book_2);
 				
 				ArrayList<String[]> raw_book_1 = new ArrayList<String[]>(100); 
 				ArrayList<String[]> raw_book_2 = new ArrayList<String[]>(100); 
@@ -1066,8 +1122,8 @@ public class SemanticTest {
 				ArrayList<int[]> raw_paragraphs_b1  = encode(raw_book_1, token_ids);
 				ArrayList<int[]> raw_paragraphs_b2  = encode(raw_book_2, token_ids);
 				
-				out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
-				out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
+				//out(raw_book_1.get(0), raw_paragraphs_b1.get(0));
+				//out(raw_book_2.get(0), raw_paragraphs_b2.get(0));
 				
 				Solutions exp = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
 				ret.add(exp);
@@ -1285,6 +1341,27 @@ public class SemanticTest {
 		return result;
 	}
 
+	private static ArrayList<int[]> encode_(ArrayList<String> raw_book, HashMap<String, Integer> token_ids) {
+		ArrayList<int[]> result = new ArrayList<int[]>(raw_book.size());
+		//we ignore Chapters
+		
+		
+		int[] paragraph_token_ids = new int[raw_book.size()];
+		for(int i=0;i<paragraph_token_ids.length;i++) {
+			String token = raw_book.get(i);
+			Integer id = token_ids.get(token);
+			if(id!=null) {
+				paragraph_token_ids[i] = id.intValue();
+			}else{
+				System.err.println("id==null for "+token);
+			}
+		}
+		result.add(paragraph_token_ids);
+		
+		
+		return result;
+	}
+	
 	public static HashMap<String,Integer> strings_to_int(ArrayList<String> all_string_tokens){
 		HashMap<String,Integer> encoding = new HashMap<String,Integer>(all_string_tokens.size());
 		int id = 0;

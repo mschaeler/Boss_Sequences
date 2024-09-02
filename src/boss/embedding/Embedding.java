@@ -95,7 +95,7 @@ public class Embedding {
 	static boolean materialize = true;
 	public static final String ENGLISH_MINIMAL_EMBEDDINGS = ".\\data\\en\\matches.en.min.tsv";
 	public static final String ENGLISH_EMBEDDINGS = ".\\data\\en\\matches_stopwords.en.min.tsv";
-	public static final String PAN11_ENGLISH_EMBEDDINGS = "./data/pan11/all_matches_pan_new.tsv";
+	public static final String PAN11_ENGLISH_EMBEDDINGS = "./data/pan11/all_words_pan.tsv";
 	public static ArrayList<MatchesWithEmbeddings> get_minimal_embedding_en(){
 		String file 	= ".\\data\\en\\cc.en.300.vec";
 		Embedding e 	= new Embedding(file);

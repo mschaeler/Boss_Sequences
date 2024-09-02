@@ -38,6 +38,27 @@ public class ImporterAPI {
 		ret.add(Importer.get_book_pan11(src_id, true));
 		return ret;
 	}
+	
+	public static ArrayList<String> get_raw_books_pan(boolean src) {
+		ArrayList<String> result = new ArrayList<String>();
+		if(src) {
+			for(String file_path : Importer.PAN11_SRC) {
+				ArrayList<String[]> raw_book = Importer.get_data_from_file_pan11(file_path);
+				Book b = Importer.to_book_pan11(raw_book, Book.LANGUAGE_ENGLISH, file_path);
+				String s = b.to_single_line_string();
+				result.add(s);
+			}
+		}else{//query
+			for(String file_path : Importer.PAN11_SUSP) {
+				ArrayList<String[]> raw_book = Importer.get_data_from_file_pan11(file_path);
+				Book b = Importer.to_book_pan11(raw_book, Book.LANGUAGE_ENGLISH, file_path);
+				String s = b.to_single_line_string();
+				result.add(s);
+			}
+		}
+		return result;
+	}
+	
 	public static ArrayList<Book> get_all_pan_books() {
 		ArrayList<Book> ret = new ArrayList<Book>();
 		for(int id=0;id<Importer.PAN11_SRC.length; id++) {
