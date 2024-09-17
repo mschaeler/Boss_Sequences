@@ -3,7 +3,12 @@
 #include <math.h>       /* sqrt */
 #include <algorithm>    // std::sort
 #include <chrono>
+
+#include "Environment.h"
+#include "Hungarian.h"
+#include "PermutationSolver.h"
 #include "Experiment.h"
+#include "Solutions.h"
 
 using namespace std;
 inline size_t key(int i,int j) {return (size_t) i << 32 | (unsigned int) j;} // concat unsigned int with two integer set id as an edge's integer id
@@ -89,6 +94,35 @@ public:
 
     vector<int> getDictionary() {
         return dictionary;
+    }
+
+    double sim(const int token1_ID, const int token2_ID) {
+        if(token1_ID==token2_ID) {
+            return 1;
+        }
+        // if either token doesn't have a vector then similarity is 0
+        if ((vectors.find(token1_ID) == vectors.end()) || (vectors.find(token2_ID) == vectors.end())) {
+            return 0;
+        }
+
+        // we calculate the similarity and cache it
+        float dot = 0.0, denom_a = 0.0, denom_b = 0.0;
+        vector<float> A = vectors[token1_ID];
+        vector<float> B = vectors[token2_ID];
+        for(int i = 0; i < A.size(); ++i) {
+            dot += A[i] * B[i];
+            denom_a += A[i] * A[i];
+            denom_b += B[i] * B[i];
+        }
+
+        double sim = double(dot / (sqrt(denom_a) * sqrt(denom_b)));
+        if(sim<0) {
+            sim=0;
+        }
+        if(sim>1) {
+            sim=1;
+        }
+        return sim;
     }
 
     double dist(const int token1_ID, const int token2_ID) {
@@ -361,6 +395,52 @@ vector<int> get_raw_book(Environment& env, set<int>& text_sets){
     return raw_book;
 }
 
+vector<vector<double>> get_sim_matrix(vector<int>& raw_book_1, vector<int>& raw_book_2, DataLoader& loader, Environment& env){
+    //get size of matrix
+    int max_id = 0;
+    for(int id : raw_book_1){
+        if(id>max_id){
+            max_id = id;
+        }
+    }
+    for(int id : raw_book_2){
+        if(id>max_id){
+            max_id = id;
+        }
+    }
+    vector<vector<double>> global_dist_matrix(max_id+1, vector<double>(max_id+1));
+
+    cout << "Computing global sim matrix [BEGIN]" << endl;
+
+    chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+    for(int line =0;line<global_dist_matrix.size();line++){
+        global_dist_matrix.at(line).at(line) = 1;
+        for(int column=line+1;column<global_dist_matrix.at(0).size();column++){
+            double dist = loader.sim(line,column);
+            /*if(dist>0){
+                cout << line <<" "<< column <<"->"<< dist << endl;
+            }*/
+            //exploit symmetry
+            global_dist_matrix.at(line).at(column) = dist;
+            global_dist_matrix.at(column).at(line) = dist;
+        }
+    }
+    chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+    //cout << "Sliding Window Computation time: " << time_elapsed.count() << endl;
+
+    double sum = 0;
+
+    for(auto arr : global_dist_matrix){
+        for(double d : arr){
+            sum+=d;
+        }
+    }
+
+    cout << "Computing global similarity matrix Check sum="<< sum << " size= "<< global_dist_matrix.size()*global_dist_matrix.at(0).size() <<" [DONE] "<<time_elapsed.count()<< endl;
+
+    return global_dist_matrix;//by value
+}
+
 vector<vector<double>> get_dist_matrix(vector<int>& raw_book_1, vector<int>& raw_book_2, DataLoader& loader, Environment& env){
     int max_id = 0;
     for(int id : raw_book_1){
@@ -455,21 +535,45 @@ void run_experiments(Environment& env, DataLoader& loader, const double theta){
     auto raw_book_1 = get_raw_book(env, text1Sets);
     auto raw_book_2 = get_raw_book(env, text2Sets);
 
-    vector<vector<double>> dist_matrix = get_dist_matrix(raw_book_1, raw_book_2, loader, env);
+    //vector<vector<double>> dist_matrix = get_dist_matrix(raw_book_1, raw_book_2, loader, env);
+    vector<vector<double>> sim_matrix = get_sim_matrix(raw_book_1, raw_book_2, loader, env);
 
-    vector<int> k_s = {3,4,5,6,7,8};
+    /*vector<vector<double>> sim_copy(dist_matrix.size(), vector<double>(dist_matrix.at(0).size()));
+    for(int line =0; line < dist_matrix.size();line++){
+        for(int column=0;column<dist_matrix.at(0).size();column++){
+            double dist = dist_matrix.at(line).at(line);
+            sim_copy.at(line).at(column) = 1-dist;
+        }
+    }
+    double sum = 0.0;
+    for(auto arr : sim_copy){
+        for(double d : arr){
+            sum+=d;
+        }
+    }
+    cout << "sim opcy check sum =" << sum << endl;*/
+
+    vector<int> k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15};
     //vector<int> k_s = {3};
     vector<double> run_times;
 
+
+
     for(int k : k_s){
-        Experiment exp(num_paragraphs, k, theta, max_id, raw_book_1, raw_book_2, dist_matrix);
+        //Experiment exp(num_paragraphs, k, theta, max_id, raw_book_1, raw_book_2, dist_matrix);
+        Solutions s(num_paragraphs, k, theta, max_id, raw_book_1, raw_book_2, sim_matrix);
         //exp.out_config();
+        //double run_time = s.run_naive();
+        //double run_time = s.run_baseline();
+        //double run_time = s.run_baseline_deep();
+        //double run_time = s.run_incremental_cell_pruning();
+        double run_time = s.run_solution();
         //double run_time = exp.run_baseline();
         //double run_time = exp.run_baseline_safe();
         //double run_time = exp.run_pruning();
         //double run_time = exp.run_zick_zack();
         //double run_time = exp.run_pruning_max_matrix_value();
-        double run_time = exp.run_candidates();
+        //double run_time = exp.run_candidates();
 
         run_times.push_back(run_time);
     }
@@ -487,9 +591,11 @@ int main() {
     //load_texts();
     int k = 3;
     double theta = 0.7;
-
-    Environment env;
-    //env.out();
+    string text1location = "..//data/en/esv.txt";
+    string text2location = "..//data/en/king_james_bible.txt";
+    Environment env(text1location, text2location);
+    //Environment env;
+    env.out();
 
     bool ignore_stopwords = false;
     string data_file;

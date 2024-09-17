@@ -8,11 +8,7 @@
 #include <string>
 #include <vector>
 #include "HungarianKevinStern.h"
-#include "Hungarian.h"
-#include "PermutationSolver.h"
-#include "Environment.h"
 #include <algorithm>    // std::sort
-#include <chrono>
 
 using namespace std;
 
@@ -133,7 +129,7 @@ private:
 
     double sum(const vector<vector<double>>& matrix) const {
         double sum = 0;
-        for(auto arr : matrix){
+        for(vector<double> arr : matrix){
             for(double d : arr){
                 sum+=d;
             }
@@ -199,6 +195,7 @@ public:
     double run_baseline_safe(){
         cout << "run_baseline_safe() " << endl;
         out_config();
+        long count_computed_cells = 0;
 
         HungarianAlgorithm HungAlgo;
         PermutationSolver ps(k);
@@ -251,12 +248,15 @@ public:
 
                 double normalized_similarity = 1.0 - (cost / (double)k);
                 if(normalized_similarity>=threshold) {
+                    count_computed_cells++;
                     alignment_matrix_line.at(column) = normalized_similarity;
                 }//else keep it zero
             }
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-        cout << "run_baseline_sfae() time: " << time_elapsed.count() << endl;
+        double check_sum = sum(alignment_matrix);
+        long size = size_matrix(alignment_matrix);
+        cout << "run_baseline_safe() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
 
         cout << " run_baseline() [DONE]" << endl;
         return time_elapsed.count();
@@ -605,9 +605,23 @@ public:
         return time_elapsed.count();
     }
 
+    long size_matrix(vector<vector<double>> matrix){
+        return matrix.size()*matrix.at(0).size();
+    }
+
+    void out_matrix(vector<vector<double>>& matrix){
+        for(auto arr : matrix){
+            for(auto d : arr){
+                cout << d << " ";
+            }
+            cout << endl;
+        }
+    }
+
     double run_baseline(){
         cout << "run_baseline() " << endl;
         out_config();
+        long count_computed_cells = 0;
 
         HungarianAlgorithm HungAlgo;
         HungarianKevinStern HKS(k);
@@ -616,12 +630,12 @@ public:
 
         vector<int> assignment;
 
-        cout << "Alignment matrix size " << alignment_matrix.size() << " x " << alignment_matrix.at(0).size() << endl;
-        cout << "Cost matrix size " << global_cost_matrix.size() << " x " << global_cost_matrix.at(0).size() << endl;
+        //cout << "Alignment matrix size " << alignment_matrix.size() << " x " << alignment_matrix.at(0).size() << endl;
+        //cout << "Cost matrix size " << global_cost_matrix.size() << " x " << global_cost_matrix.at(0).size() << endl;
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
 
         for(int line=0;line<alignment_matrix.size();line++){
-            vector<double> alignment_matrix_line = alignment_matrix.at(line);
+            vector<double>& alignment_matrix_line = alignment_matrix.at(line);
 
             for(int column=0;column<alignment_matrix.at(0).size();column++){
                 //Create local cost matrix for the Hungarian
@@ -631,15 +645,22 @@ public:
                 //HungarianKevinStern HKS(k);
                 double cost = HKS.solve_cached(cost_matrix, threshold);
                 double normalized_similarity = 1.0 - (cost / (double) k);
+
+                //cout << normalized_similarity << endl;
+                //out_matrix(cost_matrix);
+
                 if (normalized_similarity >= threshold) {
+                    count_computed_cells++;
                     alignment_matrix_line.at(column) = normalized_similarity;
                 }//else keep it zero
             }
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-        cout << "run_baseline() time: " << time_elapsed.count() << endl;
+        double check_sum = sum(alignment_matrix);
+        long size = size_matrix(alignment_matrix);
+        cout << "run_baseline() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
 
-        cout << "run_baseline() [DONE]" << endl;
+        //cout << "run_baseline() [DONE]" << endl;
         return time_elapsed.count();
     }
 
