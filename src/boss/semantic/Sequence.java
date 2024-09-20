@@ -158,4 +158,25 @@ public class Sequence {
 		Collections.sort(al);
 		return al;
 	}
+	public static void out_unique_tokens_ordered(ArrayList<ArrayList<String>> src_documents_tokenized,
+			ArrayList<ArrayList<String>> susp_documents_tokenized) {
+		System.out.println("Unique tokens *********************************");
+		HashSet<String> hs = new HashSet<String>();
+		for(ArrayList<String> document : src_documents_tokenized) {
+			for(String token : document) {
+				hs.add(token);
+			}
+		}
+		for(ArrayList<String> document : susp_documents_tokenized) {
+			for(String token : document) {
+				hs.add(token);
+			}
+		}
+		ArrayList<String> al = get_ordered_token_list(hs);
+		Collections.sort(al);
+		for(String s : al) {
+			System.out.println(s);
+		}
+		System.out.println("Unique tokens *********************************");
+	}
 }

@@ -87,7 +87,18 @@ public class SemanticTest {
 	static final int DUMMY    = 5;
 	
 	static boolean header_written = false;
+	//For bound statistics
+	static double[][] bounds = new double[Config.k_s[Config.k_s.length-1]+1][6];
+	static final int size 				= 0;
+	static final int cand 				= 1;
+	static final int o_1 				= 2;
+	static final int o_k 				= 3;
+	static final int o_k_k 				= 4;
+	static final int cells_above_theta 	= 5;
+	
 	static void run(ArrayList<Book> books, double threshold, int num_repititions, int[] k_s, int solution_enum) {
+		
+		
 		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
 		double[] run_times=null;
 		
@@ -128,6 +139,16 @@ public class SemanticTest {
 				double[] temp = {run_time};
 				all_run_times.add(temp);
 			}
+			//TODO Begin			
+			for(Solutions s : solutions) {
+				bounds[k][size]				+= s.size_alignment_matrix();
+				bounds[k][cand]				+= s.count_candidates 				/ num_repititions;
+				bounds[k][o_1]				+= s.count_survived_pruning 		/ num_repititions;
+				bounds[k][o_k]				+= s.count_survived_second_pruning 	/ num_repititions;
+				bounds[k][o_k_k]			+= s.count_survived_third_pruning 	/ num_repititions;
+				bounds[k][cells_above_theta]+= s.count_cells_exceeding_threshold/ num_repititions;
+			}
+			//TODO END
 		}
 		
 		for(int i=0;i<k_s.length;i++) {
@@ -173,6 +194,22 @@ public class SemanticTest {
 		      }
 		}
 		all_run_times.clear();
+		print_bound_statistics();
+	}
+	
+	static void print_bound_statistics() {
+		// Out Bound statistics
+		System.out.println("k\t|A|\t|C|\tO(1)\tO(k)\tO(k*k)\t>theta");
+		for(int k : Config.k_s) {
+			System.out.print("k="+k+"\t");
+			System.out.print(bounds[k][0]+"\t");
+			System.out.print(bounds[k][1]+"\t");
+			System.out.print(bounds[k][2]+"\t");
+			System.out.print(bounds[k][3]+"\t");
+			System.out.print(bounds[k][4]+"\t");
+			System.out.print(bounds[k][5]+"\t");
+			System.out.println();
+		}
 	}
 	
 	static void run_pan_experiments() {
@@ -220,7 +257,7 @@ public class SemanticTest {
 		
 		//ArrayList<Book>[] all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
 		double[] run_times;
-		//Sequence.out_unique_tokens_ordered(all_src_plagiats_pairs_tokinized);
+		//Sequence.out_unique_tokens_ordered(src_documents_tokenized, susp_documents_tokenized);
 		
 		ArrayList<String>[] src_plagiat_pair = new ArrayList[2];
 		
@@ -312,14 +349,14 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_seda"};//if no experiment specified run the bible experiment 
+			String[] temp = {"b"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
 			final int[] k_s= Config.k_s;
 			final double threshold = 0.7;
-			int solution_enum = DUMMY; //SOLUTION, BASELINE, NAIVE, DUMMY
-			run_bible_experiments(solution_enum, k_s, threshold, false);
+			int solution_enum = SOLUTION; //SOLUTION, BASELINE, NAIVE, DUMMY
+			run_bible_experiments(solution_enum, k_s, threshold, true);
 		}else if(contains(args, "p")) {//pan response time
 			run_pan_experiments();
 		}else if(contains(args, "pc")) {//pan correctness SeDA time old
@@ -327,10 +364,11 @@ public class SemanticTest {
 		}else if(contains(args, "j")) {//jaccard
 			run_pan_jaccard_experiments();
 		}else if(contains(args, "bound")) {
-			final int[] k_s= {3,4,5,6,7,8};
-			double[] thetas = {0.5,0.6,0.7,0.8,0.9};
+			final int[] k_s= Config.k_s;//{3,4,5,6,7,8};
+			//double[] thetas = {0.5,0.6,0.7,0.8,0.9};
+			double[] thetas = {0.9};
 			for(double threshold : thetas) {
-				run_bible_experiments(SOLUTION,k_s, threshold, true);	
+				run_bible_experiments(SOLUTION,k_s, threshold, false);	
 			}
 		}else if(contains(args, "m")) {
 			final int[] k_s= {3};//The same for all k's

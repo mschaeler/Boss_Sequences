@@ -2,7 +2,7 @@ package boss.hungarian;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
+import boss.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,12 +16,12 @@ public class Solutions {
 	
 	static final boolean LOGGING_MODE = true;
 	
-	long count_candidates 				= 0;
-	long count_survived_sum_bound 		= 0;
-	long count_cells_exceeding_threshold = 0;
-	long count_survived_pruning 		= 0;
-	long count_survived_second_pruning 	= 0;
-	long count_survived_third_pruning 	= 0;
+	public long count_candidates 				= 0;
+	public long count_survived_sum_bound 		= 0;
+	public long count_cells_exceeding_threshold = 0;
+	public long count_survived_pruning 		= 0;
+	public long count_survived_second_pruning 	= 0;
+	public long count_survived_third_pruning 	= 0;
 	
 	public static double[][] dense_global_matrix_buffer = null;
 	static final double DOUBLE_PRECISION_BOUND = 0.0001d;
@@ -488,7 +488,7 @@ public class Solutions {
 		MyArrayList candidates_condensed = new MyArrayList(candidates_line.size());
 		int q = 0;
 		boolean found_run = false;
-		while(q<candidates_line.size()) {
+		while(q<candidates_line.length()) {
 			if(candidates_line.get(q)) {//start of a run
 				candidates_condensed.add(q);
 				q++;
@@ -742,10 +742,11 @@ public class Solutions {
 		
 		for(int line=0;line<alignement_matrix.length;line++) {
 			candidates.clear();//may contain result from prior line
-			for(int token_id : k_with_windows_b1[line]) {
+			candidates.or(inverted_window_index, k_with_windows_b1[line]);
+			/*for(int token_id : k_with_windows_b1[line]) {
 				final BitSet temp = inverted_window_index[token_id];
 				candidates.or(temp);
-			}
+			}*/
 			//condense bool[] to runs with from to
 			MyArrayList candidates_condensed = condense(candidates);
 			
@@ -786,13 +787,13 @@ public class Solutions {
 		
 		int size = size(alignement_matrix);
 		double check_sum = sum(alignement_matrix);
-		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_candidates+"\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\tcheck_sum=\t"+check_sum+"\t"+size+"\tcandidates\t"+count_candidates+"\tO(1)\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
 		//clean up
-		count_candidates = 0;
+		/*count_candidates = 0;
 		count_survived_pruning = 0;
 		count_survived_second_pruning = 0;
 		count_survived_third_pruning = 0;
-		count_cells_exceeding_threshold = 0;
+		count_cells_exceeding_threshold = 0;*/
 		return run_times;
 	}
 	
@@ -1185,9 +1186,10 @@ public class Solutions {
 				if(my_neighborhood_index.isIn(token_id_in_b2)) {
 					final int start = Math.max(0, i-k+1);
 					final int stop = Math.min(k_with_windows_b2.length-1, i);
-					for(int pos=start;pos<=stop;pos++) {
+					index_this_token.set(start,stop+1);
+					/*for(int pos=start;pos<=stop;pos++) {
 						index_this_token.set(pos);
-					}					
+					}*/					
 				}
 			}
 			indexes[token_id] = index_this_token;
@@ -1297,9 +1299,12 @@ public class Solutions {
 		
 		int column=run_start;			
 		{//Here we have no bound O(1) bound
+			if(LOGGING_MODE) count_survived_pruning++;
+			if(LOGGING_MODE) count_survived_second_pruning++;
 			ub_sum = o_k_square_bound(current_lines, column)/k_double;
 			
 			if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
+				if(LOGGING_MODE) count_survived_third_pruning++;
 				sim = -solver.solve(column, col_maxima);//Note the minus-trick for the Hungarian
 				sim /= k_double;
 				if(sim>=threshold) {
@@ -1342,11 +1347,8 @@ public class Solutions {
 				 
 				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
 					if(LOGGING_MODE) count_survived_second_pruning++;
-					
-				
 					ub_sum = o_k_square_bound(current_lines, column)/k_double;
-					
-					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The sum bound is not necessarily tighter
+					upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;//The sum bound is not necessarily tighter. Need the tightest bound for next cell.
 					
 					if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {	
 						if(LOGGING_MODE) count_survived_third_pruning++;
@@ -2100,5 +2102,9 @@ public class Solutions {
 
 	public double[] run_dummy() {
 		return col_maxima;
+	}
+
+	public double size_alignment_matrix() {
+		return size(alignement_matrix);
 	}
 }

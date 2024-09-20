@@ -202,4 +202,16 @@ public final class MyArrayList{
 		}
 		return false;
 	}
+
+	/**
+	 * 
+	 * @return the last inserted element or Integer.MIN_VALUE if empty
+	 */
+	public int last() {
+		return (size()>0) ? this.ARRAY[writeHere-1] : Integer.MIN_VALUE;
+	}
+
+	public void override_last(int value) {
+		this.ARRAY[writeHere-1] = value;
+	}
 }
