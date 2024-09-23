@@ -486,15 +486,33 @@ public class Solutions {
 	
 	MyArrayList condense(final BitSet candidates_line) {
 		MyArrayList candidates_condensed = new MyArrayList(candidates_line.size());
-		int q = 0;
-		boolean found_run = false;
-		while(q<candidates_line.length()) {
+		//int q = 0;
+		//boolean found_run = false;
+		int start_alt=0, stop_alt=0;
+		
+		while((start_alt = candidates_line.nextSetBit(start_alt))!=-1) {
+			stop_alt = candidates_line.nextClearBit(start_alt);
+			candidates_condensed.add(start_alt);
+			candidates_condensed.add(stop_alt-1);
+			start_alt = stop_alt;
+		}
+		
+		/*while(q<candidates_line.length()) {
+			start_alt = candidates_line.nextSetBit(q);
+			stop_alt = candidates_line.nextClearBit(start_alt);
+			
 			if(candidates_line.get(q)) {//start of a run
+				if(q!=start_alt) {
+					System.err.println("q!=start_alt");
+				}
 				candidates_condensed.add(q);
 				q++;
 				found_run = true;
 				while(q<candidates_line.size()) {
 					if(!candidates_line.get(q)){//end of run
+						if(q!=stop_alt) {
+							System.err.println("q!=start_alt");
+						}
 						candidates_condensed.add(q-1);	
 						found_run = false;
 						break;
@@ -506,8 +524,9 @@ public class Solutions {
 			q++;
 		}
 		if(found_run) {
+			System.err.println("At end stop ="+stop_alt);
 			candidates_condensed.add(candidates_line.size()-1);
-		}
+		}*/
 		return candidates_condensed;
 	}
 	

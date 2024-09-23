@@ -112,11 +112,11 @@ public class WikiDataLoader {
 		this.raw_paragraphs_b1  = encode(book_1, token_ids);
 		this.raw_paragraphs_b2  = encode(book_2, token_ids);
 		
-		out(book_1, raw_paragraphs_b1.get(0));
-		out(book_2, raw_paragraphs_b2.get(0));
+		//out(book_1, raw_paragraphs_b1.get(0));
+		//out(book_2, raw_paragraphs_b2.get(0));
 	}
 	
-	private void out(ArrayList<String> raw_book, int[] raw_paragraphs) {
+	void out(ArrayList<String> raw_book, int[] raw_paragraphs) {
 		if(raw_book.size()!=raw_paragraphs.length) {
 			System.err.println("out(String[] raw_book, int[] raw_paragraphs) raw_book.length!=raw_paragraphs.length");
 		}
@@ -167,6 +167,7 @@ public class WikiDataLoader {
 				for(int solution_enum : all_solutions) {
 					run_solution(solution_enum);	
 				}
+				System.gc();
 			}else{
 				System.err.println("length>line.length()");
 			}
