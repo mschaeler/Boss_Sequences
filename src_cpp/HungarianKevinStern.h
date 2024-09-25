@@ -64,13 +64,13 @@ private:
 
     void computeInitialFeasibleSolution() {
         for (int j = 0; j < dim; j++) {
-            labelByJob.at(j) = std::numeric_limits<double>::infinity();
+            labelByJob[j] = std::numeric_limits<double>::infinity();
         }
 
         for (int w = 0; w < dim; w++) {
             for (int j = 0; j < dim; j++) {
-                if (costMatrix.at(w).at(j) < labelByJob.at(j)) {
-                    labelByJob.at(j) = costMatrix.at(w).at(j);
+                if (costMatrix[w][j] < labelByJob[j]) {
+                    labelByJob[j] = costMatrix[w][j];
                 }
             }
         }
@@ -99,10 +99,10 @@ private:
             double minSlackValue = std::numeric_limits<double>::infinity();
 
             for (int j = 0; j < dim; j++) {
-                if (parentWorkerByCommittedJob.at(j) == -1) {
-                    if (minSlackValueByJob.at(j) < minSlackValue) {
-                        minSlackValue = minSlackValueByJob.at(j);
-                        minSlackWorker = minSlackWorkerByJob.at(j);
+                if (parentWorkerByCommittedJob[j] == -1) {
+                    if (minSlackValueByJob[j] < minSlackValue) {
+                        minSlackValue = minSlackValueByJob[j];
+                        minSlackWorker = minSlackWorkerByJob[j];
                         minSlackJob = j;
                     }
                 }
@@ -112,17 +112,17 @@ private:
                 updateLabeling(minSlackValue);
             }
 
-            parentWorkerByCommittedJob.at(minSlackJob) = minSlackWorker;
+            parentWorkerByCommittedJob[minSlackJob] = minSlackWorker;
 
-            if (matchWorkerByJob.at(minSlackJob) == -1) {
+            if (matchWorkerByJob[minSlackJob] == -1) {
                 /*
 				 * An augmenting path has been found.
 				 */
                 int committedJob = minSlackJob;
-                int parentWorker = parentWorkerByCommittedJob.at(committedJob);
+                int parentWorker = parentWorkerByCommittedJob[committedJob];
 
                 while (true) {
-                    int temp = matchJobByWorker.at(parentWorker);
+                    int temp = matchJobByWorker[parentWorker];
                     match(parentWorker, committedJob);
                     committedJob = temp;
 
@@ -130,7 +130,7 @@ private:
                         break;
                     }
 
-                    parentWorker = parentWorkerByCommittedJob.at(committedJob);
+                    parentWorker = parentWorkerByCommittedJob[committedJob];
                 }
 
                 return;
@@ -139,15 +139,15 @@ private:
 				 * Update slack values since we increased the size of the committed workers set.
 				 */
                 int worker = matchWorkerByJob[minSlackJob];
-                committedWorkers.at(worker) = true;
+                committedWorkers[worker] = true;
 
                 for (int j = 0; j < dim; j++) {
-                    if (parentWorkerByCommittedJob.at(j) == -1) {
-                        double slack = costMatrix.at(worker).at(j) - labelByWorker.at(worker) - labelByJob.at(j);
+                    if (parentWorkerByCommittedJob[j] == -1) {
+                        double slack = costMatrix[worker][j] - labelByWorker[worker] - labelByJob[j];
 
-                        if (minSlackValueByJob.at(j) > slack) {
-                            minSlackValueByJob.at(j) = slack;
-                            minSlackWorkerByJob.at(j) = worker;
+                        if (minSlackValueByJob[j] > slack) {
+                            minSlackValueByJob[j] = slack;
+                            minSlackWorkerByJob[j] = worker;
                         }
                     }
                 }
@@ -161,7 +161,7 @@ private:
 	 */
     int fetchUnmatchedWorker() {
         for (int w = 0; w < dim; w++) {
-            if (matchJobByWorker.at(w) == -1) {
+            if (matchJobByWorker[w] == -1) {
                 return w;
             }
         }
@@ -176,8 +176,8 @@ private:
     void greedyMatch() {
         for (int w = 0; w < dim; w++) {
             for (int j = 0; j < dim; j++) {
-                if (matchJobByWorker.at(w) == -1 && matchWorkerByJob.at(j) == -1 &&
-                    costMatrix.at(w).at(j) - labelByWorker.at(w) - labelByJob.at(j) == 0) {
+                if (matchJobByWorker[w] == -1 && matchWorkerByJob[j] == -1 &&
+                                                                        costMatrix[w][j] - labelByWorker[w] - labelByJob[j] == 0) {
                     match(w, j);
                 }
             }
@@ -194,11 +194,11 @@ private:
     inline void initializePhase(const int w) {
         committedWorkers.assign(dim, false);
         parentWorkerByCommittedJob.assign(dim, -1);
-        committedWorkers.at(w) = true;
+        committedWorkers[w] = true;
 
         for (int j = 0; j < dim; j++) {
-            minSlackValueByJob.at(j) = costMatrix.at(w).at(j) - labelByWorker.at(w) - labelByJob.at(j);
-            minSlackWorkerByJob.at(j) = w;
+            minSlackValueByJob[j] = costMatrix[w][j] - labelByWorker[w] - labelByJob[j];
+            minSlackWorkerByJob[j] = w;
         }
     }
 
@@ -206,8 +206,8 @@ private:
 	 * Helper method to record a matching between worker w and job j.
 	 */
     inline void match(const int w, const int j) {
-        matchJobByWorker.at(w) = j;
-        matchWorkerByJob.at(j) = w;
+        matchJobByWorker[w] = j;
+        matchWorkerByJob[j] = w;
     }
 
     /**
@@ -221,13 +221,13 @@ private:
             double min = std::numeric_limits<double>::infinity();
 
             for (int j = 0; j < dim; j++) {
-                if (costMatrix.at(w).at(j) < min) {
-                    min = costMatrix.at(w).at(j);
+                if (costMatrix[w][j] < min) {
+                    min = costMatrix[w][j];
                 }
             }
 
             for (int j = 0; j < dim; j++) {
-                costMatrix.at(w).at(j) -= min; //XXX here we indeed modify the matrix
+                costMatrix[w][j] -= min; //XXX here we indeed modify the matrix
             }
         }
 
@@ -235,15 +235,15 @@ private:
 
         for (int j = 0; j < dim; j++) {
             for (int w = 0; w < dim; w++) {
-                if (costMatrix.at(w).at(j) < min.at(j)) {
-                    min.at(j) = costMatrix.at(w).at(j);
+                if (costMatrix[w][j] < min[j]) {
+                    min[j] = costMatrix[w][j];
                 }
             }
         }
 
         for (int w = 0; w < dim; w++) {
             for (int j = 0; j < dim; j++) {
-                costMatrix.at(w).at(j) -= min.at(j); //XXX here we indeed modify the matrix
+                costMatrix[w][j] -= min[j]; //XXX here we indeed modify the matrix
             }
         }
     }
@@ -255,16 +255,16 @@ private:
 	 */
     void updateLabeling(double slack) {
         for (int w = 0; w < dim; w++) {
-            if (committedWorkers.at(w)) {
-                labelByWorker.at(w) += slack;
+            if (committedWorkers[w]) {
+                labelByWorker[w] += slack;
             }
         }
 
         for (int j = 0; j < dim; j++) {
-            if (parentWorkerByCommittedJob.at(j) != -1) {
-                labelByJob.at(j) -= slack;
+            if (parentWorkerByCommittedJob[j] != -1) {
+                labelByJob[j] -= slack;
             } else {
-                minSlackValueByJob.at(j) -= slack;
+                minSlackValueByJob[j] -= slack;
             }
         }
     }
@@ -279,7 +279,7 @@ public:
 	 *                   the same length; in addition, all entries must be
 	 *                   non-infinite numbers.
 	 */
-    HungarianKevinStern(int k) : dim(k), costMatrix(k, std::vector<double>(k, 0.0)),
+    explicit HungarianKevinStern(int k) : dim(k), costMatrix(k, std::vector<double>(k, 0.0)),
                                  labelByWorker(k, 0.0), labelByJob(k, 0.0),
                                  minSlackValueByJob(k, 0.0),
                                  minSlackWorkerByJob(k, 0),
@@ -288,56 +288,10 @@ public:
                                  committedWorkers(k, false) {
     }
 
-    /**
-	 * Execute the algorithm.
-	 *
-	 * @return the minimum cost matching of workers to jobs based upon the provided
-	 *         cost matrix. A matching value of -1 indicates that the corresponding
-	 *         worker is unassigned.
-	 */
-
-    double solve(const std::vector<std::vector<double>>& org_cost_matrix, double threshold) {
+    double solve_cached(const std::vector<std::vector<double>>& org_cost_matrix) {
         // Note: we need to copy the matrix, as we'll modify the values in between
         for (int w = 0; w < dim; w++) {
-            costMatrix.at(w) = org_cost_matrix.at(w);
-        }
-
-        /*std::fill(labelByWorker.begin(), labelByJob.end(), 0);
-        std::fill(labelByJob.begin(),labelByJob.end(), 0);
-        std::fill(minSlackWorkerByJob.begin(), minSlackWorkerByJob.end(), 0);
-        std::fill(minSlackValueByJob.begin(), minSlackValueByJob.end(), 0);
-        std::fill(committedWorkers.begin(), committedWorkers.end(), false);
-        std::fill(parentWorkerByCommittedJob.begin(),parentWorkerByCommittedJob.end(), 0);
-
-        std::fill(matchJobByWorker.begin(),matchJobByWorker.end() ,-1);
-        std::fill(matchWorkerByJob.begin(),matchWorkerByJob.end(), -1);*/
-
-        reduce();
-        computeInitialFeasibleSolution();
-        greedyMatch();
-
-        int w = fetchUnmatchedWorker();
-
-        while (w < dim) {
-            initializePhase(w);
-            executePhase();
-            w = fetchUnmatchedWorker();
-        }
-
-        // DONE - Collect the result
-        double cost = 0.0;
-
-        for (w = 0; w < matchJobByWorker.size(); w++) {
-            cost += org_cost_matrix.at(w).at(matchJobByWorker.at(w));
-        }
-
-        return cost;
-    }
-
-    double solve_cached(const std::vector<std::vector<double>>& org_cost_matrix, double threshold) {
-        // Note: we need to copy the matrix, as we'll modify the values in between
-        for (int w = 0; w < dim; w++) {
-            costMatrix.at(w) = org_cost_matrix.at(w);
+            costMatrix[w] = org_cost_matrix[w];
         }
 
         std::fill(labelByWorker.begin(), labelByWorker.end(), 0);
@@ -366,7 +320,7 @@ public:
         double cost = 0.0;
 
         for (w = 0; w < matchJobByWorker.size(); w++) {
-            cost += org_cost_matrix.at(w).at(matchJobByWorker.at(w));
+            cost += org_cost_matrix[w][matchJobByWorker[w]];
         }
 
         return cost;
@@ -540,6 +494,10 @@ private:
         }
     }
 
+    static inline double cost(const int w, const int j, const vector<const double*>& cost_matrix) {
+        return cost_matrix[w][j];
+    }
+
 public:
     /**
 	 * Construct an instance of the algorithm.
@@ -550,13 +508,13 @@ public:
 	 *                   the same length; in addition, all entries must be
 	 *                   non-infinite numbers.
 	 */
-    HungarianDeep(int k) : dim(k),
-                                 labelByWorker(k, 0.0), labelByJob(k, 0.0),
-                                 minSlackValueByJob(k, 0.0),
-                                 minSlackWorkerByJob(k, 0),
-                                 matchJobByWorker(k, -1), matchWorkerByJob(k, -1),
-                                 parentWorkerByCommittedJob(k, -1),
-                                 committedWorkers(k, false) {
+    explicit HungarianDeep(int k) : dim(k),
+                           labelByWorker(k, 0.0), labelByJob(k, 0.0),
+                           minSlackValueByJob(k, 0.0),
+                           minSlackWorkerByJob(k, 0),
+                           matchJobByWorker(k, -1), matchWorkerByJob(k, -1),
+                           parentWorkerByCommittedJob(k, -1),
+                           committedWorkers(k, false) {
     }
 
     /**
@@ -600,9 +558,6 @@ public:
         }
 
         return _cost;
-    }
-    inline double cost(const int w, const int j, const vector<const double*>& cost_matrix) const {
-        return cost_matrix[w][j];
     }
 };
 

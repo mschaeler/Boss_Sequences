@@ -218,7 +218,7 @@ public:
 
                 double cost = HungAlgo.Solve(cost_matrix,assignment);
                 double cost_safe = ps.solve(cost_matrix);
-                double cost_hks = HKS.solve_cached(cost_matrix, threshold);
+                double cost_hks = HKS.solve_cached(cost_matrix);
 
                 if(cost!=cost_safe){
                     cout << "sim != sim_by_perm @ row=" << line << " column="<<column << endl;
@@ -339,7 +339,7 @@ public:
                 if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>threshold) {
                     count_survived_pruning++;
                     //That's the important line
-                    double cost = HKS.solve_cached(cost_matrix, threshold);//TODO , k_buffer);
+                    double cost = HKS.solve_cached(cost_matrix);//TODO , k_buffer);
                     //normalize costs: Before it was distance. Now it is similarity.
                     double normalized_similarity = 1.0 - (cost / (double)k);
                     if(normalized_similarity>=threshold) {
@@ -370,7 +370,7 @@ public:
                 if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>threshold) {
                     count_survived_pruning++;
                     //That's the important line
-                    double cost = HKS.solve_cached(cost_matrix, threshold);//;, k_buffer);
+                    double cost = HKS.solve_cached(cost_matrix);//;, k_buffer);
                     //normalize costs: Before it was distance. Now it is similarity.
                     double normalized_similarity = 1.0 - (cost / (double)k);
                     if(normalized_similarity>=threshold) {
@@ -481,7 +481,7 @@ public:
 
                 if(candidate) {
                     count_survived_pruning++;
-                    double cost = HKS.solve_cached(cost_matrix, threshold);
+                    double cost = HKS.solve_cached(cost_matrix);
                     //double cost = k;//For testing only
                     double normalized_similarity = 1.0 - (cost / (double) k);
                     if (normalized_similarity >= threshold) {
@@ -542,7 +542,7 @@ public:
                     const double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
                     if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>threshold) {
                         //That's the important line
-                        double cost = HKS.solve_cached(cost_matrix, threshold);
+                        double cost = HKS.solve_cached(cost_matrix);
                         //normalize costs: Before it was distance. Now it is similarity.
                         double normalized_similarity = 1.0 - (cost / (double)k);
                         if(normalized_similarity>=threshold) {
@@ -587,7 +587,7 @@ public:
                 const double up_normalized_similarity = 1.0 - (lb_cost / (double)k);
                 if(up_normalized_similarity+DOUBLE_PRECISION_BOUND>threshold) {
                     count_survived_pruning++;
-                    double cost = HKS.solve_cached(cost_matrix, threshold);
+                    double cost = HKS.solve_cached(cost_matrix);
                     //double cost = k;//For testing only
                     double normalized_similarity = 1.0 - (cost / (double) k);
                     if (normalized_similarity >= threshold) {
@@ -643,7 +643,7 @@ public:
 
                 //double cost = HungAlgo.Solve(cost_matrix, assignment);
                 //HungarianKevinStern HKS(k);
-                double cost = HKS.solve_cached(cost_matrix, threshold);
+                double cost = HKS.solve_cached(cost_matrix);
                 double normalized_similarity = 1.0 - (cost / (double) k);
 
                 //cout << normalized_similarity << endl;

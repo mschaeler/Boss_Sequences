@@ -1,6 +1,6 @@
 #include <iostream>
 #include <sstream>
-#include <math.h>       /* sqrt */
+#include <cmath>       /* sqrt */
 #include <algorithm>    // std::sort
 #include <chrono>
 
@@ -25,7 +25,7 @@ private:
     vector<int> dictionary;
     std::unordered_map<size_t, double> cache;
 
-    std::vector<string> splitString(const string& line, char del) {
+    static std::vector<string> splitString(const string& line, char del) {
         std::vector<string> result;
         stringstream ss(line);
         string item;
@@ -36,7 +36,7 @@ private:
         return result;
     }
 public:
-    DataLoader(string location, Environment *e){
+    DataLoader(const string& location, Environment *e){
         // read TSV file
         env = e;
         ifstream file(location);
@@ -51,14 +51,14 @@ public:
                     for (int i = 3; i < values.size(); i++) {
                         embedding.push_back(stof(values[i]));
                     }
-                    float* r = new float[300];
+                    float* r;
                     r = embedding.data();
                     //TODO faiss::fvec_renorm_L2(300, 1, r);
                     vector<float> vr(r, r + 300);
                     vectors[token_id] = vr;
                     dictionary.push_back(token_id);
                 }else{
-                    cout << "Token not found in embeddings "<< values[1] << "->" << token_id << endl;
+                    //cout << "Token not found in embeddings "<< values[1] << "->" << token_id << endl;
                 }
             }
         }else{
@@ -74,22 +74,6 @@ public:
         } else {
             return vectors[id];
         }
-    }
-
-    set<int> getWords(){
-        set<int> keys;
-        for (auto kv : vectors) {
-            keys.insert(kv.first);
-        }
-        return keys;
-    }
-
-    vector<vector<float>> getAllVectors() {
-        vector<vector<float>> result;
-        for (auto kv : vectors) {
-            result.push_back(kv.second);
-        }
-        return result;
     }
 
     vector<int> getDictionary() {
@@ -525,15 +509,21 @@ vector<vector<double>> get_dist_matrix(vector<int>& raw_book_1, vector<int>& raw
  * @param loader
  * @param theta
  */
-void run_experiments(Environment& env, DataLoader& loader, const double theta){
+vector<double> run_experiments(Environment& env, DataLoader& loader, const double theta, vector<int> k_s){
     int num_paragraphs = 123;
     int max_id = 123;
 
     set<int> text1Sets = env.getText1SetIds();
     set<int> text2Sets = env.getText2SetIds();
 
-    auto raw_book_1 = get_raw_book(env, text1Sets);
-    auto raw_book_2 = get_raw_book(env, text2Sets);
+    //auto raw_book_1 = get_raw_book(env, text1Sets);
+    //auto raw_book_2 = get_raw_book(env, text2Sets);
+
+    unordered_map<int, vector<int>> texts = env.getSets();
+    vector<int> raw_book_1 = texts.at(0);
+    vector<int> raw_book_2 = texts.at(1);
+
+    //cout << raw_book_1.size() << " b_2="<<raw_book_2.size() << endl;
 
     //vector<vector<double>> dist_matrix = get_dist_matrix(raw_book_1, raw_book_2, loader, env);
     vector<vector<double>> sim_matrix = get_sim_matrix(raw_book_1, raw_book_2, loader, env);
@@ -553,27 +543,14 @@ void run_experiments(Environment& env, DataLoader& loader, const double theta){
     }
     cout << "sim opcy check sum =" << sum << endl;*/
 
-    vector<int> k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15};
     //vector<int> k_s = {3};
     vector<double> run_times;
 
-
-
     for(int k : k_s){
-        //Experiment exp(num_paragraphs, k, theta, max_id, raw_book_1, raw_book_2, dist_matrix);
-        Solutions s(num_paragraphs, k, theta, max_id, raw_book_1, raw_book_2, sim_matrix);
-        //exp.out_config();
+        Solutions s(k, theta, raw_book_1, raw_book_2, sim_matrix);
         //double run_time = s.run_naive();
         //double run_time = s.run_baseline();
-        //double run_time = s.run_baseline_deep();
-        //double run_time = s.run_incremental_cell_pruning();
         double run_time = s.run_solution();
-        //double run_time = exp.run_baseline();
-        //double run_time = exp.run_baseline_safe();
-        //double run_time = exp.run_pruning();
-        //double run_time = exp.run_zick_zack();
-        //double run_time = exp.run_pruning_max_matrix_value();
-        //double run_time = exp.run_candidates();
 
         run_times.push_back(run_time);
     }
@@ -585,28 +562,77 @@ void run_experiments(Environment& env, DataLoader& loader, const double theta){
         cout << t <<"\t";
     }
     cout << endl;
+
+    return run_times;
 }
 
-int main() {
+int main(int argc, char* args[]) {
     //load_texts();
     int k = 3;
     double theta = 0.7;
-    string text1location = "..//data/en/esv.txt";
-    string text2location = "..//data/en/king_james_bible.txt";
-    Environment env(text1location, text2location);
-    //Environment env;
-    env.out();
 
-    bool ignore_stopwords = false;
-    string data_file;
-    if(ignore_stopwords) {
-        data_file = "..//data/en/matches.en.min.tsv";
-    }else{
-        data_file = "..//data/en/matches_stopwords.en.min.tsv";
+
+    //TODO analyze args
+    bool run_bible_experiment = false;
+    bool run_wiki_experiment = true;
+
+    if(run_bible_experiment){
+        vector<int> k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15};
+        string text1location = "..//data/en/esv.txt";
+        string text2location = "..//data/en/king_james_bible.txt";
+        Environment env(text1location, text2location);
+        //Environment env;
+        env.out();
+
+        bool ignore_stopwords = false;
+        string data_file;
+        if(ignore_stopwords) {
+            data_file = "..//data/en/matches.en.min.tsv";
+        }else{
+            data_file = "..//data/en/matches_stopwords.en.min.tsv";
+        }
+        DataLoader loader(data_file, &env);
+
+        run_experiments(env, loader, theta, k_s);
     }
-    DataLoader loader(data_file, &env);
 
-    run_experiments(env, loader, theta);
+    if(run_wiki_experiment){
+        vector<int> k_s = {10};
+        //Parse dump into vector
+        string wiki_dump_file = "..//data/en/wiki-1024000.txt";
+        string line;
+        ifstream infile(wiki_dump_file);
+        vector<double> run_times;
+
+        if (infile.is_open()) {
+            getline(infile, line);//Name of the Biblical Book
+            //cout << line << endl;
+            vector<string> tokens = Environment::tokenize(line);
+            cout << "Parsed wiki dump into " << tokens.size() << " tokens" << endl;
+            for(int i=0;i<10;i++){
+                cout << tokens.at(i) << "\t";
+            }
+            cout << endl;
+            int THOUSAND = 1000;
+            vector<int> intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND};//, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
+            for(int length : intput_sequence_length){
+                cout << "Length = " << length << endl;
+                Environment env(tokens, length);
+                //Environment env;
+                //env.out();
+                string embedding_file = "..//data/en/all_words_wiki.tsv";
+                DataLoader loader(embedding_file, &env);
+
+                run_times.push_back(run_experiments(env, loader, theta, k_s).at(0));
+            }
+            cout << "Wikipedia run times for k=" << k_s.at(0) << endl;
+            for(int i=0;i<intput_sequence_length.size();i++){
+                cout << intput_sequence_length.at(i) << "\t" << run_times.at(i) << endl;
+            }
+        }else{
+            cout << "Could not open " << wiki_dump_file << endl;
+        }
+    }
 
     return 0;
 }

@@ -6,6 +6,7 @@
 #define PRANAY_TEST_ENVIRONMENT_H
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <fstream>      // std::ifstream
 #include <set>
@@ -14,6 +15,146 @@
 #include <regex>
 
 using namespace std;
+
+vector<string> DONG_DENG_STOPWORDS = {
+        "i"
+        ,"me"
+        ,"1"
+        ,"2"
+        ,"3"
+        ,"4"
+        ,"5"
+        ,"6"
+        ,"7"
+        ,"8"
+        ,"9"
+        ,"0"
+        ,"my"
+        ,"myself"
+        ,"we"
+        ,"our"
+        ,"ours"
+        ,"ourselves"
+        ,"you"
+        ,"your"
+        ,"yours"
+        ,"yourself"
+        ,"yourselves"
+        ,"he"
+        ,"him"
+        ,"his"
+        ,"himself"
+        ,"she"
+        ,"her"
+        ,"hers"
+        ,"herself"
+        ,"it"
+        ,"its"
+        ,"itself"
+        ,"they"
+        ,"them"
+        ,"their"
+        ,"theirs"
+        ,"themselves"
+        ,"what"
+        ,"which"
+        ,"who"
+        ,"whom"
+        ,"this"
+        ,"that"
+        ,"these"
+        ,"those"
+        ,"am"
+        ,"is"
+        ,"are"
+        ,"was"
+        ,"were"
+        ,"be"
+        ,"been"
+        ,"being"
+        ,"have"
+        ,"has"
+        ,"had"
+        ,"having"
+        ,"do"
+        ,"does"
+        ,"did"
+        ,"doing"
+        ,"a"
+        ,"an"
+        ,"the"
+        ,"and"
+        ,"but"
+        ,"if"
+        ,"or"
+        ,"because"
+        ,"as"
+        ,"until"
+        ,"while"
+        ,"of"
+        ,"at"
+        ,"by"
+        ,"for"
+        ,"with"
+        ,"about"
+        ,"against"
+        ,"between"
+        ,"into"
+        ,"through"
+        ,"during"
+        ,"before"
+        ,"after"
+        ,"above"
+        ,"below"
+        ,"to"
+        ,"from"
+        ,"up"
+        ,"down"
+        ,"in"
+        ,"out"
+        ,"on"
+        ,"off"
+        ,"over"
+        ,"under"
+        ,"again"
+        ,"further"
+        ,"then"
+        ,"once"
+        ,"here"
+        ,"there"
+        ,"when"
+        ,"where"
+        ,"why"
+        ,"how"
+        ,"all"
+        ,"any"
+        ,"both"
+        ,"each"
+        ,"few"
+        ,"more"
+        ,"most"
+        ,"other"
+        ,"some"
+        ,"such"
+        ,"no"
+        ,"nor"
+        ,"not"
+        ,"only"
+        ,"own"
+        ,"same"
+        ,"so"
+        ,"than"
+        ,"too"
+        ,"very"
+        ,"s"
+        ,"t"
+        ,"can"
+        ,"will"
+        ,"just"
+        ,"don"
+        ,"should"
+        ,"now"
+};
 
 class Environment{
 private:
@@ -29,7 +170,7 @@ private:
     //int text1_average_cardinality = 0;
     //int text2_average_cardinality = 0;
 
-    vector<std::vector<int>> slidingWindows(vector<int>& nums, int k) {
+    static vector<std::vector<int>> slidingWindows(vector<int>& nums, int k) {
         std::vector<std::vector<int>> result;
         if (nums.empty() || k <= 0 || k > nums.size()) {
             return result;
@@ -51,11 +192,11 @@ private:
 
     static bool is_alnum_or_space(const char c){
         string special_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";//äöüÄÖÜß
-        return (special_chars.find(c) == string::npos) ? true : false;
+        return (special_chars.find(c) == string::npos);
     }
 
     template <typename Out>
-    void split(const std::string &s, char delim, Out result) {
+    static void split(const std::string &s, char delim, Out result) {
         std::istringstream iss(s);
         std::string item;
         while (std::getline(iss, item, delim)) {
@@ -63,7 +204,7 @@ private:
         }
     }
 
-    std::vector<std::string> split(const std::string &s, char delim) {
+    static std::vector<std::string> split(const std::string &s, char delim) {
         std::vector<std::string> elems;
         split(s, delim, std::back_inserter(elems));
         return elems;
@@ -71,7 +212,7 @@ private:
 
     static vector<string> remove_stopwords(const vector<string>& tokens, const vector<string>& stop_words) {
         vector<string> result;
-        for(auto t : tokens){
+        for(const auto& t : tokens){
             if(find(stop_words.begin(), stop_words.end(), t) == stop_words.end()){//is not a stop word
                 result.push_back(t);
             }
@@ -79,43 +220,9 @@ private:
         return result;
     }
 
-    vector<string> tokenize(string line){
-        //cout << "org= " << line << endl;
-        // remove non-alphabetic chars
-        line.erase(std::remove_if(line.begin(), line.end(), is_alnum_or_space), line.end());
-        //cout << "alphanumeric= " << line << endl;
-        // replace duplicate white spaces
-        regex reg(" +");
-        line = std::regex_replace(line,  reg, " ");
-        //cout << "no dupl white spaces= " << line << endl;
-        // to lower case
-        std::transform(line.begin(), line.end(), line.begin(),
-                       [](unsigned char c){ return std::tolower(c); });
-        //Split into string tokens
-        //cout << "lower case= " << line << endl;
-        vector<string> tokens = split(line, ' ');
-        /*for(string s : tokens){
-            cout << s << " ";
-        }
-        cout << endl;*/
-        //Remove stop words
-        tokens = remove_stopwords(tokens, DONG_DENG_STOPWORDS);
-        /*for(string s : tokens){
-            cout << s << "\t";
-        }
-        cout << endl;*/
-        for(auto t : tokens){
-            if(t.empty()){
-                cout << "Empty string found" << endl;
-            }
-        }
-        return tokens;
-    }
-
 
     void do_crazy_things_2(vector<string>& text_files, set<int>& text_sets){
-        for (size_t i = 0; i < text_files.size(); ++i) {//For each text file containing a single word
-            string f = text_files[i];
+        for (const auto& f : text_files) {//For each text file containing a single word
             cout << "Laoding File " << f << endl;
             //set2int[f] = text_id;
             //int2set[text_id] = f;
@@ -123,7 +230,6 @@ private:
             string line;
             ifstream infile(f);
             if (infile.is_open()) {
-                string line;
                 cout << "Skipping lines" << endl;
                 getline(infile, line);//Name of the Biblical Book
                 cout << line << endl;
@@ -134,8 +240,8 @@ private:
                         //tokens += 1;
                         //line.erase(line.find_last_not_of(" \n\r\t")+1);
                         vector<string> tokens = tokenize(line);
-                        for(string token : tokens){
-                            if (token.size() > 0) {
+                        for(const string& token : tokens){
+                            if (!token.empty()) {
                                 if (word2int.find(token) == word2int.end()) {
                                     word2int[token] = id;
                                     wordSet.insert(id);
@@ -162,41 +268,20 @@ private:
         }
     }
 
-    void do_crazy_things(vector<string>& text_files, set<int>& text_sets){
-        for (size_t i = 0; i < text_files.size(); ++i) {//For each text file containing a single word
-            string f = text_files[i];
-            //cout << "File " << f << endl;
-            //set2int[f] = text_id;
-            //int2set[text_id] = f;
-            text_sets.insert(text_id);
-            string line;
-            ifstream infile(f);
-            if (infile.is_open()) {
-                string line;
-                while (getline(infile, line)) {
-                    //cout << line << endl;
-                    //tokens += 1;
-                    line.erase(line.find_last_not_of(" \n\r\t")+1);
-                    //cout << line << endl;
-                    if (line.size() > 0) {
-                        if (word2int.find(line) == word2int.end()) {
-                            word2int[line] = id;
-                            wordSet.insert(id);
-                            int2word[id] = line;
-                            sets[text_id].push_back(id);
-                            std::set<int> nset = {text_id};
-                            invertedIndex.push_back(nset);
-                            id += 1;
-                        } else {
-                            sets[text_id].push_back(word2int[line]);
-                            invertedIndex[word2int[line]].insert(text_id);
-                        }
-                    }
-                }
-            }else{
-                cout << "Could not open " << f << endl;
+    void register_token(const string& token){
+        if (!token.empty()) {
+            if (word2int.find(token) == word2int.end()) {
+                word2int[token] = id;
+                wordSet.insert(id);
+                int2word[id] = token;
+                sets[text_id].push_back(id);
+                std::set<int> nset = {text_id};
+                invertedIndex.push_back(nset);
+                id += 1;
+            } else {
+                sets[text_id].push_back(word2int[token]);
+                invertedIndex[word2int[token]].insert(text_id);
             }
-            text_id += 1;
         }
     }
 
@@ -205,9 +290,21 @@ public:
     //int tokens = 0;
     int text_id = 0;
 
+    Environment(const vector<string>& all_tokens, int length){//copy the token vector
+        //reduce to length than split in half
+        text_id = 0;
+        for(int i=0;i<length/2;i++){
+            register_token(all_tokens.at(i));
+        }
+        text_id = 1;
+        for(int i=length/2;i<length;i++){
+            register_token(all_tokens.at(i));
+        }
+    }
+
     Environment(string text1location, string text2location){
-        vector<string> text1_files = {text1location};
-        vector<string> text2_files = {text2location};
+        vector<string> text1_files = {std::move(text1location)};
+        vector<string> text2_files = {std::move(text2location)};
 
         cout << text1_files.size() << " text1_files listed" << endl;
         cout << text2_files.size() << " text2_files listed" << endl;
@@ -216,374 +313,16 @@ public:
         do_crazy_things_2(text2_files, text2sets);
     }
 
-
-    Environment(){
-        string text1location = "..//data/en/esv/";
-        string text2location = "..//data/en/king_james_bible/";
-
-        //get_files_from_directory(text1location);
-
-        vector<string> text1_files;
-        vector<string> text2_files;
-
-        //XXX - MINGW has issues with filesystem include.... Do it by hand
-        {
-            text1_files.push_back(text1location+"1_1.txt");
-            text1_files.push_back(text1location+"1_2.txt");
-            text1_files.push_back(text1location+"1_3.txt");
-            text1_files.push_back(text1location+"1_4.txt");
-            text1_files.push_back(text1location+"1_5.txt");
-            text1_files.push_back(text1location+"1_6.txt");
-            text1_files.push_back(text1location+"1_7.txt");
-            text1_files.push_back(text1location+"1_8.txt");
-            text1_files.push_back(text1location+"1_9.txt");
-            text1_files.push_back(text1location+"1_10.txt");
-            text1_files.push_back(text1location+"1_11.txt");
-            text1_files.push_back(text1location+"1_12.txt");
-            text1_files.push_back(text1location+"1_13.txt");
-            text1_files.push_back(text1location+"1_14.txt");
-            text1_files.push_back(text1location+"1_15.txt");
-            text1_files.push_back(text1location+"1_16.txt");
-            text1_files.push_back(text1location+"1_17.txt");
-            text1_files.push_back(text1location+"1_18.txt");
-            text1_files.push_back(text1location+"1_19.txt");
-            text1_files.push_back(text1location+"1_20.txt");
-            text1_files.push_back(text1location+"1_21.txt");
-            text1_files.push_back(text1location+"1_22.txt");
-            text1_files.push_back(text1location+"2_1.txt");
-            text1_files.push_back(text1location+"2_2.txt");
-            text1_files.push_back(text1location+"2_3.txt");
-            text1_files.push_back(text1location+"2_4.txt");
-            text1_files.push_back(text1location+"2_5.txt");
-            text1_files.push_back(text1location+"2_6.txt");
-            text1_files.push_back(text1location+"2_7.txt");
-            text1_files.push_back(text1location+"2_8.txt");
-            text1_files.push_back(text1location+"2_9.txt");
-            text1_files.push_back(text1location+"2_10.txt");
-            text1_files.push_back(text1location+"2_11.txt");
-            text1_files.push_back(text1location+"2_12.txt");
-            text1_files.push_back(text1location+"2_13.txt");
-            text1_files.push_back(text1location+"2_14.txt");
-            text1_files.push_back(text1location+"2_15.txt");
-            text1_files.push_back(text1location+"2_16.txt");
-            text1_files.push_back(text1location+"2_17.txt");
-            text1_files.push_back(text1location+"2_18.txt");
-            text1_files.push_back(text1location+"2_19.txt");
-            text1_files.push_back(text1location+"2_20.txt");
-            text1_files.push_back(text1location+"2_21.txt");
-            text1_files.push_back(text1location+"2_22.txt");
-            text1_files.push_back(text1location+"2_23.txt");
-            text1_files.push_back(text1location+"3_1.txt");
-            text1_files.push_back(text1location+"3_2.txt");
-            text1_files.push_back(text1location+"3_3.txt");
-            text1_files.push_back(text1location+"3_4.txt");
-            text1_files.push_back(text1location+"3_5.txt");
-            text1_files.push_back(text1location+"3_6.txt");
-            text1_files.push_back(text1location+"3_7.txt");
-            text1_files.push_back(text1location+"3_8.txt");
-            text1_files.push_back(text1location+"3_9.txt");
-            text1_files.push_back(text1location+"3_10.txt");
-            text1_files.push_back(text1location+"3_11.txt");
-            text1_files.push_back(text1location+"3_12.txt");
-            text1_files.push_back(text1location+"3_13.txt");
-            text1_files.push_back(text1location+"3_14.txt");
-            text1_files.push_back(text1location+"3_15.txt");
-            text1_files.push_back(text1location+"4_1.txt");
-            text1_files.push_back(text1location+"4_2.txt");
-            text1_files.push_back(text1location+"4_3.txt");
-            text1_files.push_back(text1location+"4_4.txt");
-            text1_files.push_back(text1location+"4_5.txt");
-            text1_files.push_back(text1location+"4_6.txt");
-            text1_files.push_back(text1location+"4_7.txt");
-            text1_files.push_back(text1location+"4_8.txt");
-            text1_files.push_back(text1location+"4_9.txt");
-            text1_files.push_back(text1location+"4_10.txt");
-            text1_files.push_back(text1location+"4_11.txt");
-            text1_files.push_back(text1location+"4_12.txt");
-            text1_files.push_back(text1location+"4_13.txt");
-            text1_files.push_back(text1location+"4_14.txt");
-            text1_files.push_back(text1location+"4_15.txt");
-            text1_files.push_back(text1location+"4_16.txt");
-            text1_files.push_back(text1location+"4_17.txt");
-            text1_files.push_back(text1location+"5_1.txt");
-            text1_files.push_back(text1location+"5_2.txt");
-            text1_files.push_back(text1location+"5_3.txt");
-            text1_files.push_back(text1location+"5_4.txt");
-            text1_files.push_back(text1location+"5_5.txt");
-            text1_files.push_back(text1location+"5_6.txt");
-            text1_files.push_back(text1location+"5_7.txt");
-            text1_files.push_back(text1location+"5_8.txt");
-            text1_files.push_back(text1location+"5_9.txt");
-            text1_files.push_back(text1location+"5_10.txt");
-            text1_files.push_back(text1location+"5_11.txt");
-            text1_files.push_back(text1location+"5_12.txt");
-            text1_files.push_back(text1location+"5_13.txt");
-            text1_files.push_back(text1location+"5_14.txt");
-            text1_files.push_back(text1location+"6_1.txt");
-            text1_files.push_back(text1location+"6_2.txt");
-            text1_files.push_back(text1location+"6_3.txt");
-            text1_files.push_back(text1location+"6_4.txt");
-            text1_files.push_back(text1location+"6_5.txt");
-            text1_files.push_back(text1location+"6_6.txt");
-            text1_files.push_back(text1location+"6_7.txt");
-            text1_files.push_back(text1location+"6_8.txt");
-            text1_files.push_back(text1location+"6_9.txt");
-            text1_files.push_back(text1location+"6_10.txt");
-            text1_files.push_back(text1location+"6_11.txt");
-            text1_files.push_back(text1location+"6_12.txt");
-            text1_files.push_back(text1location+"6_13.txt");
-            text1_files.push_back(text1location+"6_14.txt");
-            text1_files.push_back(text1location+"7_1.txt");
-            text1_files.push_back(text1location+"7_2.txt");
-            text1_files.push_back(text1location+"7_3.txt");
-            text1_files.push_back(text1location+"7_4.txt");
-            text1_files.push_back(text1location+"7_5.txt");
-            text1_files.push_back(text1location+"7_6.txt");
-            text1_files.push_back(text1location+"7_7.txt");
-            text1_files.push_back(text1location+"7_8.txt");
-            text1_files.push_back(text1location+"7_9.txt");
-            text1_files.push_back(text1location+"7_10.txt");
-            text1_files.push_back(text1location+"8_1.txt");
-            text1_files.push_back(text1location+"8_2.txt");
-            text1_files.push_back(text1location+"8_3.txt");
-            text1_files.push_back(text1location+"8_4.txt");
-            text1_files.push_back(text1location+"8_5.txt");
-            text1_files.push_back(text1location+"8_6.txt");
-            text1_files.push_back(text1location+"8_7.txt");
-            text1_files.push_back(text1location+"8_8.txt");
-            text1_files.push_back(text1location+"8_9.txt");
-            text1_files.push_back(text1location+"8_10.txt");
-            text1_files.push_back(text1location+"8_11.txt");
-            text1_files.push_back(text1location+"8_12.txt");
-            text1_files.push_back(text1location+"8_13.txt");
-            text1_files.push_back(text1location+"8_14.txt");
-            text1_files.push_back(text1location+"8_15.txt");
-            text1_files.push_back(text1location+"8_16.txt");
-            text1_files.push_back(text1location+"8_17.txt");
-            text1_files.push_back(text1location+"9_1.txt");
-            text1_files.push_back(text1location+"9_2.txt");
-            text1_files.push_back(text1location+"9_3.txt");
-            text1_files.push_back(text1location+"9_4.txt");
-            text1_files.push_back(text1location+"9_5.txt");
-            text1_files.push_back(text1location+"9_6.txt");
-            text1_files.push_back(text1location+"9_7.txt");
-            text1_files.push_back(text1location+"9_8.txt");
-            text1_files.push_back(text1location+"9_9.txt");
-            text1_files.push_back(text1location+"9_10.txt");
-            text1_files.push_back(text1location+"9_11.txt");
-            text1_files.push_back(text1location+"9_12.txt");
-            text1_files.push_back(text1location+"9_13.txt");
-            text1_files.push_back(text1location+"9_14.txt");
-            text1_files.push_back(text1location+"9_15.txt");
-            text1_files.push_back(text1location+"9_16.txt");
-            text1_files.push_back(text1location+"9_17.txt");
-            text1_files.push_back(text1location+"9_18.txt");
-            text1_files.push_back(text1location+"9_19.txt");
-            text1_files.push_back(text1location+"9_20.txt");
-            text1_files.push_back(text1location+"9_21.txt");
-            text1_files.push_back(text1location+"9_22.txt");
-            text1_files.push_back(text1location+"9_23.txt");
-            text1_files.push_back(text1location+"9_24.txt");
-            text1_files.push_back(text1location+"9_25.txt");
-            text1_files.push_back(text1location+"9_26.txt");
-            text1_files.push_back(text1location+"9_27.txt");
-            text1_files.push_back(text1location+"9_28.txt");
-            text1_files.push_back(text1location+"9_29.txt");
-            text1_files.push_back(text1location+"9_30.txt");
-            text1_files.push_back(text1location+"9_31.txt");
-            text1_files.push_back(text1location+"9_32.txt");
-            text1_files.push_back(text1location+"10_1.txt");
-            text1_files.push_back(text1location+"10_2.txt");
-            text1_files.push_back(text1location+"10_3.txt");
-        }
-
-        {
-            text2_files.push_back(text2location+"1_1.txt");
-            text2_files.push_back(text2location+"1_2.txt");
-            text2_files.push_back(text2location+"1_3.txt");
-            text2_files.push_back(text2location+"1_4.txt");
-            text2_files.push_back(text2location+"1_5.txt");
-            text2_files.push_back(text2location+"1_6.txt");
-            text2_files.push_back(text2location+"1_7.txt");
-            text2_files.push_back(text2location+"1_8.txt");
-            text2_files.push_back(text2location+"1_9.txt");
-            text2_files.push_back(text2location+"1_10.txt");
-            text2_files.push_back(text2location+"1_11.txt");
-            text2_files.push_back(text2location+"1_12.txt");
-            text2_files.push_back(text2location+"1_13.txt");
-            text2_files.push_back(text2location+"1_14.txt");
-            text2_files.push_back(text2location+"1_15.txt");
-            text2_files.push_back(text2location+"1_16.txt");
-            text2_files.push_back(text2location+"1_17.txt");
-            text2_files.push_back(text2location+"1_18.txt");
-            text2_files.push_back(text2location+"1_19.txt");
-            text2_files.push_back(text2location+"1_20.txt");
-            text2_files.push_back(text2location+"1_21.txt");
-            text2_files.push_back(text2location+"1_22.txt");
-            text2_files.push_back(text2location+"2_1.txt");
-            text2_files.push_back(text2location+"2_2.txt");
-            text2_files.push_back(text2location+"2_3.txt");
-            text2_files.push_back(text2location+"2_4.txt");
-            text2_files.push_back(text2location+"2_5.txt");
-            text2_files.push_back(text2location+"2_6.txt");
-            text2_files.push_back(text2location+"2_7.txt");
-            text2_files.push_back(text2location+"2_8.txt");
-            text2_files.push_back(text2location+"2_9.txt");
-            text2_files.push_back(text2location+"2_10.txt");
-            text2_files.push_back(text2location+"2_11.txt");
-            text2_files.push_back(text2location+"2_12.txt");
-            text2_files.push_back(text2location+"2_13.txt");
-            text2_files.push_back(text2location+"2_14.txt");
-            text2_files.push_back(text2location+"2_15.txt");
-            text2_files.push_back(text2location+"2_16.txt");
-            text2_files.push_back(text2location+"2_17.txt");
-            text2_files.push_back(text2location+"2_18.txt");
-            text2_files.push_back(text2location+"2_19.txt");
-            text2_files.push_back(text2location+"2_20.txt");
-            text2_files.push_back(text2location+"2_21.txt");
-            text2_files.push_back(text2location+"2_22.txt");
-            text2_files.push_back(text2location+"2_23.txt");
-            text2_files.push_back(text2location+"3_1.txt");
-            text2_files.push_back(text2location+"3_2.txt");
-            text2_files.push_back(text2location+"3_3.txt");
-            text2_files.push_back(text2location+"3_4.txt");
-            text2_files.push_back(text2location+"3_5.txt");
-            text2_files.push_back(text2location+"3_6.txt");
-            text2_files.push_back(text2location+"3_7.txt");
-            text2_files.push_back(text2location+"3_8.txt");
-            text2_files.push_back(text2location+"3_9.txt");
-            text2_files.push_back(text2location+"3_10.txt");
-            text2_files.push_back(text2location+"3_11.txt");
-            text2_files.push_back(text2location+"3_12.txt");
-            text2_files.push_back(text2location+"3_13.txt");
-            text2_files.push_back(text2location+"3_14.txt");
-            text2_files.push_back(text2location+"3_15.txt");
-            text2_files.push_back(text2location+"4_1.txt");
-            text2_files.push_back(text2location+"4_2.txt");
-            text2_files.push_back(text2location+"4_3.txt");
-            text2_files.push_back(text2location+"4_4.txt");
-            text2_files.push_back(text2location+"4_5.txt");
-            text2_files.push_back(text2location+"4_6.txt");
-            text2_files.push_back(text2location+"4_7.txt");
-            text2_files.push_back(text2location+"4_8.txt");
-            text2_files.push_back(text2location+"4_9.txt");
-            text2_files.push_back(text2location+"4_10.txt");
-            text2_files.push_back(text2location+"4_11.txt");
-            text2_files.push_back(text2location+"4_12.txt");
-            text2_files.push_back(text2location+"4_13.txt");
-            text2_files.push_back(text2location+"4_14.txt");
-            text2_files.push_back(text2location+"4_15.txt");
-            text2_files.push_back(text2location+"4_16.txt");
-            text2_files.push_back(text2location+"4_17.txt");
-            text2_files.push_back(text2location+"5_1.txt");
-            text2_files.push_back(text2location+"5_2.txt");
-            text2_files.push_back(text2location+"5_3.txt");
-            text2_files.push_back(text2location+"5_4.txt");
-            text2_files.push_back(text2location+"5_5.txt");
-            text2_files.push_back(text2location+"5_6.txt");
-            text2_files.push_back(text2location+"5_7.txt");
-            text2_files.push_back(text2location+"5_8.txt");
-            text2_files.push_back(text2location+"5_9.txt");
-            text2_files.push_back(text2location+"5_10.txt");
-            text2_files.push_back(text2location+"5_11.txt");
-            text2_files.push_back(text2location+"5_12.txt");
-            text2_files.push_back(text2location+"5_13.txt");
-            text2_files.push_back(text2location+"5_14.txt");
-            text2_files.push_back(text2location+"6_1.txt");
-            text2_files.push_back(text2location+"6_2.txt");
-            text2_files.push_back(text2location+"6_3.txt");
-            text2_files.push_back(text2location+"6_4.txt");
-            text2_files.push_back(text2location+"6_5.txt");
-            text2_files.push_back(text2location+"6_6.txt");
-            text2_files.push_back(text2location+"6_7.txt");
-            text2_files.push_back(text2location+"6_8.txt");
-            text2_files.push_back(text2location+"6_9.txt");
-            text2_files.push_back(text2location+"6_10.txt");
-            text2_files.push_back(text2location+"6_11.txt");
-            text2_files.push_back(text2location+"6_12.txt");
-            text2_files.push_back(text2location+"6_13.txt");
-            text2_files.push_back(text2location+"6_14.txt");
-            text2_files.push_back(text2location+"7_1.txt");
-            text2_files.push_back(text2location+"7_2.txt");
-            text2_files.push_back(text2location+"7_3.txt");
-            text2_files.push_back(text2location+"7_4.txt");
-            text2_files.push_back(text2location+"7_5.txt");
-            text2_files.push_back(text2location+"7_6.txt");
-            text2_files.push_back(text2location+"7_7.txt");
-            text2_files.push_back(text2location+"7_8.txt");
-            text2_files.push_back(text2location+"7_9.txt");
-            text2_files.push_back(text2location+"7_10.txt");
-            text2_files.push_back(text2location+"8_1.txt");
-            text2_files.push_back(text2location+"8_2.txt");
-            text2_files.push_back(text2location+"8_3.txt");
-            text2_files.push_back(text2location+"8_4.txt");
-            text2_files.push_back(text2location+"8_5.txt");
-            text2_files.push_back(text2location+"8_6.txt");
-            text2_files.push_back(text2location+"8_7.txt");
-            text2_files.push_back(text2location+"8_8.txt");
-            text2_files.push_back(text2location+"8_9.txt");
-            text2_files.push_back(text2location+"8_10.txt");
-            text2_files.push_back(text2location+"8_11.txt");
-            text2_files.push_back(text2location+"8_12.txt");
-            text2_files.push_back(text2location+"8_13.txt");
-            text2_files.push_back(text2location+"8_14.txt");
-            text2_files.push_back(text2location+"8_15.txt");
-            text2_files.push_back(text2location+"8_16.txt");
-            text2_files.push_back(text2location+"8_17.txt");
-            text2_files.push_back(text2location+"9_1.txt");
-            text2_files.push_back(text2location+"9_2.txt");
-            text2_files.push_back(text2location+"9_3.txt");
-            text2_files.push_back(text2location+"9_4.txt");
-            text2_files.push_back(text2location+"9_5.txt");
-            text2_files.push_back(text2location+"9_6.txt");
-            text2_files.push_back(text2location+"9_7.txt");
-            text2_files.push_back(text2location+"9_8.txt");
-            text2_files.push_back(text2location+"9_9.txt");
-            text2_files.push_back(text2location+"9_10.txt");
-            text2_files.push_back(text2location+"9_11.txt");
-            text2_files.push_back(text2location+"9_12.txt");
-            text2_files.push_back(text2location+"9_13.txt");
-            text2_files.push_back(text2location+"9_14.txt");
-            text2_files.push_back(text2location+"9_15.txt");
-            text2_files.push_back(text2location+"9_16.txt");
-            text2_files.push_back(text2location+"9_17.txt");
-            text2_files.push_back(text2location+"9_18.txt");
-            text2_files.push_back(text2location+"9_19.txt");
-            text2_files.push_back(text2location+"9_20.txt");
-            text2_files.push_back(text2location+"9_21.txt");
-            text2_files.push_back(text2location+"9_22.txt");
-            text2_files.push_back(text2location+"9_23.txt");
-            text2_files.push_back(text2location+"9_24.txt");
-            text2_files.push_back(text2location+"9_25.txt");
-            text2_files.push_back(text2location+"9_26.txt");
-            text2_files.push_back(text2location+"9_27.txt");
-            text2_files.push_back(text2location+"9_28.txt");
-            text2_files.push_back(text2location+"9_29.txt");
-            text2_files.push_back(text2location+"9_30.txt");
-            text2_files.push_back(text2location+"9_31.txt");
-            text2_files.push_back(text2location+"9_32.txt");
-            text2_files.push_back(text2location+"10_1.txt");
-            text2_files.push_back(text2location+"10_2.txt");
-            text2_files.push_back(text2location+"10_3.txt");
-        }
-
-        cout << text1_files.size() << " text1_files listed" << endl;
-        cout << text2_files.size() << " text2_files listed" << endl;
-
-        do_crazy_things(text1_files, text1sets);
-        do_crazy_things(text2_files, text2sets);
-    }
-
     void out(){
         cout << "<int, vector<int>> sets" << endl;
-        for(auto s : sets){
+        for(const auto& s : sets){
             cout << s.first << "={";
             for(auto v : s.second){
                 cout << v << " ";
             }
             cout << "}" << endl;
         }
-        for(auto s : sets){
+        for(const auto& s : sets){
             cout << s.first << "={";
             for(auto v : s.second){
                 cout << toWord(v) << " ";
@@ -610,8 +349,8 @@ public:
 
     std::unordered_map<int, vector<vector<int>>> computeSlidingWindows(int windowWidth) {
         std::unordered_map<int, vector<vector<int>>> windows;
-        for (auto i = sets.begin(); i != sets.end(); i++) {
-            windows[i->first] = slidingWindows(i->second, windowWidth);
+        for (auto & set : sets) {
+            windows[set.first] = slidingWindows(set.second, windowWidth);
         }
         return windows;
     }
@@ -632,7 +371,7 @@ public:
         return text2_average_cardinality;
     }*/
 
-    int toInt(string t) {
+    int toInt(const string& t) {
         if (word2int.find(t) == word2int.end()) {
             return -1;
         } else {
@@ -664,145 +403,37 @@ public:
         return text2sets;
     }
 
- vector<string> DONG_DENG_STOPWORDS = {
-            "i"
-            ,"me"
-            ,"1"
-            ,"2"
-            ,"3"
-            ,"4"
-            ,"5"
-            ,"6"
-            ,"7"
-            ,"8"
-            ,"9"
-            ,"0"
-            ,"my"
-            ,"myself"
-            ,"we"
-            ,"our"
-            ,"ours"
-            ,"ourselves"
-            ,"you"
-            ,"your"
-            ,"yours"
-            ,"yourself"
-            ,"yourselves"
-            ,"he"
-            ,"him"
-            ,"his"
-            ,"himself"
-            ,"she"
-            ,"her"
-            ,"hers"
-            ,"herself"
-            ,"it"
-            ,"its"
-            ,"itself"
-            ,"they"
-            ,"them"
-            ,"their"
-            ,"theirs"
-            ,"themselves"
-            ,"what"
-            ,"which"
-            ,"who"
-            ,"whom"
-            ,"this"
-            ,"that"
-            ,"these"
-            ,"those"
-            ,"am"
-            ,"is"
-            ,"are"
-            ,"was"
-            ,"were"
-            ,"be"
-            ,"been"
-            ,"being"
-            ,"have"
-            ,"has"
-            ,"had"
-            ,"having"
-            ,"do"
-            ,"does"
-            ,"did"
-            ,"doing"
-            ,"a"
-            ,"an"
-            ,"the"
-            ,"and"
-            ,"but"
-            ,"if"
-            ,"or"
-            ,"because"
-            ,"as"
-            ,"until"
-            ,"while"
-            ,"of"
-            ,"at"
-            ,"by"
-            ,"for"
-            ,"with"
-            ,"about"
-            ,"against"
-            ,"between"
-            ,"into"
-            ,"through"
-            ,"during"
-            ,"before"
-            ,"after"
-            ,"above"
-            ,"below"
-            ,"to"
-            ,"from"
-            ,"up"
-            ,"down"
-            ,"in"
-            ,"out"
-            ,"on"
-            ,"off"
-            ,"over"
-            ,"under"
-            ,"again"
-            ,"further"
-            ,"then"
-            ,"once"
-            ,"here"
-            ,"there"
-            ,"when"
-            ,"where"
-            ,"why"
-            ,"how"
-            ,"all"
-            ,"any"
-            ,"both"
-            ,"each"
-            ,"few"
-            ,"more"
-            ,"most"
-            ,"other"
-            ,"some"
-            ,"such"
-            ,"no"
-            ,"nor"
-            ,"not"
-            ,"only"
-            ,"own"
-            ,"same"
-            ,"so"
-            ,"than"
-            ,"too"
-            ,"very"
-            ,"s"
-            ,"t"
-            ,"can"
-            ,"will"
-            ,"just"
-            ,"don"
-            ,"should"
-            ,"now"
-    };
+    static vector<string> tokenize(string line){
+        //cout << "org= " << line << endl;
+        // remove non-alphabetic chars
+        line.erase(std::remove_if(line.begin(), line.end(), is_alnum_or_space), line.end());
+        //cout << "alphanumeric= " << line << endl;
+        // replace duplicate white spaces
+        regex reg(" +");
+        line = std::regex_replace(line,  reg, " ");
+        //cout << "no dupl white spaces= " << line << endl;
+        // to lower case
+        std::transform(line.begin(), line.end(), line.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        //Split into string tokens
+        //cout << "lower case= " << line << endl;
+        vector<string> tokens = split(line, ' ');
+        /*for(string s : tokens){
+            cout << s << " ";
+        }
+        cout << endl;*/
+        //Remove stop words
+        tokens = remove_stopwords(tokens, DONG_DENG_STOPWORDS);
+        /*for(string s : tokens){
+            cout << s << "\t";
+        }
+        cout << endl;*/
+        for(const auto& t : tokens){
+            if(t.empty()){
+                cout << "Empty string found" << endl;
+            }
+        }
+        return tokens;
+    }
 };
-
 #endif //PRANAY_TEST_ENVIRONMENT_H
