@@ -165,30 +165,6 @@ private:
     vector<set<int>> invertedIndex;
     std::unordered_map<int, string> int2word;
     std::unordered_map<string, int> word2int;
-    //std::unordered_map<int, string> int2set;
-    //std::unordered_map<string, int> set2int;
-    //int text1_average_cardinality = 0;
-    //int text2_average_cardinality = 0;
-
-    static vector<std::vector<int>> slidingWindows(vector<int>& nums, int k) {
-        std::vector<std::vector<int>> result;
-        if (nums.empty() || k <= 0 || k > nums.size()) {
-            return result;
-        }
-
-        auto it = nums.begin();
-        std::vector<int> window(it, std::next(it, k));
-        result.push_back(window);
-
-        while (std::next(it, k) != nums.end()) {
-            window.erase(window.begin());
-            window.push_back(*std::next(it, k));
-            result.push_back(window);
-            ++it;
-        }
-
-        return result;
-    }
 
     static bool is_alnum_or_space(const char c){
         string special_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";//äöüÄÖÜß
@@ -223,7 +199,7 @@ private:
 
     void do_crazy_things_2(vector<string>& text_files, set<int>& text_sets){
         for (const auto& f : text_files) {//For each text file containing a single word
-            cout << "Laoding File " << f << endl;
+            cout << "Loading File " << f << endl;
             //set2int[f] = text_id;
             //int2set[text_id] = f;
             text_sets.insert(text_id);
@@ -235,10 +211,7 @@ private:
                 cout << line << endl;
 
                 while (getline(infile, line)) {
-                    if(!line.rfind("--",0)==0){//Begin of chapter marker
-                        //cout << line << endl;
-                        //tokens += 1;
-                        //line.erase(line.find_last_not_of(" \n\r\t")+1);
+                    if(line.rfind("--",0)!=0){//Begin of chapter marker
                         vector<string> tokens = tokenize(line);
                         for(const string& token : tokens){
                             if (!token.empty()) {
@@ -347,30 +320,6 @@ public:
         return sets;
     }
 
-    std::unordered_map<int, vector<vector<int>>> computeSlidingWindows(int windowWidth) {
-        std::unordered_map<int, vector<vector<int>>> windows;
-        for (auto & set : sets) {
-            windows[set.first] = slidingWindows(set.second, windowWidth);
-        }
-        return windows;
-    }
-
-    std::unordered_set<int>& getWordSet() {
-        return wordSet;
-    }
-
-    vector<set<int>>& getInvertedIndex() {
-        return invertedIndex;
-    }
-
-    /*int getText1Avg() {
-        return text1_average_cardinality;
-    }
-
-    int getText2Avg() {
-        return text2_average_cardinality;
-    }*/
-
     int toInt(const string& t) {
         if (word2int.find(t) == word2int.end()) {
             return -1;
@@ -383,18 +332,6 @@ public:
         return int2word[i];
     }
 
-    /*int getSetId(string s) {
-        if (set2int.find(s) == set2int.end()) {
-            return -1;
-        } else {
-            return set2int[s];
-        }
-    }
-
-    string getSetName(int i) {
-        return int2set[i];
-    }*/
-
     set<int>& getText1SetIds() {
         return text1sets;
     }
@@ -404,30 +341,18 @@ public:
     }
 
     static vector<string> tokenize(string line){
-        //cout << "org= " << line << endl;
         // remove non-alphabetic chars
         line.erase(std::remove_if(line.begin(), line.end(), is_alnum_or_space), line.end());
-        //cout << "alphanumeric= " << line << endl;
         // replace duplicate white spaces
         regex reg(" +");
         line = std::regex_replace(line,  reg, " ");
-        //cout << "no dupl white spaces= " << line << endl;
         // to lower case
         std::transform(line.begin(), line.end(), line.begin(),
                        [](unsigned char c){ return std::tolower(c); });
         //Split into string tokens
-        //cout << "lower case= " << line << endl;
         vector<string> tokens = split(line, ' ');
-        /*for(string s : tokens){
-            cout << s << " ";
-        }
-        cout << endl;*/
         //Remove stop words
         tokens = remove_stopwords(tokens, DONG_DENG_STOPWORDS);
-        /*for(string s : tokens){
-            cout << s << "\t";
-        }
-        cout << endl;*/
         for(const auto& t : tokens){
             if(t.empty()){
                 cout << "Empty string found" << endl;

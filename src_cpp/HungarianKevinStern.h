@@ -42,7 +42,7 @@
  * maximum among the number of workers and the number of jobs.
  *
  * @author Pranay Mundra
- * @package C++ Implementation of the Hungarian Algorithm orginally by Kevin L. Stern
+ * @package C++ Implementation of the Hungarian Algorithm originally by Kevin L. Stern
  * @copyright Kevin L. Stern
  */
 
@@ -529,13 +529,6 @@ public:
         std::fill(labelByWorker.begin(), labelByWorker.end(), 0);
         std::fill(matchJobByWorker.begin(),matchJobByWorker.end() ,-1);
         std::fill(matchWorkerByJob.begin(),matchWorkerByJob.end(), -1);
-
-        /*for(const double* a : cost_matrix){
-            for(int i=0;i<dim;i++){
-                cout << a[i] << "\t";
-            }
-            cout << endl;
-        }*/
 
         computeInitialFeasibleSolution(col_minima, cost_matrix);
 

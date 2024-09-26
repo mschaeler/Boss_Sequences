@@ -7,6 +7,7 @@
 
 #include <bitset>
 #include <utility>
+#include "HungarianKevinStern.h"
 
 class BitSet{
     /*
@@ -75,9 +76,7 @@ public:
         uint64_t word_index = wordIndex(bitIndex);
         expandTo(word_index);
         uint64_t mask = (one << bitIndex);
-        //cout << "words["<<word_index<<"] set bit "<< bitIndex<< " " <<  words.at(word_index) << " mask = " << mask;
         words.at(word_index) |= mask; // Restores invariants
-        //cout << "->" <<words.at(word_index) << endl;
     }
 
     /**
@@ -92,9 +91,7 @@ public:
      * @since  1.4
      */
     void set(uint32_t fromIndex, uint32_t toIndex) {
-        //TODO checkRange(fromIndex, toIndex);
-
-        if (fromIndex == toIndex)
+        if (fromIndex >= toIndex)
             return;
 
         // Increase capacity if necessary
@@ -123,16 +120,6 @@ public:
     }
 
     /**
-     * Sets all of the bits in this BitSet to {@code false}.
-     *
-     * @since 1.4
-     */
-    void clear() {
-        std::fill(words.begin(), words.begin() + wordsInUse, 0);
-        wordsInUse = 0;
-    }
-
-    /**
      * Returns the value of the bit with the specified index. The value
      * is {@code true} if the bit with the index {@code bitIndex}
      * is currently set in this {@code BitSet}; otherwise, the result
@@ -145,9 +132,6 @@ public:
     bool get(uint64_t bitIndex) {
         const uint64_t one = 1;
         uint64_t word_index = wordIndex(bitIndex);
-        /*if(bitIndex == 31){
-            cout << words.at(word_index) <<" mask= " << (one << bitIndex) << endl;
-        }*/
 
         return (word_index < wordsInUse)
                && ((words.at(word_index) & (one << bitIndex)) != 0);
@@ -202,102 +186,30 @@ public:
         if (u >= wordsInUse)
             return fromIndex;
 
-        uint64_t word = ~words.at(u) & (WORD_MASK << fromIndex);
+        uint64_t word = ~words[u] & (WORD_MASK << fromIndex);
 
         while (true) {
             if (word != 0)
                 return (u * BITS_PER_WORD) + __builtin_ctzll(word);
             if (++u == wordsInUse)
                 return wordsInUse * BITS_PER_WORD;
-            word = ~words.at(u);
-        }
-    }
-
-    /**
-     * Returns the "logical size" of this {@code BitSet}: the index of
-     * the highest set bit in the {@code BitSet} plus one. Returns zero
-     * if the {@code BitSet} contains no set bits.
-     *
-     * @return the logical size of this {@code BitSet}
-     * @since  1.2
-     */
-    uint32_t length() {
-        if (wordsInUse == 0)
-            return 0;
-
-        auto ret = BITS_PER_WORD * (wordsInUse - 1);
-        ret+=  BITS_PER_WORD - __builtin_clzll(words.at(wordsInUse - 1));
-        return ret;
-    }
-
-    void check() {//TODO
-        if(words.at(wordsInUse-1)==0){
-            cout << "check() words.at(wordsInUse)==0 for wordsInUse= " << wordsInUse << endl;
-        }
-        //cout << " check() rest ";
-        for(auto i = wordsInUse; i<words.size();i++){
-            //cout << words.at(i) << " ";
-            if(words.at(i)!=0){
-                cout << "check() words.at(i)!=0 for wordsInUse= " << wordsInUse << " i=" << i << endl;
-            }
-        }
-        //cout << endl;
-    }
-
-/**
-     * Performs a logical <b>OR</b> of this bit set with the bit set
-     * argument. This bit set is modified so that a bit in it has the
-     * value {@code true} if and only if it either already had the
-     * value {@code true} or the corresponding bit in the bit set
-     * argument has the value {@code true}.
-     *
-     * @param set a bit set
-     */
-    void logic_or(BitSet& set) {
-        //set.check();
-
-        int wordsInCommon = min(wordsInUse, set.wordsInUse);
-
-        if (wordsInUse < set.wordsInUse) {
-            wordsInUse = set.wordsInUse;
-        }
-
-        // Perform logical OR on words in common
-        for (int i = 0; i < wordsInCommon; i++)
-            words.at(i) |= set.words.at(i);
-
-        // Copy any remaining words
-        if (wordsInCommon < set.wordsInUse){
-            for(auto i=wordsInCommon;i<=wordsInUse;i++){//TODO < or <=
-                words.at(i) = set.words.at(i);//TODO words.insert()
-            }
+            word = ~words[u];
         }
     }
 
     void logic_or(const vector<BitSet>& all_sets, const vector<int>& ids) {
         for(int id : ids) {
-            if(wordsInUse<all_sets.at(id).wordsInUse) {
-                wordsInUse = all_sets.at(id).wordsInUse;
+            if(wordsInUse<all_sets[id].wordsInUse) {
+                wordsInUse = all_sets[id].wordsInUse;
             }
         }
 
         // Perform logical OR on words in common
         for (int i = 0; i < wordsInUse; i++) {
             for(int id : ids) {
-                words.at(i) |= all_sets.at(id).words.at(i);
+                words[i] |= all_sets[id].words[i];
             }
         }
-    }
-
-    /**
-     * Returns the number of bits of space actually in use by this
-     * {@code BitSet} to represent bit values.
-     * The maximum element in the set is the size - 1st element.
-     *
-     * @return the number of bits currently in this bit set
-     */
-    uint32_t size() {
-        return words.size() * BITS_PER_WORD;
     }
 };
 
@@ -325,6 +237,7 @@ class Solutions{
     vector<int> tokens_b2;
 
     const vector<vector<double>> global_similarity_matrix;
+    vector<vector<double>> book_matrix;
     vector<vector<double>> alignment_matrix;
     double sum_cols = 0;
 
@@ -367,8 +280,7 @@ class Solutions{
     void out_config(const string& name) const{
         cout << "Solutions "<<name<<" k=" << k << " threshold=" << threshold << " " << threshold_times_k << endl;
     }
-    vector<vector<double>> fill_similarity_matrix() {
-        vector<vector<double>> book_matrix(book_1.size(), vector<double>(book_2.size()));
+    void fill_similarity_matrix() {
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
 
         for(int line=0;line<book_1.size();line++) {
@@ -381,29 +293,26 @@ class Solutions{
             }
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-        cout << "fill_similarity_matrix END in " << time_elapsed.count() << endl;
-
-        return book_matrix;//by value
+        cout << "GCM materialized in " << time_elapsed.count() << endl;
     }
 
     /**
      *
      * @return -sim[][]
      */
-    vector<vector<double>> fill_similarity_matrix_deep() {
-        vector<vector<double>> book_matrix(book_1.size(), vector<double>(book_2.size()));
-
+    void fill_similarity_matrix_deep() {
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
         for(int line=0;line<book_1.size();line++) {
-            const int set_id_window_p1 = book_1.at(line);
-            const vector<double>& sim_matrix_line = global_similarity_matrix.at(set_id_window_p1);
+            const int set_id_window_p1 = book_1[line];
+            const vector<double>& sim_matrix_line = global_similarity_matrix[set_id_window_p1];
             for(int column=0;column<book_2.size();column++) {
-                const int set_id_window_p2 = book_2.at(column);
-                const double sim = sim_matrix_line.at(set_id_window_p2);
-                book_matrix.at(line).at(column) = -sim;// XXX this is the difference to the method above
+                const int set_id_window_p2 = book_2[column];
+                const double sim = sim_matrix_line[set_id_window_p2];
+                book_matrix[line][column] = -sim;// XXX this is the difference to the method above
             }
         }
-
-        return book_matrix;//by value
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+        cout << "-GCM materialized in " << time_elapsed.count() << endl;
     }
 
     void fill_local_similarity_matrix(vector<vector<double>>& local_cost_matrix, const vector<vector<double>>& global_cost_matrix_book, const int line, const int column) const {
@@ -461,8 +370,6 @@ class Solutions{
     }
 
     void create_indexes_bit_vectors(vector<BitSet>& inverted_window_index_bit_set) const{
-        //cout << "create neighborhood index BEGIN" << endl;
-        chrono::time_point<std::chrono::high_resolution_clock> begin = std::chrono::high_resolution_clock::now();
         vector<vector<int>> indexes;
         //find for each set all other sets such that sim(set,other_set)>=threshold
         for(int token_id : tokens_b1){
@@ -476,41 +383,25 @@ class Solutions{
             }
             indexes.push_back(index);
         }
-        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - begin;
-        //cout << "create neighborhood index END in " << time_elapsed.count() << endl;
 
-        //cout << "Bit vector create BEGIN" << endl;
-        begin = std::chrono::high_resolution_clock::now();
         //For each token
         for(int token_id : tokens_b1) {
             /**
              * The list of all tokens with sim > threshold
              */
-            const vector<int>& neihborhood_index = indexes[token_id];
+            const vector<int>& neighborhood_index = indexes[token_id];
             //vector<bool>& bit_vector = inverted_window_index[token_id];
-            BitSet& my_set = inverted_window_index_bit_set.at(token_id);
+            BitSet& my_set = inverted_window_index_bit_set[token_id];
 
             for(int pos=0;pos<book_2.size();pos++) {
                 const int token_id_in_b2 = book_2[pos];
 
-                if(isIn(neihborhood_index,token_id_in_b2)) {
+                if(isIn(neighborhood_index,token_id_in_b2)) {
                     int start = max(0, pos-k+1);
                     auto stop =  (k_with_windows_b2.size()-1 < pos) ? k_with_windows_b2.size()-1 : pos;
-                    for(int p=start;p<=stop;p++) {
-                        //bit_vector[p] = true;
-                        my_set.set(p);
-                    }
-                }
+                    my_set.set(start,stop+1);                }
             }
-            /*for(auto i=0;i<bit_vector.size();i++){
-                if(bit_vector.at(i)!=my_set.get(i)){
-                    cout << "bit_vector.at(i)!=my_set.get(i) at i=" << i << endl;
-                    cout << bit_vector.at(i) << " vs. " << my_set.get(i) << endl;
-                }
-            }*/
         }
-        time_elapsed = std::chrono::high_resolution_clock::now() - begin;
-        //cout << "Bit vector create END in " << time_elapsed.count() << endl;
     }
 
     /**
@@ -518,10 +409,10 @@ class Solutions{
      * @param value
      * @return
      */
-    static bool isIn(const vector<int>& neihborhood_index, const int value) {
-        const int size = neihborhood_index.size();
+    static bool isIn(const vector<int>& neighborhood_index, const int value) {
+        const int size = neighborhood_index.size();
         for(int i=0;i<size;i++) {
-            if(neihborhood_index[i]==value) {
+            if(neighborhood_index[i]==value) {
                 return true;
             }
         }
@@ -563,68 +454,6 @@ class Solutions{
         return -max;
     }
 
-    /*void check_run_correctness(const int run_start, const int run_stop, const int line, HungarianKevinStern& solver, vector<vector<double>>& local_similarity_matrix, const vector<vector<double>>& matrix_book){
-        //use for correctness check
-        for(int column=run_start;column<=run_stop;column++) {
-            //Fill local matrix of the current window combination from global matrix
-            fill_local_similarity_matrix(local_similarity_matrix, matrix_book, line, column);//das hier ist der einzige Unterschied
-            const double upper_bound_sim = get_sum_of_column_row_minima(local_similarity_matrix);
-
-            //if (upper_bound_sim + DOUBLE_PRECISION_BOUND >= threshold_times_k) {
-            //That's the important line
-            double similarity = -solver.solve_cached(local_similarity_matrix);
-            similarity /= k_double;
-
-            //cout << "sim\t" << "bound\t" << "line\t" << "column" << endl;
-            //cout << similarity << "\t" << upper_bound_sim << "\t" << line << "\t" << column << endl;
-            //out_matrix(local_similarity_matrix);
-            //normalize costs: Before it was distance. Now it is similarity.
-
-            if (similarity >= threshold) {
-                double sim_new = alignment_matrix.at(line).at(column);
-                if(sim_new !=similarity){
-                    cout << "sim_new !=similarity / k_double at line=" << line << " and column=" << column << " : "<< sim_new << " vs. " << similarity << endl;
-                }
-            }else{
-                double sim_new = alignment_matrix.at(line).at(column);
-                if(sim_new != 0){
-                    cout << "sim_new != 0 at line=" << line << " and column=" << column << endl;
-                }
-            }
-            //}
-        }
-    }
-
-    void check_bit_vector_index(vector<vector<bool>>& inverted_window_index){
-        for(const vector<int>& window_1: k_with_windows_b1){
-            for(int w=0;w<k_with_windows_b2.size();w++){
-                const vector<int>& window_2 = k_with_windows_b2.at(w);
-                for(int id_1 : window_1){
-                    double max_sim = 0;
-                    for(int id_2 : window_2){
-                        double sim = global_similarity_matrix.at(id_1).at(id_2);
-                        if(sim>max_sim){
-                            max_sim = sim;
-                        }
-                    }
-                    if(max_sim>=threshold){
-                        if(!inverted_window_index.at(id_1).at(w)){//must be true
-                            cout << "inverted_window_index wrong must be true at " << id_1 << " " << w << endl;
-                            out(window_1);
-                            out(window_2);
-                        }
-                    }else{
-                        if(inverted_window_index.at(id_1).at(w)){//must not be true
-                            cout << "inverted_window_index wrong must be false at " << id_1 << " " << w << endl;
-                            out(window_1);
-                            out(window_2);
-                        }
-                    }
-                }
-            }
-        }
-    }*/
-
 public:
 
     Solutions(int _k, double _threshold, vector<int> _book_1, vector<int> _book_2, vector<vector<double>> _cost_matrix) :
@@ -637,6 +466,7 @@ public:
             , global_similarity_matrix(std::move(_cost_matrix))
             , col_maxima(vector<double>(k))
             , MAX_SIM_ADDITION_NEW_NODE(1.0 / k_double)
+            , book_matrix(book_1.size(), vector<double>(book_2.size()))
     {
         k_with_windows_b1 = create_windows(book_1, k);
         k_with_windows_b2 = create_windows(book_2, k);
@@ -649,8 +479,6 @@ public:
         for(vector<double> arr : alignment_matrix){
             std::fill(arr.begin(),arr.end(),0);
         }
-
-        //cout << sum(global_similarity_matrix) << endl;
     }
 
     //XXX this one does not compute the distances on the fly. Add time?
@@ -664,12 +492,12 @@ public:
 
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
 
-        const vector<vector<double>> matrix_book = fill_similarity_matrix();
+        fill_similarity_matrix();
         //For each pair of windows
         for(int line=0;line<alignment_matrix.size();line++) {
             for(int column=0;column<alignment_matrix.at(0).size();column++) {
                 //Fill local matrix of the current window combination from global matrix
-                fill_local_similarity_matrix(local_similarity_matrix, matrix_book, line, column);
+                fill_local_similarity_matrix(local_similarity_matrix, book_matrix, line, column);
                 //That's the important line
                 const double similarity = -solver.solve_cached(local_similarity_matrix);
                 //normalize costs: Before it was distance. Now it is similarity.
@@ -698,13 +526,12 @@ public:
 
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
 
-        const vector<vector<double>> matrix_book = fill_similarity_matrix();
+        fill_similarity_matrix();
         //For each pair of windows
         for (int line = 0; line < alignment_matrix.size(); line++) {
             for (int column = 0; column < alignment_matrix.at(0).size(); column++) {
                 //Fill local matrix of the current window combination from global matrix
-                fill_local_similarity_matrix(local_similarity_matrix, matrix_book, line,
-                                             column);//das hier ist der einzige Unterschied
+                fill_local_similarity_matrix(local_similarity_matrix, book_matrix, line, column);//This is the only difference
                 const double upper_bound_sim = get_sum_of_column_row_minima(local_similarity_matrix);
 
                 if (upper_bound_sim + DOUBLE_PRECISION_BOUND >= threshold_times_k) {
@@ -739,13 +566,13 @@ public:
         vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(k_with_windows_b2.size()));
         //Not needed later
         vector<const double*> window(k);//Can't use a vector to point into an existing buffer.
-        const vector<vector<double>> matrix_book = fill_similarity_matrix_deep();
+        fill_similarity_matrix_deep();
         vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(k_with_windows_b2.size()));
 
         long count_candidates = 0;
         long count_survived_o_1 = 0;
         long count_survived_o_k = 0;
-        long count_survived_o_k_squar = 0;
+        long count_survived_o_k_square = 0;
         long count_cells_exceeding_threshold = 0;
 
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
@@ -762,7 +589,7 @@ public:
 
             //Manually inlined condense transforms the bit vector into runs of candidates
             vector<int> candidates_condensed_bit_set;
-            uint32_t start_alt = 0, stop_alt = 0;
+            uint32_t start_alt = 0, stop_alt;
 
             while((start_alt = my_candidates.nextSetBit(start_alt))!=-1) {
                 stop_alt = my_candidates.nextClearBit(start_alt);
@@ -773,7 +600,6 @@ public:
 
             const vector<int>& candidates_condensed = candidates_condensed_bit_set;
 
-
             const int size = candidates_condensed.size();
             for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
                 const int run_start = candidates_condensed[c];
@@ -781,7 +607,6 @@ public:
 
                 double ub_sum, sim, prior_cell_similarity, prev_min_value;
                 bool prior_cell_updated_matrix, column_sum_correct;
-                //cout << run_start << " " << run_stop << endl;
 
                 count_candidates+=run_stop-run_start+1;
                 int column=run_start;
@@ -789,13 +614,13 @@ public:
                     count_survived_o_1++;
                     count_survived_o_k++;
                     for(int i = 0;i<k;i++){//Init sliding window
-                        const double* temp = &matrix_book[line+i][column];
+                        const double* temp = &book_matrix[line+i][column];
                         window[i] = temp;
                     }
                     ub_sum = o_k_square_bound(window) / k_double;
 
                     if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
-                        count_survived_o_k_squar++;
+                        count_survived_o_k_square++;
                         sim = -solver.solve(col_maxima, window);//Note the minus-trick for the Hungarian
                         sim /= k_double;
                         if(sim>=threshold) {
@@ -849,7 +674,7 @@ public:
                             upper_bound_sim = (ub_sum<upper_bound_sim) ? ub_sum : upper_bound_sim;
 
                             if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
-                                count_survived_o_k_squar++;
+                                count_survived_o_k_square++;
                                 sim = -solver.solve(col_maxima, window);//Note the minus-trick for the Hungarian
                                 //normalize
                                 sim /= k_double;
@@ -882,8 +707,7 @@ public:
 
         double check_sum = sum(alignment_matrix);
         auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
-        cout << "run_solution(k="<<k<<") time: "<<time_elapsed.count() <<" idx_gen= "<<index_generation.count() << " time= " << time_elapsed.count() << "\tsum=" << check_sum << "\tsize=" <<  size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_squar <<"\t"<< count_cells_exceeding_threshold << endl;
-        //cout << "sum(GCM)=" << sum(matrix_book) << endl;
+        cout << "run_solution(k=" << k << ") time: " << time_elapsed.count() << " idx_gen= " << index_generation.count() << " time= " << time_elapsed.count() << "\tsum=" << check_sum << "\tsize=" << size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_square << "\t" << count_cells_exceeding_threshold << endl;
         return time_elapsed.count();
     }
 };
