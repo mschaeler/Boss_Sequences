@@ -156,6 +156,138 @@ vector<string> DONG_DENG_STOPWORDS = {
         ,"now"
 };
 
+vector<string> GERMAN_STOP_WORDS = {
+        "aber"
+        , "als"
+        , "am"
+        , "an"
+        , "auch"
+        , "auf"
+        , "aus"
+        , "bei"
+        , "bin"
+        , "bis"
+        , "bist"
+        , "da"
+        , "dadurch"
+        , "daher"
+        , "darum"
+        , "das"
+        , "daß"
+        , "dass"
+        , "dein"
+        , "deine"
+        , "dem"
+        , "den"
+        , "der"
+        , "des"
+        , "dessen"
+        , "deshalb"
+        , "die"
+        , "dies"
+        , "dieser"
+        , "dieses"
+        , "doch"
+        , "dort"
+        , "du"
+        , "durch"
+        , "ein"
+        , "eine"
+        , "einem"
+        , "einen"
+        , "einer"
+        , "eines"
+        , "er"
+        , "es"
+        , "euer"
+        , "eure"
+        , "für"
+        , "hatte"
+        , "hatten"
+        , "hattest"
+        , "hattet"
+        , "hier"
+        , "hinter"
+        , "ich"
+        , "ihr"
+        , "ihre"
+        , "im"
+        , "in"
+        , "ist"
+        , "ja"
+        , "jede"
+        , "jedem"
+        , "jeden"
+        , "jeder"
+        , "jedes"
+        , "jener"
+        , "jenes"
+        , "jetzt"
+        , "kann"
+        , "kannst"
+        , "können"
+        , "könnt"
+        , "machen"
+        , "mein"
+        , "meine"
+        , "mit"
+        , "muß"
+        , "mußt"
+        , "musst"
+        , "müssen"
+        , "müßt"
+        , "nach"
+        , "nachdem"
+        , "nein"
+        , "nicht"
+        , "nun"
+        , "oder"
+        , "seid"
+        , "sein"
+        , "seine"
+        , "sich"
+        , "sie"
+        , "sind"
+        , "soll"
+        , "sollen"
+        , "sollst"
+        , "sollt"
+        , "sonst"
+        , "soweit"
+        , "sowie"
+        , "und"
+        , "unser"
+        , "unsere"
+        , "unter"
+        , "vom"
+        , "von"
+        , "vor"
+        , "wann"
+        , "warum"
+        , "was"
+        , "weiter"
+        , "weitere"
+        , "wenn"
+        , "wer"
+        , "werde"
+        , "werden"
+        , "werdet"
+        , "weshalb"
+        , "wie"
+        , "wieder"
+        , "wieso"
+        , "wir"
+        , "wird"
+        , "wirst"
+        , "wo"
+        , "woher"
+        , "wohin"
+        , "zu"
+        , "zum"
+        , "zur"
+        , "über"
+};
+
 class Environment{
 private:
     std::unordered_map<int, vector<int>> sets;
@@ -165,6 +297,13 @@ private:
     vector<set<int>> invertedIndex;
     std::unordered_map<int, string> int2word;
     std::unordered_map<string, int> word2int;
+
+    int language = EN;
+
+    static bool is_alnum_or_space_de(const char c){
+        string special_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZäöüÄÖÜß";
+        return (special_chars.find(c) == string::npos);
+    }
 
     static bool is_alnum_or_space(const char c){
         string special_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";//äöüÄÖÜß
@@ -190,7 +329,9 @@ private:
         vector<string> result;
         for(const auto& t : tokens){
             if(find(stop_words.begin(), stop_words.end(), t) == stop_words.end()){//is not a stop word
-                result.push_back(t);
+                if(!t.empty()) {
+                    result.push_back(t);
+                }
             }
         }
         return result;
@@ -206,13 +347,13 @@ private:
             string line;
             ifstream infile(f);
             if (infile.is_open()) {
-                cout << "Skipping lines" << endl;
+                cout << "Skipping line: ";
                 getline(infile, line);//Name of the Biblical Book
                 cout << line << endl;
 
                 while (getline(infile, line)) {
                     if(line.rfind("--",0)!=0){//Begin of chapter marker
-                        vector<string> tokens = tokenize(line);
+                        vector<string> tokens = tokenize(line, language);
                         for(const string& token : tokens){
                             if (!token.empty()) {
                                 if (word2int.find(token) == word2int.end()) {
@@ -230,8 +371,7 @@ private:
                             }
                         }
                     }else{
-                        cout << "Skipping line" << endl;
-                        cout << line << endl;
+                        cout << "Skipping line: " << line << endl;
                     }
                 }
             }else{
@@ -262,6 +402,8 @@ public:
     int id = 0;
     //int tokens = 0;
     int text_id = 0;
+    const static int EN = 0;
+    const static int DE = 1;
 
     Environment(const vector<string>& all_tokens, int length){//copy the token vector
         //reduce to length than split in half
@@ -275,7 +417,18 @@ public:
         }
     }
 
-    Environment(string text1location, string text2location){
+    Environment(string text1location, string text2location) {
+        vector<string> text1_files = {std::move(text1location)};
+        vector<string> text2_files = {std::move(text2location)};
+
+        cout << text1_files.size() << " text1_files listed" << endl;
+        cout << text2_files.size() << " text2_files listed" << endl;
+
+        do_crazy_things_2(text1_files, text1sets);
+        do_crazy_things_2(text2_files, text2sets);
+    }
+
+    Environment(string text1location, string text2location, int _language) : language(_language) {
         vector<string> text1_files = {std::move(text1location)};
         vector<string> text2_files = {std::move(text2location)};
 
@@ -340,19 +493,40 @@ public:
         return text2sets;
     }
 
-    static vector<string> tokenize(string line){
+    static vector<string> tokenize(string line, int language){
+        //cout << "org= " << line << endl;
         // remove non-alphabetic chars
-        line.erase(std::remove_if(line.begin(), line.end(), is_alnum_or_space), line.end());
+        if(language==DE) {
+            line.erase(std::remove_if(line.begin(), line.end(), is_alnum_or_space_de), line.end());
+        }else{
+            line.erase(std::remove_if(line.begin(), line.end(), is_alnum_or_space), line.end());
+        }
+        //cout << "alphanumeric= " << line << endl;
         // replace duplicate white spaces
         regex reg(" +");
         line = std::regex_replace(line,  reg, " ");
+        //cout << "no dupl white spaces= " << line << endl;
         // to lower case
         std::transform(line.begin(), line.end(), line.begin(),
                        [](unsigned char c){ return std::tolower(c); });
         //Split into string tokens
+        //cout << "lower case= " << line << endl;
         vector<string> tokens = split(line, ' ');
+        /*for(string s : tokens){
+            cout << s << " ";
+        }
+        cout << endl;*/
         //Remove stop words
-        tokens = remove_stopwords(tokens, DONG_DENG_STOPWORDS);
+        if(language==DE) {
+            tokens = remove_stopwords(tokens, GERMAN_STOP_WORDS);
+        }else{
+            tokens = remove_stopwords(tokens, DONG_DENG_STOPWORDS);
+        }
+
+        /*for(const auto& s : tokens){
+            cout << s << "\t";
+        }
+        cout << endl;*/
         for(const auto& t : tokens){
             if(t.empty()){
                 cout << "Empty string found" << endl;

@@ -245,9 +245,61 @@ int main(int argc, char* argv[]) {
         DataLoader loader(data_file, &env);
         int num_repition = 3;
         run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
-    }else if(experiment == bible_experiment){
-        //TODO
-        cout << "Bible experiment not implemented yet." << endl;
+    }else if(experiment == bible_experiment) {
+        vector<vector<double>> all_runtimes;
+
+        //First the two English texts
+        vector<int> k_s = {3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        int num_repition = 10;
+        string data_file;
+        {
+            string text1location = "..//data/en/esv.txt";
+            string text2location = "..//data/en/king_james_bible.txt";
+            Environment env(text1location, text2location);
+            data_file = "..//data/en/matches_stopwords.en.min.tsv";
+            DataLoader loader(data_file, &env);
+            auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+            all_runtimes.push_back(temp);
+        }
+        vector<string> german_bible_versions = {"elberfelder.txt","luther.txt","ne.txt","schlachter.txt","volxbibel.txt",};
+        data_file = "..//data/de/matches.de.min.tsv";
+        //For each pair of biblical books
+        for(auto b_1=0;b_1<german_bible_versions.size();b_1++){
+            for(auto b_2=b_1+1;b_2<german_bible_versions.size();b_2++){
+                cout << "**New pair " << german_bible_versions.at(b_1) <<" vs. "<< german_bible_versions.at(b_2) << endl;
+                string text1location = "..//data/de/"+german_bible_versions.at(b_1);
+                string text2location = "..//data/de/"+german_bible_versions.at(b_2);
+                Environment env(text1location, text2location, Environment::DE);
+                env.out();
+                DataLoader loader(data_file, &env);
+                auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+                all_runtimes.push_back(temp);
+            }
+        }
+        cout << "Results Bible experiment " << endl;
+        for(int k : k_s){
+            cout << "k="<<k<<"\t";
+        }
+        cout << endl;
+        vector<double> avg_runtimes(k_s.size());
+        for(auto run_times : all_runtimes) {
+            for (auto i=0;i<run_times.size();i++) {
+                double t = run_times[i];
+                cout << t << "\t";
+                avg_runtimes[i] +=t;
+            }
+            cout << endl;
+        }
+        cout << "Avg. run times Bible experiment " << endl;
+        for(int k : k_s){
+            cout << "k="<<k<<"\t";
+        }
+        cout << endl;
+        for (auto i=0;i<avg_runtimes.size();i++) {
+            double t = avg_runtimes[i]/(double) all_runtimes.size();
+            cout << t << "\t";
+        }
+        cout << endl;
     }else if(experiment == pan_experiment){
         //TODO
         cout << "Pan experiment not implemented yet." << endl;
@@ -261,7 +313,7 @@ int main(int argc, char* argv[]) {
 
         if (infile.is_open()) {
             getline(infile, line);
-            vector<string> tokens = Environment::tokenize(line);
+            vector<string> tokens = Environment::tokenize(line, Environment::EN);
             cout << "Parsed wiki dump into " << tokens.size() << " tokens" << endl;
             for(int i=0;i<10;i++){
                 cout << tokens.at(i) << "\t";
