@@ -48,6 +48,8 @@ public class Solutions {
 	public final int[] tokens_b1;
 	public final int[] tokens_b2;
 	
+	final MatrixRingBuffer mrb; 
+	
 	/**
 	 * Contains the maximum column similarity of current local similarity matrix. Note, since we negate the signum for the hungarian. It's the minimum....
 	 */
@@ -70,6 +72,7 @@ public class Solutions {
 		this.k_with_windows_b1 = create_windows(raw_paragraph_b1, k);
 		this.k_with_windows_b2 = create_windows(raw_paragraph_b2, k);
 		this.embedding_vector_index = embedding_vector_index;
+		this.mrb = new MatrixRingBuffer(k);
 		
 		//Prepare the buffers for the alignment matrixes
 		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
@@ -142,6 +145,7 @@ public class Solutions {
 		this.k_with_windows_b1 = create_windows(raw_paragraph_b1, k);
 		this.k_with_windows_b2 = create_windows(raw_paragraph_b2, k);
 		this.embedding_vector_index = null;
+		this.mrb = new MatrixRingBuffer(k);
 		
 		//Prepare the buffers for the alignment matrixes
 		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
@@ -356,7 +360,7 @@ public class Solutions {
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);
 		System.out.println("Solutions.run_baseline() k="+k+" threshold="+threshold+" "+solver.get_name());
-		final double[][] local_similarity_matrix = new double[k][k];
+		MatrixRingBuffer mrb = new MatrixRingBuffer(k);
 		USE_GLOBAL_MATRIX = true;
 		
 		double[] run_times = new double[num_paragraphs];
@@ -369,17 +373,19 @@ public class Solutions {
 		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
 		
 		start = System.currentTimeMillis();
-		final double[][] global_cost_matrix_book = fill_similarity_matrix();
 		//For each pair of windows
-		for(int line=0;line<alignment_matrix.length;line++) {							
+		for(int line=0;line<alignment_matrix.length;line++) {
+			mrb.fill(line, 0, dense_global_matrix_buffer, raw_paragraph_b1, raw_paragraph_b2);
 			for(int column=0;column<alignment_matrix[0].length;column++) {	
-				//Fill local matrix of the current window combination from global matrix 
-				fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
-				final double upper_bound_sim = get_sum_of_column_row_minima(local_similarity_matrix);
+				if(column!=0) {
+					mrb.update(line, column, dense_global_matrix_buffer, raw_paragraph_b1, raw_paragraph_b2);
+				}
+				
+				final double upper_bound_sim = mrb.get_sum_of_column_row_minima();
 				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold_times_k) {
 					count_survived_pruning++;
 					//That's the important line
-					double similarity = -solver.solve(local_similarity_matrix, threshold);
+					double similarity = -solver.solve(mrb.buffer, threshold);
 					//normalize costs: Before it was distance. Now it is similarity.
 					if(similarity>=threshold_times_k) {
 						alignment_matrix[line][column] = similarity/(double)k;//normalize
@@ -424,7 +430,7 @@ public class Solutions {
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);
 		System.out.println("Solutions.run_naive() k="+k+" threshold="+threshold+" "+solver.get_name());
-		final double[][] local_similarity_matrix = new double[k][k];
+		//final double[][] local_similarity_matrix = new double[k][k];
 		USE_GLOBAL_MATRIX = false;
 		
 		double[] run_times = new double[num_paragraphs];
@@ -434,16 +440,23 @@ public class Solutions {
 		
 		//Allocate space for the alignment matrix
 		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
+		final MatrixRingBuffer mrb = new MatrixRingBuffer(k);
 		
 		start = System.currentTimeMillis();
-		final double[][] global_cost_matrix_book = fill_similarity_matrix();
+		//final double[][] global_cost_matrix_book = fill_similarity_matrix();
 		//For each pair of windows
-		for(int line=0;line<alignment_matrix.length;line++) {							
+		for(int line=0;line<alignment_matrix.length;line++) {
+			mrb.fill(line, 0, dense_global_matrix_buffer, raw_paragraph_b1, raw_paragraph_b2);
 			for(int column=0;column<alignment_matrix[0].length;column++) {	
 				//Fill local matrix of the current window combination from global matrix 
-				fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
+				//fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
+				if(column!=0) {
+					mrb.update(line, column, dense_global_matrix_buffer, raw_paragraph_b1, raw_paragraph_b2);
+				}
+				//mrb.compare(local_similarity_matrix, column);
+				
 				//That's the important line
-				final double similarity = -solver.solve(local_similarity_matrix, threshold);
+				final double similarity = -solver.solve(mrb.buffer, threshold);
 				//normalize costs: Before it was distance. Now it is similarity.
 				if(similarity>=threshold_times_k) {
 					alignment_matrix[line][column] = similarity/(double)k;//normalize
@@ -591,7 +604,7 @@ public class Solutions {
 			final double[] alignment_matrix_line   = alignement_matrix[line];
 			int run_start = 0;
 			int run_stop = alignment_matrix_line.length-1;//to the end inclusively
-			validate_run_deep(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
+			validate_run_deep_2(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
 		}
 		
 		stop = System.currentTimeMillis();
@@ -740,20 +753,18 @@ public class Solutions {
 	
 	public double[] run_solution() {
 		print_special_configurations();
-		HungarianDeep solver = new HungarianDeep(k);
+		HungarianDeep2 solver = new HungarianDeep2(k);
+		solver.set_matrix(mrb.buffer);
 		System.out.println("Solutions.run_solution() k="+k+" threshold="+threshold+" "+solver.get_name());
 		USE_GLOBAL_MATRIX = true;
 		
 		//Some variable
 		double[] run_times = new double[num_paragraphs];
 		double stop,start;
-		final double[][] current_lines = new double[k][];
+		
 		USE_GLOBAL_MATRIX = true;
 		final ArrayList<MyArrayList> all_candidates = new ArrayList<MyArrayList>(alignement_matrix.length);
 		final BitSet candidates = new BitSet(alignement_matrix[0].length);
-		
-		final double[][] global_matrix_book  = fill_similarity_matrix_deep();//can be re-used for any k. Thus not part of the runtime. TODO Buffer to make it fair
-		
 		
 		start = System.currentTimeMillis();
 		final BitSet[] inverted_window_index = create_indexes_bit_vectors();//XXX includes neighborhood computation, which can be re-used
@@ -762,31 +773,13 @@ public class Solutions {
 		for(int line=0;line<alignement_matrix.length;line++) {
 			candidates.clear();//may contain result from prior line
 			candidates.or(inverted_window_index, k_with_windows_b1[line]);
-			/*for(int token_id : k_with_windows_b1[line]) {
-				final BitSet temp = inverted_window_index[token_id];
-				candidates.or(temp);
-			}*/
-			//condense bool[] to runs with from to
 			MyArrayList candidates_condensed = condense(candidates);
 			
-			/*
-			BitSet[] my_candidates = new BitSet[k];
-			for(int i=0;i<k;i++) {
-				int token_id = k_with_windows_b1[line][i];
-				my_candidates[i] = inverted_window_index[token_id];
-			}			
-
-			MyArrayList candidates_condensed = merge(my_candidates);//, candidates_condensed);//XXX
-			*/
 			all_candidates.add(candidates_condensed);
 		}
 		double stop_candidates = System.currentTimeMillis();
 		
 		for(int line=0;line<alignement_matrix.length;line++) {
-			for(int i=0;i<k;i++) {//Let current_lines point to the right window
-				current_lines[i] = global_matrix_book[line+i];
-			}
-			solver.set_matrix(current_lines);//This way, we avoid to pass the window again and again for each window in a line of the matrix
 			//Validate candidates
 			final double[] alignment_matrix_line   = alignement_matrix[line];
 			final MyArrayList candidates_condensed = all_candidates.get(line);
@@ -797,7 +790,7 @@ public class Solutions {
 				final int run_start = raw_candidates[c];
 				final int run_stop = raw_candidates[c+1];
 				
-				validate_run_deep(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
+				validate_run_deep(solver, line, run_start, run_stop, alignment_matrix_line);
 			}
 		}
 		
@@ -922,7 +915,7 @@ public class Solutions {
 				final int run_start = raw_candidates[c];
 				final int run_stop = raw_candidates[c+1];
 				
-				validate_run_deep(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
+				validate_run_deep_2(solver, line, run_start, run_stop, current_lines, alignment_matrix_line);
 			}
 		}
 		
@@ -1308,7 +1301,76 @@ public class Solutions {
 			}
 		}
 	}
-	public void validate_run_deep(HungarianDeep solver, final int line, final int run_start, final int run_stop
+	public void validate_run_deep(HungarianDeep2 hunga, final int line, final int run_start, final int run_stop
+			, final double[] alignment_matrix_line) {
+		
+		double ub_sum, sim, prior_cell_similarity, prev_min_value; 
+		
+		if(LOGGING_MODE) {count_candidates+=run_stop-run_start+1;}
+		
+		int column=run_start;			
+		{//Here we have no bound O(1) bound
+			if(LOGGING_MODE) count_survived_pruning++;
+			if(LOGGING_MODE) count_survived_second_pruning++;
+			
+			mrb.fill(line, column, dense_global_matrix_buffer, raw_paragraph_b1, raw_paragraph_b2);
+			ub_sum = mrb.get_sum_of_column_row_minima()/k_double;
+			
+			if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
+				if(LOGGING_MODE) count_survived_third_pruning++;
+				sim = -hunga.solve(mrb.col_maxima);
+				sim /= k_double;
+				if(sim>=threshold) {
+					if(LOGGING_MODE) count_cells_exceeding_threshold++;
+					alignment_matrix_line[column] = sim;
+				}//else keep it zero
+				prior_cell_similarity = sim;
+			}else{
+				prior_cell_similarity = ub_sum;
+			}
+			prev_min_value = mrb.max(column);
+		}
+	
+		//For all other columns: Here we have a O(1) and O(k) bound
+		for(column=run_start+1;column<=run_stop;column++) {
+			mrb.update_with_bound(line, column, dense_global_matrix_buffer, raw_paragraph_b1, raw_paragraph_b2);
+			double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;// O(1) bound
+			upper_bound_sim-= (prev_min_value / k_double);// (1) O(k) bound : part of the O(k) bound in case the prior cell updated the matrix, i.e., we know the minimum similarity of the leaving node
+			
+			if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+				if(LOGGING_MODE) count_survived_pruning++;  
+				
+				//(2) O(k) bound 
+				double max_sim_new_node = mrb.min(column);
+				
+				upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
+				upper_bound_sim+=(max_sim_new_node/k_double);
+									
+				double temp = -mrb.col_sum / k_double;
+				
+				if(temp<upper_bound_sim) {
+					upper_bound_sim = temp;
+				}
+				 
+				if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {						
+					if(LOGGING_MODE) count_survived_third_pruning++;
+					//That's the important line
+					sim = -hunga.solve(mrb.col_maxima);
+					//normalize 
+					sim /= k_double;
+					if(sim>=threshold) {
+						if(LOGGING_MODE) count_cells_exceeding_threshold++;
+						alignment_matrix_line[column] = sim;
+					}//else keep it zero
+					prior_cell_similarity = sim;
+				}
+			}
+			prev_min_value = mrb.max(column);
+			prior_cell_similarity = upper_bound_sim;
+		}
+	}
+	
+	public void validate_run_deep_2(HungarianDeep solver, final int line, final int run_start, final int run_stop
 			, final double[][] current_lines, final double[] alignment_matrix_line) {
 		
 		double ub_sum, sim, prior_cell_similarity, prev_min_value; 
@@ -1693,27 +1755,7 @@ public class Solutions {
 	
 		return run_times;
 	}
-	
-	final void fill_local_similarity_matrix_incrementally(final int[] k_window_p1, final int[] k_window_p2, final double[][] local_similarity_matrix){
-		final int copy_length = k-1;
-		
-		sum_cols-=col_maxima[0];
-		System.arraycopy(col_maxima, 1, col_maxima, 0, copy_length);
-		col_maxima[copy_length] = Double.MAX_VALUE;
-		
-		for(int i=0;i<k;i++) {
-			System.arraycopy(local_similarity_matrix[i], 1, local_similarity_matrix[i], 0, copy_length);
-			final int token_id_1 = k_window_p1[i];
-			final int token_id_2 = k_window_p2[copy_length];
-			double sim = sim_cached(token_id_1, token_id_2);
-			local_similarity_matrix[i][copy_length] = -sim;//Note the minus-trick for the Hungarian
-			if(-sim<col_maxima[copy_length]) {
-				col_maxima[copy_length]=-sim;
-			}
-			
-		}
-		sum_cols+=col_maxima[copy_length];
-	}
+
 	
 	final double sim_cached(final int token_id_1, final int token_id_2) {
 		return (token_id_1==token_id_2) ? EQUAL : dense_global_matrix_buffer[token_id_1][token_id_2]; 
@@ -1742,26 +1784,6 @@ public class Solutions {
 		return -min_cost;
 	}
 	
-	private double sum_bound_similarity_inc(final double[][] current_lines, final int offset, final double last_col_min) {
-		System.arraycopy(col_maxima, 1, col_maxima, 1, k-1);
-		col_maxima[k-1] = last_col_min;
-		
-		double row_sum = 0;
-		for(int i=0;i<this.k;i++) {
-			final double[] line = current_lines[i];
-			double row_min = Double.POSITIVE_INFINITY;
-			for(int j=0;j<this.k;j++) {
-				final double val = line[offset+j];
-				if(val<row_min) {
-					row_min = val;
-				}
-			}
-			row_sum += row_min;
-		}
-		double min_cost = Math.max(row_sum, sum_cols);		
-		
-		return -min_cost;
-	}
 	
 	/**
 	 * O(k²) bound computing min(row/column)
@@ -1904,7 +1926,7 @@ public class Solutions {
 	private void fill_local_similarity_matrix(final double[][] local_cost_matrix, final double[][] global_cost_matrix_book, final int line, final int column) {
 		for(int i=0;i<this.k;i++) {
 			for(int j=0;j<this.k;j++) {
-				local_cost_matrix[i][j] = -global_cost_matrix_book[line+i][column+j];//XXX - Note the minus for the Hungarian
+				local_cost_matrix[i][j] = -global_cost_matrix_book[line+i][column+j];//Note the minus for the Hungarian
 			}
 		}
 	}

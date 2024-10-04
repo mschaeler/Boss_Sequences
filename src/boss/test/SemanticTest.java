@@ -349,14 +349,14 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"wiki"};//if no experiment specified run the bible experiment 
+			String[] temp = {"b"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
 			final int[] k_s= Config.k_s;
 			final double threshold = 0.7;
 			int solution_enum = SOLUTION; //SOLUTION, BASELINE, NAIVE, DUMMY
-			run_bible_experiments(solution_enum, k_s, threshold, true);
+			run_bible_experiments(solution_enum, k_s, threshold, false);
 		}else if(contains(args, "p")) {//pan response time
 			run_pan_experiments();
 		}else if(contains(args, "pc")) {//pan correctness SeDA time old
