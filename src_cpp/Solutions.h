@@ -9,6 +9,190 @@
 #include <utility>
 #include "HungarianKevinStern.h"
 
+class MatrixRingBuffer {
+public:
+    vector<vector<double>> buffer;
+    vector<double> col_maxima;
+    int size;
+    double col_sum;
+
+    explicit MatrixRingBuffer(int k) : size(k), col_maxima(vector<double>(k)), buffer(k, vector<double>(k)), col_sum(0){
+
+    }
+
+    /**
+     *
+     * @param row
+     * @param column
+     * @param sim - materialized sim function
+     * @param book_1
+     * @param book_2
+     */
+    void fill(const int row, const int column, const vector<vector<double>>& sim, const vector<int>& book_1, const vector<int>& book_2) {
+        for(int buffer_row=0;buffer_row<size;buffer_row++) {
+            vector<double>& current_row = buffer[buffer_row];
+            const int token_book_1 = book_1[row+buffer_row];
+            for(int buffer_col=0;buffer_col<size;buffer_col++) {
+                const int token_book_2 = book_2[column+buffer_col];
+                current_row[(column+buffer_col)%size] = -sim[token_book_1][token_book_2];
+            }
+        }
+    }
+    void update(const int row, const int start_column, const vector<vector<double>>& sim, const vector<int>& book_1, const vector<int>& book_2) {
+        const int token_offset_b2 = start_column+size-1;
+        const int token_book_2 = book_2[token_offset_b2];
+        const int buffer_index = (start_column-1)%size;
+
+        for(int buffer_row=0;buffer_row<size;buffer_row++) {
+            const int token_book_1 = book_1[row+buffer_row];
+            buffer[buffer_row][buffer_index] = -sim[token_book_1][token_book_2];
+        }
+    }
+    void update_with_bound(const int row, const int start_column, const vector<vector<double>>& sim, const vector<int>& book_1, const vector<int>& book_2) {
+        const int token_offset_b2 = start_column+size-1;
+        const int token_book_2 = book_2[token_offset_b2];
+        const int buffer_index = (start_column-1)%size;
+
+        const double old_col_max = col_maxima[buffer_index];
+        double max = 20;//some big value
+
+        for(int buffer_row=0;buffer_row<size;buffer_row++) {
+            const int token_book_1 = book_1[row+buffer_row];
+            double neg_similarity = -sim[token_book_1][token_book_2];
+            if(neg_similarity<max) {
+                max = neg_similarity;
+            }
+            buffer[buffer_row][buffer_index] = neg_similarity;
+        }
+        col_sum-=old_col_max;
+        col_sum+=col_maxima[buffer_index]=max;
+    }
+
+    double get_sum_of_column_row_minima() {
+        double row_sum = 0;
+        std::fill(col_maxima.begin(), col_maxima.end(), 20);
+
+        for(int i=0;i<size;i++) {
+            const auto& line = buffer[i];
+            double row_min = 20;
+            for(int j=0;j<size;j++) {
+                const double val = line[j];
+                if(val<row_min) {
+                    row_min = val;
+                }
+                if(val<col_maxima[j]){
+                    col_maxima[j] = val;
+                }
+            }
+            row_sum += row_min;
+        }
+        col_sum = sum(col_maxima);
+        double max_similarity = -std::max(row_sum, col_sum);
+
+        return max_similarity;
+    }
+
+    double o_k_square_bound() {
+        double row_sum = 0;
+        for(int i=0;i<size;i++) {
+            const auto& line = buffer[i];
+            double row_min = 20;
+            for(int j=0;j<size;j++) {
+                const double val = line[j];
+                if(val<row_min) {
+                    row_min = val;
+                }
+            }
+            row_sum += row_min;
+        }
+        double max_similarity = -std::max(row_sum, col_sum);
+
+        return max_similarity;
+    }
+
+
+    static double sum(const vector<double>& array) {
+        double sum = 0;
+        for(double d : array) {
+            sum+=d;
+        }
+        return sum;
+    }
+
+    int get_offset(const int column) const {
+        return column%size;
+    }
+
+    double min(const int column) {
+        const int buffer_offset = get_offset(column+size-1);
+
+        double min = buffer[0][buffer_offset];
+        for(int line=1;line<size;line++) {
+            if(min>buffer[line][buffer_offset]) {
+                min=buffer[line][buffer_offset];
+            }
+        }
+        return -min;
+    }
+    void out(){
+        cout << "Buffer" << endl;
+        for(const auto& arr : buffer){
+            for(auto v : arr){
+                cout << v << "\t";
+            }
+            cout << endl;
+        }
+    }
+
+    double max(const int column) {
+        const int buffer_offset = get_offset(column);
+
+        double max = -20;//TODO remove this line?
+        for(const auto& line : buffer) {
+            if(max<line[buffer_offset]) {//similarity of the deleted token
+                max=line[buffer_offset];
+            }
+        }
+        return -max;
+    }
+
+
+    double col_max(const int column) {
+        const int buffer_index = get_offset(column);
+        return col_maxima[buffer_index];
+    }
+    void compare(const vector<vector<double>>& local_sim_matrix, const int index){
+        for(int line=0;line<size;line++) {
+            for(int column=0;column<size;column++) {
+                int buffer_index = (index+column)%size;
+                if(local_sim_matrix.at(line).at(column)!=buffer.at(line).at(buffer_index)) {
+                    cout << "LSM" << endl;
+                    for(const auto& arr : local_sim_matrix) {
+                        for(auto v : arr){
+                            cout << v << "\t";
+                        }
+                        cout << endl;
+                    }
+                    cout << "Buffer org" << endl;
+                    for(const auto& arr : buffer) {
+                        for(auto v : arr){
+                            cout << v << "\t";
+                        }
+                        cout << endl;
+                    }
+                    cout << "Buffer rotated" << endl;
+                    for(const auto& arr : buffer) {
+                        for(int i=0;i<size;i++) {
+                            cout << arr.at((index+i)%size) << "\t";
+                        }
+                        cout << endl;
+                    }
+                }
+            }
+        }
+    }
+};
+
 class BitSet{
     /*
     * BitSets are packed into arrays of "words."  Currently a word is
@@ -481,6 +665,52 @@ public:
         }
     }
 
+    double run_naive_rb(){
+        out_config("run_naive_rb()");
+        long count_computed_cells = 0;
+        HungarianKevinStern solver(k);
+
+        //vector<vector<double>> local_similarity_matrix(k, vector<double>(k));
+        MatrixRingBuffer mrb(k);
+        //USE_GLOBAL_MATRIX = false;
+
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+
+        //fill_similarity_matrix();
+        //For each pair of windows
+        for(int line=0;line<alignment_matrix.size();line++) {
+            mrb.fill(line, 0, global_similarity_matrix, book_1, book_2);
+            for(int column=0;column<alignment_matrix.at(0).size();column++) {
+                //Fill local matrix of the current window combination from global matrix
+                //fill_local_similarity_matrix(local_similarity_matrix, book_matrix, line, column);
+                if(column!=0) {
+                    mrb.update(line, column, global_similarity_matrix, book_1, book_2);
+                }
+                //mrb.compare(local_similarity_matrix, column);
+
+                //That's the important line
+                //const double similarity = -solver.solve_cached(local_similarity_matrix);
+                const double similarity = -solver.solve_cached(mrb.buffer);
+                //if(abs(similarity-similarity_rb)>DOUBLE_PRECISION_BOUND){
+                //    cout << "abs(similarity-similarity_rb)>DOUBLE_PRECISION_BOUND" << endl;
+                //}
+                //normalize costs: Before it was distance. Now it is similarity.
+                if(similarity>=threshold_times_k) {
+                    alignment_matrix.at(line).at(column) = similarity/(double)k;//normalize
+                    count_computed_cells++;
+                }//else keep it zero
+            }
+        }
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+
+        double check_sum = sum(alignment_matrix);
+        auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
+        cout << "run_naive() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
+
+        return time_elapsed.count();
+    }
+
+
     //XXX this one does not compute the distances on the fly. Add time?
     double run_naive(){
         out_config("run_naive()");
@@ -512,6 +742,49 @@ public:
         double check_sum = sum(alignment_matrix);
         auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
         cout << "run_naive() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
+
+        return time_elapsed.count();
+    }
+
+    double run_baseline_rb() {
+        out_config("run_baseline_rb()");
+        long count_computed_cells = 0;
+        long count_survived_pruning = 0;
+        HungarianKevinStern solver(k);
+        MatrixRingBuffer mrb(k);
+
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+
+
+        //For each pair of windows
+        for (int line = 0; line < alignment_matrix.size(); line++) {
+            mrb.fill(line, 0, global_similarity_matrix, book_1, book_2);
+            for (int column = 0; column < alignment_matrix.at(0).size(); column++) {
+                //Fill local matrix of the current window combination from global matrix
+                if(column!=0) {
+                    mrb.update(line, column, global_similarity_matrix, book_1, book_2);
+                }
+                const double upper_bound_sim = mrb.get_sum_of_column_row_minima();
+
+
+                if (upper_bound_sim + DOUBLE_PRECISION_BOUND >= threshold_times_k) {
+                    count_survived_pruning++;
+                    //That's the important line
+                    const double similarity = -solver.solve_cached(mrb.buffer);
+                    //normalize costs: Before it was distance. Now it is similarity.
+                    if (similarity >= threshold_times_k) {
+                        alignment_matrix.at(line).at(column) = similarity / (double) k;//normalize
+                        count_computed_cells++;
+                    }//else keep it zero
+                }
+            }
+        }
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+
+        double check_sum = sum(alignment_matrix);
+        auto size = alignment_matrix.size() * alignment_matrix.at(0).size();
+        cout << "run_baseline_rb() time: " << time_elapsed.count() << "\t" << check_sum << "\t" << size << "\t"
+             << count_survived_pruning << "\t" << count_computed_cells << endl;
 
         return time_elapsed.count();
     }
@@ -699,6 +972,132 @@ public:
                         prior_cell_updated_matrix = false;
                         column_sum_correct = false;
                     }
+                }
+            }
+        }
+
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+
+        double check_sum = sum(alignment_matrix);
+        auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
+        cout << "run_solution(k=" << k << ") time: " << time_elapsed.count() << " idx_gen= " << index_generation.count() << " time= " << time_elapsed.count() << "\tsum=" << check_sum << "\tsize=" << size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_square << "\t" << count_cells_exceeding_threshold << endl;
+        return time_elapsed.count();
+    }
+
+    double run_solution_rb(){
+        out_config("run_solution_rb()");
+        HungarianDeep_2 solver(k);
+        MatrixRingBuffer mrb(k);
+        /**
+         * Indicates for token i whether the corresponding windows of the other sequence is a candidate.
+         */
+        //vector<vector<bool>> inverted_window_index(global_similarity_matrix.size(), vector<bool>(k_with_windows_b2.size()));
+        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(k_with_windows_b2.size()));
+        //Not needed later
+        //vector<const double*> window(k);//Can't use a vector to point into an existing buffer.
+        //fill_similarity_matrix_deep();
+        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(k_with_windows_b2.size()));
+
+        long count_candidates = 0;
+        long count_survived_o_1 = 0;
+        long count_survived_o_k = 0;
+        long count_survived_o_k_square = 0;
+        long count_cells_exceeding_threshold = 0;
+
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+        create_indexes_bit_vectors(inverted_window_index_bit_set);
+        chrono::duration<double> index_generation = std::chrono::high_resolution_clock::now() - start;
+
+        //Check candidate runs
+        for(int line=0;line<alignment_matrix.size();line++) {
+            vector<double>& alignment_matrix_line = alignment_matrix[line];
+
+            const vector<int>& window_b1 = k_with_windows_b1[line];
+            BitSet& my_candidates = all_bit_candidates.at(line);
+            my_candidates.logic_or(inverted_window_index_bit_set, window_b1);
+
+            //Manually inlined condense transforms the bit vector into runs of candidates
+            vector<int> candidates_condensed_bit_set;
+            uint32_t start_alt = 0, stop_alt;
+
+            while((start_alt = my_candidates.nextSetBit(start_alt))!=-1) {
+                stop_alt = my_candidates.nextClearBit(start_alt);
+                candidates_condensed_bit_set.push_back(start_alt);
+                candidates_condensed_bit_set.push_back(stop_alt-1);
+                start_alt = stop_alt;
+            }
+
+            const vector<int>& candidates_condensed = candidates_condensed_bit_set;
+
+            const int size = candidates_condensed.size();
+            for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
+                const int run_start = candidates_condensed[c];
+                const int run_stop  = candidates_condensed[c+1];
+
+                double ub_sum, sim, prior_cell_similarity, prev_min_value;
+
+                count_candidates+=run_stop-run_start+1;
+                int column=run_start;
+                {//First element in run: Here we have no O(1) bound
+                    count_survived_o_1++;
+                    count_survived_o_k++;
+                    mrb.fill(line, column, global_similarity_matrix, book_1, book_2);
+                    ub_sum = mrb.get_sum_of_column_row_minima() / k_double;
+
+                    if(ub_sum+DOUBLE_PRECISION_BOUND>=threshold) {
+                        count_survived_o_k_square++;
+                        sim = -solver.solve(mrb.col_maxima, mrb.buffer);//Note the minus-trick for the Hungarian
+                        sim /= k_double;
+                        if(sim>=threshold) {
+                            count_cells_exceeding_threshold++;
+                            //if(LOGGING_MODE) count_cells_exceeding_threshold++;
+                            alignment_matrix_line[column] = sim;
+                        }//else keep it zero
+                        prior_cell_similarity = sim;
+
+                    }else{
+                        prior_cell_similarity = ub_sum;
+                    }
+                    prev_min_value = mrb.max(column);
+                }//END first element in run
+
+                //For all other columns: Here we have a O(1) and O(k) bound
+                for(column=run_start+1;column<=run_stop;column++) {
+                    mrb.update_with_bound(line, column, global_similarity_matrix, book_1, book_2);
+
+                    double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;// O(1) bound
+                    upper_bound_sim-= (prev_min_value / k_double);// (1) O(k) bound : part of the O(k) bound in case the prior cell updated the matrix, i.e., we know the minimum similarity of the leaving node
+
+                    if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+                        count_survived_o_1++;
+
+                        double max_sim_new_node = mrb.min(column);//(2) O(k) bound
+                        upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
+                        upper_bound_sim+=(max_sim_new_node/k_double);
+
+                        //mrb.out();//TODO remove me
+
+                        double temp = -mrb.col_sum / k_double;//FIXME
+
+                        if(temp<upper_bound_sim) {
+                            upper_bound_sim = temp;
+                        }
+
+                        if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
+                            count_survived_o_k_square++;
+                            sim = -solver.solve(col_maxima, mrb.buffer);//Note the minus-trick for the Hungarian
+                            //normalize
+                            sim /= k_double;
+
+                            if(sim>=threshold) {
+                                count_cells_exceeding_threshold++;
+                                alignment_matrix_line[column] = sim;
+                            }//else keep it zero
+                            upper_bound_sim = sim;//TODO
+                        }
+                    }
+                    prev_min_value = mrb.max(column);
+                    prior_cell_similarity = upper_bound_sim;
                 }
             }
         }

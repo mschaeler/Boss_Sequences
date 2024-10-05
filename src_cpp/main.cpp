@@ -17,6 +17,11 @@ const int run_naive = 0;
 const int run_basem = 1;
 const int run_seda  = 2;
 
+const int run_naive_rb = 3;
+const int run_basem_rb = 4;
+const int run_seda_rb  = 5;
+
+
 /**
 * Data loader to read vectors from a tsv file
 */
@@ -164,9 +169,14 @@ vector<double> run_experiments(Environment& env, DataLoader& loader, const doubl
                 run_time += s.run_naive();
             } else if (approach == run_basem) {
                 run_time += s.run_baseline();
-
             } else if (approach == run_seda) {
                 run_time += s.run_solution();
+            }else if (approach == run_naive_rb) {
+                run_time += s.run_naive_rb();
+            }else if (approach == run_basem_rb) {
+                run_time += s.run_baseline_rb();
+            }else if (approach == run_seda_rb) {
+                run_time += s.run_solution_rb();
             } else {
                 cout << "run_experiments() Now such approach " << approach << endl;
             }
@@ -225,6 +235,12 @@ int main(int argc, char* argv[]) {
             approach_to_run = run_basem;
         }else if(strcmp(argv[2],"2")==0){//SeDA
             approach_to_run = run_seda;
+        }else if(strcmp(argv[2],"3")==0){//naive with ring buffer
+            approach_to_run = run_naive_rb;
+        }else if(strcmp(argv[2],"4")==0){//BaSEM with ring buffer
+            approach_to_run = run_basem_rb;
+        }else if(strcmp(argv[2],"5")==0){//SeDA with ring buffer
+            approach_to_run = run_seda_rb;
         }else{
             printf("Unknown approach %s. Running SeDA approach instead.\n", argv[2]);
             approach_to_run = run_seda;

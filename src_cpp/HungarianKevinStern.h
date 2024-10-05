@@ -554,4 +554,231 @@ public:
     }
 };
 
+/**
+ * Our Heuristics-read-only version of the Hungarian
+ */
+class HungarianDeep_2 {
+private:
+    const int dim;
+    //std::vector<const double*> costMatrix;
+    std::vector<double> labelByWorker, labelByJob, minSlackValueByJob;
+    std::vector<int> minSlackWorkerByJob, matchJobByWorker, matchWorkerByJob;
+    std::vector<int> parentWorkerByCommittedJob;
+    std::vector<bool> committedWorkers;
+
+    void computeInitialFeasibleSolution(const vector<double>& col_minima, const vector<vector<double>>& cost_matrix) {
+        //labelByJob.assign(col_minima.begin(), col_minima.end());
+        for(int i=0;i<dim;i++){
+            labelByJob[i] = col_minima[i];
+        }
+
+        for (int w = 0; w < dim; w++) {
+            for (int j = 0; j < dim; j++) {
+                if (cost_matrix[w][j] < labelByJob[j]) {
+                    labelByJob[j] = cost_matrix[w][j];
+                }
+            }
+        }
+    }
+    /**
+	 * Execute a single phase of the algorithm. A phase of the Hungarian algorithm
+	 * consists of building a set of committed workers and a set of committed jobs
+	 * from a root unmatched worker by following alternating unmatched/matched
+	 * zero-slack edges. If an unmatched job is encountered, then an augmenting path
+	 * has been found and the matching is grown. If the connected zero-slack edges
+	 * have been exhausted, the labels of committed workers are increased by the
+	 * minimum slack among committed workers and non-committed jobs to create more
+	 * zero-slack edges (the labels of committed jobs are simultaneously decreased
+	 * by the same amount in order to maintain a feasible labeling).
+	 * <p>
+	 *
+	 * The runtime of a single phase of the algorithm is O(n^2), where n is the
+	 * dimension of the internal square cost matrix, since each edge is visited at
+	 * most once and since increasing the labeling is accomplished in time O(n) by
+	 * maintaining the minimum slack values among non-committed jobs. When a phase
+	 * completes, the matching will have increased in size.
+	 */
+    void executePhase(const vector<vector<double>>& cost_matrix) {
+        while (true) {
+            int minSlackWorker = -1, minSlackJob = -1;
+            double minSlackValue = std::numeric_limits<double>::infinity();
+
+            for (int j = 0; j < dim; j++) {
+                if (parentWorkerByCommittedJob[j] == -1) {
+                    if (minSlackValueByJob[j] < minSlackValue) {
+                        minSlackValue = minSlackValueByJob[j];
+                        minSlackWorker = minSlackWorkerByJob[j];
+                        minSlackJob = j;
+                    }
+                }
+            }
+
+            if (minSlackValue > 0) {
+                updateLabeling(minSlackValue);
+            }
+
+            parentWorkerByCommittedJob[minSlackJob] = minSlackWorker;
+
+            if (matchWorkerByJob[minSlackJob] == -1) {
+                /*
+				 * An augmenting path has been found.
+				 */
+                int committedJob = minSlackJob;
+                int parentWorker = parentWorkerByCommittedJob[committedJob];
+
+                while (true) {
+                    int temp = matchJobByWorker[parentWorker];
+                    match(parentWorker, committedJob);
+                    committedJob = temp;
+
+                    if (committedJob == -1) {
+                        break;
+                    }
+
+                    parentWorker = parentWorkerByCommittedJob[committedJob];
+                }
+
+                return;
+            } else {
+                /*
+				 * Update slack values since we increased the size of the committed workers set.
+				 */
+                int worker = matchWorkerByJob[minSlackJob];
+                committedWorkers[worker] = true;
+
+                for (int j = 0; j < dim; j++) {
+                    if (parentWorkerByCommittedJob[j] == -1) {
+                        double slack = cost_matrix[worker][j] - labelByWorker[worker] - labelByJob[j];
+
+                        if (minSlackValueByJob[j] > slack) {
+                            minSlackValueByJob[j] = slack;
+                            minSlackWorkerByJob[j] = worker;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+	 *
+	 * @return the first unmatched worker or {@link #dim} if none.
+	 */
+    int fetchUnmatchedWorker() {
+        for (int w = 0; w < dim; w++) {
+            if (matchJobByWorker[w] == -1) {
+                return w;
+            }
+        }
+
+        return dim;
+    }
+
+    /**
+	 * Initialize the next phase of the algorithm by clearing the committed workers
+	 * and jobs sets and by initializing the slack arrays to the values
+	 * corresponding to the specified root worker.
+	 *
+	 * @param w the worker at which to root the next phase.
+	 */
+    inline void initializePhase(const int w, const vector<vector<double>>& cost_matrix) {
+        committedWorkers.assign(dim, false);
+        parentWorkerByCommittedJob.assign(dim, -1);
+        committedWorkers[w] = true;
+
+        for (int j = 0; j < dim; j++) {
+            minSlackValueByJob[j] = cost_matrix[w][j] - labelByWorker[w] - labelByJob[j];
+            minSlackWorkerByJob[j] = w;
+        }
+    }
+
+    /**
+	 * Helper method to record a matching between worker w and job j.
+	 */
+    inline void match(const int w, const int j) {
+        matchJobByWorker[w] = j;
+        matchWorkerByJob[j] = w;
+    }
+
+    /**
+	 * Update labels with the specified slack by adding the slack value for
+	 * committed workers and by subtracting the slack value for committed jobs. In
+	 * addition, update the minimum slack values appropriately.
+	 */
+    void updateLabeling(double slack) {
+        for (int w = 0; w < dim; w++) {
+            if (committedWorkers[w]) {
+                labelByWorker[w] += slack;
+            }
+        }
+
+        for (int j = 0; j < dim; j++) {
+            if (parentWorkerByCommittedJob[j] != -1) {
+                labelByJob[j] -= slack;
+            } else {
+                minSlackValueByJob[j] -= slack;
+            }
+        }
+    }
+
+    static inline double cost(const int w, const int j, const vector<vector<double>>& cost_matrix) {
+        return cost_matrix[w][j];
+    }
+
+public:
+    /**
+	 * Construct an instance of the algorithm.
+	 *
+	 * @param costMatrix the cost matrix, where matrix[i][j] holds the cost of
+	 *                   assigning worker i to job j, for all i, j. The cost matrix
+	 *                   must not be irregular in the sense that all rows must be
+	 *                   the same length; in addition, all entries must be
+	 *                   non-infinite numbers.
+	 */
+    explicit HungarianDeep_2(int k) : dim(k),
+                                    labelByWorker(k, 0.0), labelByJob(k, 0.0),
+                                    minSlackValueByJob(k, 0.0),
+                                    minSlackWorkerByJob(k, 0),
+                                    matchJobByWorker(k, -1), matchWorkerByJob(k, -1),
+                                    parentWorkerByCommittedJob(k, -1),
+                                    committedWorkers(k, false) {
+    }
+
+    /**
+	 * Execute the algorithm.
+	 *
+	 * @return the minimum cost matching of workers to jobs based upon the provided
+	 *         cost matrix. A matching value of -1 indicates that the corresponding
+	 *         worker is unassigned.
+	 */
+
+    double solve(const vector<double>& col_minima, const vector<vector<double>>& cost_matrix) {
+        std::fill(labelByWorker.begin(), labelByWorker.end(), 0);
+        std::fill(matchJobByWorker.begin(),matchJobByWorker.end() ,-1);
+        std::fill(matchWorkerByJob.begin(),matchWorkerByJob.end(), -1);
+
+        computeInitialFeasibleSolution(col_minima, cost_matrix);
+
+        int w = fetchUnmatchedWorker();
+        while (w < dim) {
+            initializePhase(w, cost_matrix);
+            executePhase(cost_matrix);
+            w = fetchUnmatchedWorker();
+        }
+
+        // DONE - Collect the result
+        double cost = get_cost(cost_matrix);
+        return cost;
+    }
+
+    inline double get_cost(const vector<vector<double>>& cost_matrix) const {
+        double _cost = 0;
+        for(int w=0; w<matchJobByWorker.size();w++) {
+            _cost += cost(w,matchJobByWorker[w], cost_matrix);
+        }
+
+        return _cost;
+    }
+};
+
 #endif //PRANAY_TEST_HUNGARIANKEVINSTERN_H
