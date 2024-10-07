@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
-#include <cmath>       /* sqrt */
+#include <cmath>   /* sqrt */
+#include <cstring> /* strcmp */
 #include <chrono>
 
 #include "Environment.h"
