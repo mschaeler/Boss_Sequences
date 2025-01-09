@@ -30,7 +30,7 @@ import boss.util.Config;
 public class WikiDataLoader {
 	public static final int THOUSAND = 1000;
 	//static final int[] intput_sequence_length = {2*THOUSAND, 20*THOUSAND, 200*THOUSAND, 2*THOUSAND*THOUSAND};
-	static final int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND};//, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
+	static final int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
 	//static final int[] intput_sequence_length = {16*THOUSAND};
 	//int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
 	int[] all_solutions = {SemanticTest.SOLUTION};

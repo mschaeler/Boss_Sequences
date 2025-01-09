@@ -10,6 +10,7 @@ import java.util.HashSet;
 import boss.embedding.MatchesWithEmbeddings;
 import boss.util.Config;
 import boss.util.MyArrayList;
+import boss.util.Util;
 
 public class Solutions {
 	//final boolean SAFE_MODE = true;
@@ -426,6 +427,107 @@ public class Solutions {
 		return max_similarity;
 	}
 	
+	/**
+	 * Run FastText Sentence Algo
+	 * @return
+	 */
+	public double[] run_avg_word_2_vec(){//FIXME excerpt sometimes not in whole document matrix
+		print_special_configurations();
+		System.out.println("Solutions.run_avg_word_2_vec() k="+k+" threshold="+threshold);
+				
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		long count_computed_cells = 0;
+		
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
+		
+		int vector_size = embedding_vector_index.entrySet().iterator().next().getValue().length;
+		start = System.currentTimeMillis();
+		
+		final double[] avg_vec_window_line	= new double[vector_size];//300?
+		final double[] avg_vec_window_column= new double[vector_size];
+		
+		
+		//For each pair of windows
+		for(int line=0;line<alignment_matrix.length;line++) {
+			final int[] window_line = k_with_windows_b1[line];
+			get_avg_vector(window_line, avg_vec_window_line);			
+			
+			for(int column=0;column<alignment_matrix[0].length;column++) {	
+				final int[] window_column = k_with_windows_b2[column];
+				get_avg_vector(window_column, avg_vec_window_column);
+
+				final double similarity = cosine(avg_vec_window_line,avg_vec_window_column);
+				if(similarity>=threshold_times_k) {
+					alignment_matrix[line][column] = similarity/(double)k;//normalize
+					count_computed_cells++;
+				}//else keep it zero
+			}
+		}
+		stop = System.currentTimeMillis();
+		run_times[0] = (stop-start);		
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_computed_cells);
+
+		return run_times;
+	}
+	
+	
+	private static double cosine(final double[] vec_1, final double[] vec_2) {
+		 double dotProduct = 0.0;
+		 double normA = 0.0;
+		 double normB = 0.0;
+		 for (int i = 0; i < vec_1.length; i++) {
+			 dotProduct += vec_1[i] * vec_2[i];
+		     normA += Math.pow(vec_1[i], 2);
+		     normB += Math.pow(vec_2[i], 2);
+		 }   
+		 return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+	}
+
+	private void update_avg_vector(final int[] prior_window, final int[] current_window, final double[] avg_vec) {
+		//(1) remove old vector of leaving token
+		int leaving_token = prior_window[0];
+		double[] my_vector = embedding_vector_index.get(leaving_token);
+		if(my_vector!=null) {
+			for(int i=0;i<avg_vec.length;i++) {
+				avg_vec[i]-= my_vector[i];//Note the minus
+			}
+		}
+		
+		//(2) add vector of incoming token
+		int incoming_token = current_window[current_window.length-1];
+		my_vector = embedding_vector_index.get(incoming_token);
+		if(my_vector!=null) {
+			for(int i=0;i<avg_vec.length;i++) {
+				avg_vec[i]+= my_vector[i];//Note the plus
+			}
+		}
+		
+	}
+
+	private void get_avg_vector(int[] window, double[] avg_vec_window_line) {
+		Arrays.fill(avg_vec_window_line, 0);
+		for(int token : window){
+			double[] my_vector = embedding_vector_index.get(token);
+			if(my_vector!=null) {
+				for(int i=0;i<avg_vec_window_line.length;i++) {
+					avg_vec_window_line[i]+= my_vector[i];
+				}
+			}else {
+				System.err.println("get_avg_vector() empty vector");
+			}
+		}
+		//Normalize by window size
+		double winodw_size = window.length;
+		for(int i=0;i<avg_vec_window_line.length;i++) {
+			avg_vec_window_line[i]/= winodw_size;
+		}
+	}
+
 	public double[] run_naive(){
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);

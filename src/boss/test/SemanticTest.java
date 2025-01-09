@@ -79,12 +79,13 @@ public class SemanticTest {
 		}
 	}
 	
-	public static final int SOLUTION = 0;
-	public static final int BASELINE = 1;
-	public static final int NAIVE    = 2;
+	public static final int SOLUTION 	= 0;
+	public static final int BASELINE 	= 1;
+	public static final int NAIVE    	= 2;
 	static final int BOUND_TIGHTNESS    = 3;
-	static final int MEMORY_CONSUMPTION    = 4;
-	static final int DUMMY    = 5;
+	static final int MEMORY_CONSUMPTION = 4;
+	static final int DUMMY    			= 5;
+	static final int FAST_TEXT   		= 6;
 	
 	static boolean header_written = false;
 	//For bound statistics
@@ -121,6 +122,8 @@ public class SemanticTest {
 						run_times = s.run_memory_consumption_measurement();
 					}else if(solution_enum == DUMMY) {
 						run_times = s.run_dummy();
+					}else if(solution_enum == FAST_TEXT) {
+						run_times = s.run_avg_word_2_vec();
 					}else{
 						System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 					}
@@ -349,20 +352,22 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"b"};//if no experiment specified run the bible experiment 
+			String[] temp = {"fast_text_eval"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
 			final int[] k_s= Config.k_s;
 			final double threshold = 0.7;
-			int solution_enum = SOLUTION; //SOLUTION, BASELINE, NAIVE, DUMMY
-			run_bible_experiments(solution_enum, k_s, threshold, false);
+			int solution_enum = FAST_TEXT; //SOLUTION, BASELINE, NAIVE, DUMMY, AVG_WORD_2_VEC
+			run_bible_experiments(solution_enum, k_s, threshold, true);
 		}else if(contains(args, "p")) {//pan response time
 			run_pan_experiments();
 		}else if(contains(args, "pc")) {//pan correctness SeDA time old
 			run_pan_correctness_experiments();
 		}else if(contains(args, "j")) {//jaccard
 			run_pan_jaccard_experiments();
+		}else if(contains(args, "fast_text")) {
+			run_pan_correctness_experiments_avg_word_2_vec();
 		}else if(contains(args, "bound")) {
 			final int[] k_s= Config.k_s;//{3,4,5,6,7,8};
 			//double[] thetas = {0.5,0.6,0.7,0.8,0.9};
@@ -394,6 +399,11 @@ public class SemanticTest {
 			//MatrixLoader.run_eval_seda();
 			Config.REMOVE_STOP_WORDS = false;
 			PanMetrics.run_seda();
+		}else if(contains(args, "fast_text_eval")){
+			//Print results to console and write aggregated results to file: SeDA
+			//MatrixLoader.run_eval_seda();
+			Config.REMOVE_STOP_WORDS = false;
+			PanMetrics.run_avg_word_2_vec();
 		}else if(contains(args, "pjp")){//print jaccard paragraphs
 			//Print results to console and write aggregated results to file: Jaccard
 			print_jaccard_texts();
@@ -676,6 +686,59 @@ public class SemanticTest {
 			map.put(key, value+old_value.doubleValue());
 		}
 	}
+	
+	static void run_pan_correctness_experiments_avg_word_2_vec() {
+		Config.REMOVE_STOP_WORDS = false;
+		//final int[] k_s= {3,4,5,6,7,8};
+		final double threshold = 0.0;//XXX - should set to zero?
+				
+		File  f = new File("./results/pan_results_avg_word_2_vec"); 
+		if(!f.exists()) {
+			f.mkdir();
+		}
+		
+		ArrayList<Book>[] all_src_plagiats_pairs;
+		
+		all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for(int k : Config.k_s) {
+				
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_avg_word_2_vec();//Threshold is 0. So, we should the naive version.
+					String name = "./results/pan_results_avg_word_2_vec/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, s.alignement_matrix);
+				}
+			}
+		}
+		boolean quit = false;
+		if(quit) return;//XXX
+		
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Entire Documents****************");
+		System.out.println("****************************************************************");
+
+		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for(int k : Config.k_s) {
+				
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_avg_word_2_vec();					
+					String name = "./results/pan_results_avg_word_2_vec/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, s.alignement_matrix);
+				}
+			}
+		}
+		Config.REMOVE_STOP_WORDS = true;
+	}
+	
 
 	static void run_pan_correctness_experiments() {
 		Config.REMOVE_STOP_WORDS = false;

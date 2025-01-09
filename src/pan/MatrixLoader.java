@@ -26,6 +26,7 @@ import boss.util.Util;
 public class MatrixLoader {
 	public static final String path_to_pan_matrices = "./results/pan_results/";
 	public static final String path_to_jaccard_matrices = "./results/jaccard_results/";
+	public static final String path_to_avg_word_2_vec_matrices = "./results/pan_results_avg_word_2_vec/";
 	public static String path_to_matrices = path_to_jaccard_matrices;
 	
 	public static List<String> listFilesUsingFilesList(String dir) {

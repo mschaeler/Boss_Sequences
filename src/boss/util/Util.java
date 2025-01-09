@@ -45,6 +45,26 @@ public class Util {
 		}
 		return ret;
 	}
+	public static String outTSV(double[][] matrix) {
+		StringBuffer buffer = new StringBuffer(matrix.length*matrix[0].length*5);
+		for(double[] array : matrix) {
+			buffer.append(outTSV(array));
+			buffer.append("\n");
+		}
+		return buffer.toString();
+	}
+	public static String outTSV(double[] array) {
+		if (array == null)
+			return "Null array";
+
+		StringBuffer buffer = new StringBuffer(array.length*5);
+		for (int index = 0; index < array.length - 1; index++) {
+			buffer.append(array[index] + "\t ");
+		}
+		buffer.append(array[array.length - 1] + "\t");
+
+		return buffer.toString();
+	}
 	public static String outTSV(int[] array) {
 		if (array == null)
 			return "Null array";
