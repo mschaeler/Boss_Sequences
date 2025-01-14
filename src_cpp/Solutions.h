@@ -421,6 +421,7 @@ class Solutions{
     vector<int> tokens_b2;
 
     const vector<vector<double>> global_similarity_matrix;
+    const vector<vector<double>> word_vectors;
     vector<vector<double>> book_matrix;
     vector<vector<double>> alignment_matrix;
     double sum_cols = 0;
@@ -638,9 +639,20 @@ class Solutions{
         return -max;
     }
 
+    double cosine_unit_length(const vector<double>& vec_1, const vector<double>& vec_2) const {
+        double dotProduct = 0.0;
+        for (int i = 0; i < vec_1.size(); i++) {
+            dotProduct += vec_1[i] * vec_2[i];
+        }
+
+        dotProduct = (dotProduct < 0) ? 0 : dotProduct;
+        dotProduct = (dotProduct > 1) ? 1 : dotProduct;
+        return dotProduct;
+    }
+
 public:
 
-    Solutions(int _k, double _threshold, vector<int> _book_1, vector<int> _book_2, vector<vector<double>> _cost_matrix) :
+    Solutions(int _k, double _threshold, vector<int> _book_1, vector<int> _book_2, vector<vector<double>> _cost_matrix, vector<vector<double>> _word_vectors) :
             k(_k)
             , k_double((double)_k)
             , threshold_times_k(_threshold*_k)
@@ -651,6 +663,7 @@ public:
             , col_maxima(vector<double>(k))
             , MAX_SIM_ADDITION_NEW_NODE(1.0 / k_double)
             , book_matrix(book_1.size(), vector<double>(book_2.size()))
+            , word_vectors(std::move(_word_vectors))
     {
         k_with_windows_b1 = create_windows(book_1, k);
         k_with_windows_b2 = create_windows(book_2, k);
@@ -710,42 +723,6 @@ public:
         return time_elapsed.count();
     }
 
-
-    //XXX this one does not compute the distances on the fly. Add time?
-    double run_naive(){
-        out_config("run_naive()");
-        long count_computed_cells = 0;
-        HungarianKevinStern solver(k);
-
-        vector<vector<double>> local_similarity_matrix(k, vector<double>(k));
-        //USE_GLOBAL_MATRIX = false;
-
-        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
-
-        fill_similarity_matrix();
-        //For each pair of windows
-        for(int line=0;line<alignment_matrix.size();line++) {
-            for(int column=0;column<alignment_matrix.at(0).size();column++) {
-                //Fill local matrix of the current window combination from global matrix
-                fill_local_similarity_matrix(local_similarity_matrix, book_matrix, line, column);
-                //That's the important line
-                const double similarity = -solver.solve_cached(local_similarity_matrix);
-                //normalize costs: Before it was distance. Now it is similarity.
-                if(similarity>=threshold_times_k) {
-                    alignment_matrix.at(line).at(column) = similarity/(double)k;//normalize
-                    count_computed_cells++;
-                }//else keep it zero
-            }
-        }
-        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-
-        double check_sum = sum(alignment_matrix);
-        auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
-        cout << "run_naive() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
-
-        return time_elapsed.count();
-    }
-
     double run_baseline_rb() {
         out_config("run_baseline_rb()");
         long count_computed_cells = 0;
@@ -785,6 +762,119 @@ public:
         auto size = alignment_matrix.size() * alignment_matrix.at(0).size();
         cout << "run_baseline_rb() time: " << time_elapsed.count() << "\t" << check_sum << "\t" << size << "\t"
              << count_survived_pruning << "\t" << count_computed_cells << endl;
+
+        return time_elapsed.count();
+    }
+
+    double run_fast_text(){
+        out_config("run_fast_text()");
+        long count_computed_cells = 0;
+
+        int vector_size = word_vectors.at(0).size();
+        vector<double> avg_vec_window_line(vector_size);
+        vector<vector<double>> averaged_colum_vectors(k_with_windows_b2.size(), vector<double>(vector_size));
+        //USE_GLOBAL_MATRIX = false;
+
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+        for(int column=0;column<k_with_windows_b2.size();column++) {
+            //cout << " "<< column;
+            const auto& window_b2 = k_with_windows_b2.at(column);
+            vector<double>& my_avg_vec = averaged_colum_vectors.at(column);
+            for(int token : window_b2){
+                if(token<word_vectors.size()){
+                    const vector<double>& my_vector = word_vectors.at(token);
+                    for(int dim=0;dim<my_vector.size();dim++){
+                        my_avg_vec.at(dim) += my_vector.at(dim);//sum up the vector
+                    }
+                }
+            }
+            //normalize to unit length: (1) get length
+            double length = 0;
+            for(double value : my_avg_vec){
+                length+=(value*value);
+            }
+            length = sqrt(length);
+            //normalize to unit length: (2) normalize by length
+            for(int dim=0;dim<my_avg_vec.size();dim++){
+                my_avg_vec.at(dim) /= length;
+            }
+        }
+        //cout << "Done vector" << endl;
+        chrono::time_point<std::chrono::high_resolution_clock> stop_avg_vectors = std::chrono::high_resolution_clock::now();
+        //For each pair of windows
+        for(int line=0;line<alignment_matrix.size();line++) {
+            {//get the average vector of window_b1
+                for(int token : k_with_windows_b1.at(line)){
+                    const vector<double>& my_vector = word_vectors.at(token);
+                    for(int dim=0;dim<my_vector.size();dim++){
+                        avg_vec_window_line.at(dim) += my_vector.at(dim);//sum up the vector
+                    }
+                }
+                //normalize to unit length: (1) get length
+                double length = 0;
+                for(double value : avg_vec_window_line){
+                    length+=(value*value);
+                }
+                length = sqrt(length);
+                //normalize to unit length: (2) normalize by length
+                for(int dim=0;dim<avg_vec_window_line.size();dim++){
+                    avg_vec_window_line.at(dim) /= length;
+                }
+            }
+            for(int column=0;column<alignment_matrix.at(0).size();column++) {
+                const vector<double>& avg_vec_window_column = averaged_colum_vectors.at(column);
+
+                //That's the important line
+                const double similarity = cosine_unit_length(avg_vec_window_line,avg_vec_window_column);
+                //normalize costs: Before it was distance. Now it is similarity.
+                if(similarity>=threshold_times_k) {
+                    alignment_matrix[line][column] = similarity/(double)k;//normalize
+                    count_computed_cells++;
+                }//else keep it zero
+            }
+        }
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+        chrono::duration<double> time_elapsed_avg = stop_avg_vectors - start;
+
+        double check_sum = sum(alignment_matrix);
+        auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
+        cout << "run_fast_text() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << "\t"<< time_elapsed_avg.count()<<endl;
+
+        return time_elapsed.count();
+    }
+
+
+    //XXX this one does not compute the distances on the fly. Add time?
+    double run_naive(){
+        out_config("run_naive()");
+        long count_computed_cells = 0;
+        HungarianKevinStern solver(k);
+
+        vector<vector<double>> local_similarity_matrix(k, vector<double>(k));
+        //USE_GLOBAL_MATRIX = false;
+
+        chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
+
+        fill_similarity_matrix();
+        //For each pair of windows
+        for(int line=0;line<alignment_matrix.size();line++) {
+            for(int column=0;column<alignment_matrix.at(0).size();column++) {
+                //Fill local matrix of the current window combination from global matrix
+                fill_local_similarity_matrix(local_similarity_matrix, book_matrix, line, column);
+                //That's the important line
+                const double similarity = -solver.solve_cached(local_similarity_matrix);
+                //normalize costs: Before it was distance. Now it is similarity.
+                if(similarity>=threshold_times_k) {
+                    alignment_matrix.at(line).at(column) = similarity/(double)k;//normalize
+                    count_computed_cells++;
+                }//else keep it zero
+            }
+        }
+        chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+
+        double check_sum = sum(alignment_matrix);
+        auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
+        cout << "run_naive() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
 
         return time_elapsed.count();
     }

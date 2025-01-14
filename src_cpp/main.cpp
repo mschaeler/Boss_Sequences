@@ -1,7 +1,6 @@
 #include <iostream>
 #include <sstream>
-#include <cmath>   /* sqrt */
-#include <cstring> /* strcmp */
+#include <cmath>       /* sqrt */
 #include <chrono>
 
 #include "Environment.h"
@@ -21,6 +20,7 @@ const int run_seda  = 2;
 const int run_naive_rb = 3;
 const int run_basem_rb = 4;
 const int run_seda_rb  = 5;
+const int run_fast_text = 6;
 
 
 /**
@@ -29,7 +29,6 @@ const int run_seda_rb  = 5;
 class DataLoader {
 private:
     Environment *env;
-    std::unordered_map<int, vector<float>> vectors;
     vector<int> dictionary;
 
     static std::vector<string> splitString(const string& line, char del) {
@@ -42,7 +41,9 @@ private:
         }
         return result;
     }
+    std::unordered_map<int, vector<float>> vectors;
 public:
+
     DataLoader(const string& location, Environment *e){
         // read TSV file
         env = e;
@@ -71,6 +72,28 @@ public:
             cout << "Error: Could not load " << location << endl;
         }
         file.close();
+    }
+
+    vector<vector<double>> get_word_vectors(){
+        int max_id = 0;
+        int vec_length;
+        for (auto& it: vectors) {
+            // Do stuff
+            int my_id =  it.first;
+            if(my_id>max_id){
+                max_id = my_id;
+            }
+            vec_length = it.second.size();
+        }
+        vector<vector<double>> ret(max_id+1,vector<double>(vec_length));//Should all be inited with zero vectors
+        for (auto& it: vectors) {
+            // Do stuff
+            vector<float>& my_vec =  it.second;
+            for(int dim=0;dim<my_vec.size();dim++){
+                ret.at(it.first).at(dim) = my_vec.at(dim);
+            }
+        }
+        return ret;
     }
 
     double sim(const int token1_ID, const int token2_ID) {
@@ -163,7 +186,7 @@ vector<double> run_experiments(Environment& env, DataLoader& loader, const doubl
     vector<double> run_times;
 
     for(int k : k_s){//TODO repetitions
-        Solutions s(k, theta, raw_book_1, raw_book_2, sim_matrix);
+        Solutions s(k, theta, raw_book_1, raw_book_2, sim_matrix, loader.get_word_vectors());
         double run_time = 0;
         for(int i=0; i < num_repitition; i++) {
             if (approach == run_naive) {
@@ -178,6 +201,8 @@ vector<double> run_experiments(Environment& env, DataLoader& loader, const doubl
                 run_time += s.run_baseline_rb();
             }else if (approach == run_seda_rb) {
                 run_time += s.run_solution_rb();
+            }else if (approach == run_fast_text) {
+                run_time += s.run_fast_text();
             } else {
                 cout << "run_experiments() Now such approach " << approach << endl;
             }
@@ -242,6 +267,9 @@ int main(int argc, char* argv[]) {
             approach_to_run = run_basem_rb;
         }else if(strcmp(argv[2],"5")==0){//SeDA with ring buffer
             approach_to_run = run_seda_rb;
+        }else if(strcmp(argv[2],"6")==0){//FastText
+            theta = 0.1;
+            approach_to_run = run_fast_text;
         }else{
             printf("Unknown approach %s. Running SeDA approach instead.\n", argv[2]);
             approach_to_run = run_seda;
@@ -344,7 +372,7 @@ int main(int argc, char* argv[]) {
                 string embedding_file = "..//data/en/all_words_wiki.tsv";
                 DataLoader loader(embedding_file, &env);
 
-                int num_repition = 10;
+                int num_repition = 2;
                 run_times.push_back(run_experiments(env, loader, theta, k_s, approach_to_run, num_repition).at(0));
             }
             cout << "Wikipedia run times for k=" << k_s.at(0) << endl;
