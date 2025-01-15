@@ -640,6 +640,7 @@ class Solutions{
     }
 
     double cosine_unit_length(const vector<double>& vec_1, const vector<double>& vec_2) const {
+        return 5;
         double dotProduct = 0.0;
         for (int i = 0; i < vec_1.size(); i++) {
             dotProduct += vec_1[i] * vec_2[i];

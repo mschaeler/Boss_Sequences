@@ -338,7 +338,7 @@ private:
     }
 
 
-    void do_crazy_things_2(vector<string>& text_files, set<int>& text_sets){
+    void do_crazy_things_2(vector<string>& text_files, set<int>& text_sets, bool skip_first_line){
         for (const auto& f : text_files) {//For each text file containing a single word
             cout << "Loading File " << f << endl;
             //set2int[f] = text_id;
@@ -347,9 +347,11 @@ private:
             string line;
             ifstream infile(f);
             if (infile.is_open()) {
-                cout << "Skipping line: ";
-                getline(infile, line);//Name of the Biblical Book
-                cout << line << endl;
+                if(skip_first_line) {
+                    cout << "Skipping line: ";
+                    getline(infile, line);//Name of the Biblical Book
+                    cout << line << endl;
+                }
 
                 while (getline(infile, line)) {
                     if(line.rfind("--",0)!=0){//Begin of chapter marker
@@ -417,15 +419,15 @@ public:
         }
     }
 
-    Environment(string text1location, string text2location) {
+    Environment(string text1location, string text2location, bool skip_first_line) {
         vector<string> text1_files = {std::move(text1location)};
         vector<string> text2_files = {std::move(text2location)};
 
         cout << text1_files.size() << " text1_files listed" << endl;
         cout << text2_files.size() << " text2_files listed" << endl;
 
-        do_crazy_things_2(text1_files, text1sets);
-        do_crazy_things_2(text2_files, text2sets);
+        do_crazy_things_2(text1_files, text1sets, skip_first_line);
+        do_crazy_things_2(text2_files, text2sets, skip_first_line);
     }
 
     Environment(string text1location, string text2location, int _language) : language(_language) {
@@ -435,8 +437,8 @@ public:
         cout << text1_files.size() << " text1_files listed" << endl;
         cout << text2_files.size() << " text2_files listed" << endl;
 
-        do_crazy_things_2(text1_files, text1sets);
-        do_crazy_things_2(text2_files, text2sets);
+        do_crazy_things_2(text1_files, text1sets, true);//Always skip the first line for bible corpus
+        do_crazy_things_2(text2_files, text2sets, true);
     }
 
     void out(){

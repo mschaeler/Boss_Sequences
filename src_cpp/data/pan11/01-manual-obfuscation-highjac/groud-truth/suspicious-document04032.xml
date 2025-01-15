@@ -1,0 +1,14 @@
+<?xml version="1.0" ?><document reference="suspicious-document04032.txt">
+  
+  
+  
+  
+  <feature name="plagiarism" type="simulated" this_language="en" this_offset="4693" this_length="404" source_reference="source-document07742.txt" source_language="en" source_offset="2837" source_length="496"/>
+  <feature name="plagiarism" type="simulated" this_language="en" this_offset="5883" this_length="748" source_reference="source-document02661.txt" source_language="en" source_offset="17454" source_length="769"/>
+  
+  <feature name="plagiarism" type="simulated" this_language="en" this_offset="7878" this_length="2338" source_reference="source-document07640.txt" source_language="en" source_offset="32313" source_length="2249"/>
+  
+  
+  
+  
+</document>

@@ -43,6 +43,8 @@ private:
     }
     std::unordered_map<int, vector<float>> vectors;
 public:
+    double num_found_pairs = 0;
+    double num_not_found_pairs = 0;
 
     DataLoader(const string& location, Environment *e){
         // read TSV file
@@ -102,7 +104,16 @@ public:
         }
         // if either token doesn't have a vector then similarity is 0
         if ((vectors.find(token1_ID) == vectors.end()) || (vectors.find(token2_ID) == vectors.end())) {
+            /*if(vectors.find(token1_ID) == vectors.end()){
+                cout << "Did not find a vector for t_1" << token1_ID << " " << env->toWord(token1_ID) << endl;
+            }
+            if(vectors.find(token2_ID) == vectors.end()){
+                cout << "Did not find a vector for  t_2" << token2_ID << " " << env->toWord(token2_ID) << endl;
+            }*/
+            num_not_found_pairs++;
             return 0;
+        }else{
+            num_found_pairs++;
         }
 
         // we calculate the similarity and cache it
@@ -142,6 +153,8 @@ vector<vector<double>> get_sim_matrix(vector<int>& raw_book_1, vector<int>& raw_
     vector<vector<double>> global_dist_matrix(max_id+1, vector<double>(max_id+1));
 
     cout << "Materializing sim() [BEGIN]" << endl;
+    loader.num_found_pairs = 0;
+    loader.num_not_found_pairs = 0;
 
     chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
     for(int line =0;line<global_dist_matrix.size();line++){
@@ -163,7 +176,7 @@ vector<vector<double>> get_sim_matrix(vector<int>& raw_book_1, vector<int>& raw_
         }
     }
 
-    cout << "Materializing sim() Check sum="<< sum << " size= "<< global_dist_matrix.size()*global_dist_matrix.at(0).size() <<" [DONE] "<<time_elapsed.count()<< endl;
+    cout << "Materializing sim() Check sum="<< sum << " size= "<< global_dist_matrix.size()*global_dist_matrix.at(0).size() <<" [DONE] in "<<time_elapsed.count()<< "s Found " << loader.num_found_pairs << " of " << (loader.num_found_pairs+loader.num_not_found_pairs) << endl;
 
     return global_dist_matrix;//by value
 }
@@ -281,7 +294,8 @@ int main(int argc, char* argv[]) {
         vector<int> k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15};
         string text1location = "..//data/en/esv.txt";
         string text2location = "..//data/en/king_james_bible.txt";
-        Environment env(text1location, text2location);
+        bool skip_first_line = true;
+        Environment env(text1location, text2location,skip_first_line);
         env.out();
 
         string data_file;
@@ -300,7 +314,8 @@ int main(int argc, char* argv[]) {
         {
             string text1location = "..//data/en/esv.txt";
             string text2location = "..//data/en/king_james_bible.txt";
-            Environment env(text1location, text2location);
+            bool skip_first_line = true;
+            Environment env(text1location, text2location, skip_first_line);
             data_file = "..//data/en/matches_stopwords.en.min.tsv";
             DataLoader loader(data_file, &env);
             auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
@@ -346,8 +361,77 @@ int main(int argc, char* argv[]) {
         }
         cout << endl;
     }else if(experiment == pan_experiment){
-        //TODO
-        cout << "Pan experiment not implemented yet." << endl;
+        vector<pair<string,string>> plagiarism_pairs={
+                 {"00228", "05889"}
+                ,{"00574", "06991"}
+                ,{"00574", "06586"}
+                ,{"00815", "01537"}
+                ,{"04617", "01107"}
+                ,{"10751", "06521"}
+                ,{"02161", "06392"}
+                ,{"02841", "10886"}
+                ,{"04032", "07742"}
+                ,{"04032", "02661"}
+                ,{"04032", "07640"}
+                ,{"04751", "08779"}
+                ,{"04953", "00732"}
+                ,{"08405", "10603"}
+                ,{"09029", "03302"}
+                ,{"09922", "10065"}
+                ,{"08405", "10603"}
+                ,{"10497", "06489"}
+        };
+        vector<vector<double>> all_runtimes;
+
+        //First the two English texts
+        vector<int> k_s = {3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        int num_repition = 1;
+        string data_file;
+
+        data_file = "..//data/pan11/all_matches_pan_new.tsv";
+        string PAN11_PREFIX_SUSP = "..//data/pan11/01-manual-obfuscation-highjac/susp/suspicious-document";
+        string PAN11_PREFIX_SRC = "..//data/pan11/01-manual-obfuscation-highjac/src/source-document";
+        bool skip_first_line = false;
+        //For each pair
+        for (const auto& pair : plagiarism_pairs)
+        {
+            string text1location = PAN11_PREFIX_SUSP+pair.first+".txt";
+            string text2location = PAN11_PREFIX_SRC+pair.second+".txt";
+
+            cout << "**New pair " << text1location <<" vs. "<< text2location << endl;
+
+            Environment env(text1location, text2location, skip_first_line);
+            env.out();
+            DataLoader loader(data_file, &env);
+            auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+            all_runtimes.push_back(temp);
+        }
+
+        cout << "Results Pan runtime experiment " << endl;
+        for(int k : k_s){
+            cout << "k="<<k<<"\t";
+        }
+        cout << endl;
+        vector<double> avg_runtimes(k_s.size());
+        for(auto run_times : all_runtimes) {
+            for (auto i=0;i<run_times.size();i++) {
+                double t = run_times[i];
+                cout << t << "\t";
+                avg_runtimes[i] +=t;
+            }
+            cout << endl;
+        }
+        cout << "Avg. run times Pan experiment " << endl;
+        for(int k : k_s){
+            cout << "k="<<k<<"\t";
+        }
+        cout << endl;
+        for (auto i=0;i<avg_runtimes.size();i++) {
+            double t = avg_runtimes[i]/(double) all_runtimes.size();
+            cout << t << "\t";
+        }
+        cout << endl;
+
     }else if(experiment == wiki_experiment){
         vector<int> k_s = {10};
         //Parse dump into vector
