@@ -33,7 +33,7 @@ public class WikiDataLoader {
 	static final int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
 	//static final int[] intput_sequence_length = {16*THOUSAND};
 	//int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
-	int[] all_solutions = {SemanticTest.SOLUTION};
+	int[] all_solutions = {6};
 	
 	static String folder = "./data/wikipedia/";
 	//static String test_file = "test-5000.txt";
@@ -216,6 +216,8 @@ public class WikiDataLoader {
 					run_times = s.run_baseline();
 				}else if(solution_enum == SemanticTest.NAIVE) {
 					run_times = s.run_naive();
+				}else if(solution_enum == 6) {//TODO FastText
+					run_times = s.run_fast_text();
 				}else{
 					System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 				}

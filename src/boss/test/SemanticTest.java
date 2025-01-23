@@ -123,7 +123,7 @@ public class SemanticTest {
 					}else if(solution_enum == DUMMY) {
 						run_times = s.run_dummy();
 					}else if(solution_enum == FAST_TEXT) {
-						run_times = s.run_avg_word_2_vec();
+						run_times = s.run_fast_text();
 					}else{
 						System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 					}
@@ -299,7 +299,8 @@ public class SemanticTest {
 					//run_times = s.run_naive();
 					//run_times = s.run_baseline();
 					//run_times = s.run_solution();
-					run_times = s.run_dummy();
+					//run_times = s.run_dummy();
+					run_times = s.run_fast_text();
 					all_run_times.add(run_times);
 				}
 				for(int i=0;i<k_s.length;i++) {
@@ -352,7 +353,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"fast_text_eval"};//if no experiment specified run the bible experiment 
+			String[] temp = {"eval_k_jump"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
@@ -399,6 +400,12 @@ public class SemanticTest {
 			//MatrixLoader.run_eval_seda();
 			Config.REMOVE_STOP_WORDS = false;
 			PanMetrics.run_seda();
+		}else if(contains(args, "eval_k_jump")){
+			//Print results to console and write aggregated results to file: k_jump
+			PanMetrics.use_jum_k = true;
+			Config.REMOVE_STOP_WORDS = false;
+			PanMetrics.run_seda();
+			PanMetrics.use_jum_k = false;
 		}else if(contains(args, "fast_text_eval")){
 			//Print results to console and write aggregated results to file: SeDA
 			//MatrixLoader.run_eval_seda();
@@ -687,6 +694,58 @@ public class SemanticTest {
 		}
 	}
 	
+	static void run_pan_correctness_experiments_k_jump() {
+		Config.REMOVE_STOP_WORDS = false;
+		//final int[] k_s= {3,4,5,6,7,8};
+		final double threshold = 0.0;//XXX - should set to zero?
+				
+		File  f = new File("./results/pan_results_k_jump"); 
+		if(!f.exists()) {
+			f.mkdir();
+		}
+		
+		ArrayList<Book>[] all_src_plagiats_pairs;
+		
+		all_src_plagiats_pairs = pan.Data.load_all_plagiarism_excerpts();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for(int k : Config.k_s) {
+				
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_naive_jump_k();//Threshold is 0. So, we should the naive version.
+					String name = "./results/pan_results_k_jump/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, s.alignement_matrix);
+				}
+			}
+		}
+		boolean quit = false;
+		if(quit) return;//XXX
+		
+		System.out.println("****************************************************************");
+		System.out.println("******************************* Entire Documents****************");
+		System.out.println("****************************************************************");
+
+		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for(int k : Config.k_s) {
+				
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					s.run_naive_jump_k();					
+					String name = "./results/pan_results_k_jump/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
+					matrix_to_file(name, k, s.alignement_matrix);
+				}
+			}
+		}
+		Config.REMOVE_STOP_WORDS = true;
+	}
+	
 	static void run_pan_correctness_experiments_avg_word_2_vec() {
 		Config.REMOVE_STOP_WORDS = false;
 		//final int[] k_s= {3,4,5,6,7,8};
@@ -708,7 +767,7 @@ public class SemanticTest {
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 				for(Solutions s : solutions) {
-					s.run_avg_word_2_vec();//Threshold is 0. So, we should the naive version.
+					s.run_fast_text();//Threshold is 0. So, we should the naive version.
 					String name = "./results/pan_results_avg_word_2_vec/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
 					matrix_to_file(name, k, s.alignement_matrix);
 				}
@@ -730,7 +789,7 @@ public class SemanticTest {
 				boolean pan_embeddings = true;
 				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
 				for(Solutions s : solutions) {
-					s.run_avg_word_2_vec();					
+					s.run_fast_text();					
 					String name = "./results/pan_results_avg_word_2_vec/"+src_plagiat_pair.get(0).book_name+"_"+src_plagiat_pair.get(1).book_name;
 					matrix_to_file(name, k, s.alignement_matrix);
 				}

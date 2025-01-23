@@ -431,7 +431,7 @@ public class Solutions {
 	 * Run FastText Sentence Algo
 	 * @return
 	 */
-	public double[] run_avg_word_2_vec(){//FIXME excerpt sometimes not in whole document matrix
+	public double[] run_fast_text(){
 		print_special_configurations();
 		System.out.println("Solutions.run_avg_word_2_vec() k="+k+" threshold="+threshold);
 				
@@ -447,19 +447,44 @@ public class Solutions {
 		start = System.currentTimeMillis();
 		
 		final double[] avg_vec_window_line	= new double[vector_size];//300?
-		final double[] avg_vec_window_column= new double[vector_size];
+		final double[][] avg_vec_window_column= new double[k_with_windows_b2.length][vector_size];
+		//final double[] avg_vec_window_column_copy= new double[vector_size];
 		
+		
+		for(int column=0;column<alignment_matrix[0].length;column++) {
+			get_avg_vector(k_with_windows_b2[column], avg_vec_window_column[column]);
+		}
 		
 		//For each pair of windows
 		for(int line=0;line<alignment_matrix.length;line++) {
 			final int[] window_line = k_with_windows_b1[line];
 			get_avg_vector(window_line, avg_vec_window_line);			
+//			get_avg_vector(k_with_windows_b2[0], avg_vec_window_column);//init the column
 			
 			for(int column=0;column<alignment_matrix[0].length;column++) {	
 				final int[] window_column = k_with_windows_b2[column];
-				get_avg_vector(window_column, avg_vec_window_column);
-
-				final double similarity = cosine(avg_vec_window_line,avg_vec_window_column);
+				//get_avg_vector(window_column, avg_vec_window_column);
+				/*if(column!=0) {//update the averaged vector
+					//System.out.println(Util.outTSV(avg_vec_window_column));
+					update_avg_vector(k_with_windows_b2[column-1], window_column, avg_vec_window_column);//TODO Check me
+				}*/
+				/*//TODO remove me
+				for(int dim=0;dim<avg_vec_window_column_copy.length;dim++) {
+					if(!is_equal(avg_vec_window_column_copy[dim],avg_vec_window_column[dim])) {
+						System.err.println("dim="+dim);
+						System.out.println(Util.outTSV(avg_vec_window_column));
+						System.out.println(Util.outTSV(avg_vec_window_column_copy));
+						System.out.println(Util.outTSV(k_with_windows_b2[column-1]));
+						System.out.println(Util.outTSV(k_with_windows_b2[column]));
+						System.out.println(k_with_windows_b2[column-1][0]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column-1][0])));
+						System.out.println(k_with_windows_b2[column][0]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column-1][0])));
+						System.out.println(k_with_windows_b2[column][1]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column][1])));
+						System.out.println(k_with_windows_b2[column][2]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column][2])));
+						System.err.println("dim="+dim);
+					}
+				}*/
+				//final double similarity = cosine(avg_vec_window_line,avg_vec_window_column[column]);//TODO materialize norm of line window? squrared_nom vec b?
+				final double similarity = cosine_similarity(avg_vec_window_line,avg_vec_window_column[column]);
 				if(similarity>=threshold_times_k) {
 					alignment_matrix[line][column] = similarity/(double)k;//normalize
 					count_computed_cells++;
@@ -521,13 +546,74 @@ public class Solutions {
 				System.err.println("get_avg_vector() empty vector");
 			}
 		}
-		//Normalize by window size
+
+		
+		if(MatchesWithEmbeddings.NORMALIZE_VECTORS) {//to unit length
+			double length = 0;
+			for(double v : avg_vec_window_line) {
+				length += (v*v);
+			}
+			length = Math.sqrt(length);
+			for(int i=0;i<avg_vec_window_line.length;i++) {
+				avg_vec_window_line[i] = avg_vec_window_line[i]/length;
+			}
+		}
+/*		//Normalize by window size
 		double winodw_size = window.length;
 		for(int i=0;i<avg_vec_window_line.length;i++) {
 			avg_vec_window_line[i]/= winodw_size;
 		}
+*/
 	}
 
+	/**
+	 * Does not compute every window, but jumps k cells. I.e., the cells are not overlapping
+	 * @return
+	 */
+	@Deprecated
+	public double[] run_naive_jump_k(){//XXX geht so nicht
+		print_special_configurations();
+		HungarianKevinStern solver = new HungarianKevinStern(k);
+		System.out.println("Solutions.run_naive_jump_k() k="+k+" threshold="+threshold+" "+solver.get_name());
+		final double[][] local_similarity_matrix = new double[k][k];
+		USE_GLOBAL_MATRIX = true;
+		
+		double[] run_times = new double[num_paragraphs];
+			
+		double stop,start;
+		long count_computed_cells = 0;
+		
+		//Allocate space for the alignment matrix
+		final double[][] alignment_matrix = this.alignement_matrix;//get the pre-allocated buffer. Done in Constructor
+		
+		start = System.currentTimeMillis();
+		final double[][] global_cost_matrix_book = fill_similarity_matrix();
+		//For each pair of windows
+		for(int line=0;line<alignment_matrix.length;line++) {//XXX here to jump by k
+			for(int column=0;column<alignment_matrix[0].length;column+=k) {//Note the +=k	
+				//Fill local matrix of the current window combination from global matrix 
+				fill_local_similarity_matrix(local_similarity_matrix, global_cost_matrix_book, line, column);
+
+				//mrb.compare(local_similarity_matrix, column);
+				
+				//That's the important line
+				final double similarity = -solver.solve(local_similarity_matrix, threshold);
+				//normalize costs: Before it was distance. Now it is similarity.
+				if(similarity>=threshold_times_k) {
+					alignment_matrix[line][column] = similarity/(double)k;//normalize
+					count_computed_cells++;
+				}//else keep it zero
+			}
+		}
+		stop = System.currentTimeMillis();
+		run_times[0] = (stop-start);		
+		int size = size(alignment_matrix);
+		double check_sum = sum(alignment_matrix);
+		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_computed_cells);
+
+		return run_times;
+	}
+	
 	public double[] run_naive(){
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);

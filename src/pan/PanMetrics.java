@@ -11,8 +11,9 @@ import boss.util.Config;
 import boss.util.Util;
 
 public class PanMetrics {//TODO micro average
-	static final double[] core_thresholds = {0.19,0.18,0.17,0.16,0.15,0.14,0.13,0.12,0.11,0.1};
-	//static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
+	public static boolean use_jum_k = false;
+	//static final double[] core_thresholds = {0.19,0.18,0.17,0.16,0.15,0.14,0.13,0.12,0.11,0.1};
+	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
 	//static final double[] core_thresholds = {0.69,0.68,0.67,0.66,0.65,0.64,0.63,0.62,0.61,0.6};
 	//static final double[] core_thresholds = {0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.7};
 	//static final double[] core_thresholds = {0.8,0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.70,0.69,0.68};
@@ -28,6 +29,13 @@ public class PanMetrics {//TODO micro average
 	
 	private void print_config() {
 		System.out.println("PanMetrics("+name+") Config.PLAGIAT_GRANUALRITY="+Config.PLAGIAT_GRANUALRITY+ " USE_CONNECTIVITY_THRESHOLD="+Config.USE_CONNECTIVITY_THRESHOLD+" Config.REMOVE_STOP_WORDS="+Config.REMOVE_STOP_WORDS+" IS_REACHABLE_CELL="+IS_REACHABLE_CELL+" Config.USE_TXT_ALIGN_PREPROCESSING="+Config.USE_TXT_ALIGN_PREPROCESSING);
+	}
+	
+	public static void run_k_jump() {
+		PanResult.clear();
+		MatrixLoader.path_to_matrices = MatrixLoader.path_to_k_jump_matrices;
+		//SemanticTest.print_seda_texts();//to get the ground truth
+		new PanMetrics("SeDA").run_seda_();
 	}
 	
 	public static void run_avg_word_2_vec() {
@@ -322,11 +330,16 @@ public class PanMetrics {//TODO micro average
 				for(double core_threshold : core_thresholds) {// For each core_threshold
 					double start = System.currentTimeMillis();
 					double[][] marked_cells;
+					//TODO hier umschalten, wie markiert wird
 					if(Config.USE_CONNECTIVITY_THRESHOLD) {
 						marked_cells = (expand_cluster_seeds(matrix, mark_cluster_seeds(matrix, k, core_threshold)));//TODO measure time
 					}else{
 						marked_cells = (mark_cluster_seeds(matrix, k, core_threshold));
 					}
+					if(use_jum_k) {
+						marked_cells = (mark_cluster_seeds_jump_k(matrix, k, core_threshold));
+					}
+					
 					 
 					double stop = System.currentTimeMillis();
 					
@@ -575,6 +588,22 @@ public class PanMetrics {//TODO micro average
 		
 		for(int line=0;line<num_lines;line++) {
 			for(int column=0;column<num_columns;column++) {
+				boolean b = is_core_cell(matrix, line, column, core_threshold);
+				if(b) {
+					cluster_seeds[line][column] = IS_CORE_CELL; 
+				}
+			}
+		}
+		return cluster_seeds;
+	}
+	
+	private double[][] mark_cluster_seeds_jump_k(double[][] matrix, final int k, final double core_threshold){
+		final int num_lines = matrix.length;
+		final int num_columns = matrix[0].length;
+		double[][] cluster_seeds = new double[num_lines][num_columns];
+		
+		for(int line=0;line<num_lines;line+=k) {
+			for(int column=0;column<num_columns;column+=k) {
 				boolean b = is_core_cell(matrix, line, column, core_threshold);
 				if(b) {
 					cluster_seeds[line][column] = IS_CORE_CELL; 
