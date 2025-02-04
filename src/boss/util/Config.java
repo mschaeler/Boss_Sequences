@@ -57,4 +57,5 @@ public class Config {
 	public static int[] wiki_k_s= {15};
 	
 	public static boolean USE_TXT_ALIGN_FIX = true;
+	public static boolean verbose = true;
 }

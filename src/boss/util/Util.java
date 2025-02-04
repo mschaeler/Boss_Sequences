@@ -110,4 +110,66 @@ public class Util {
 		}
 		return true;
 	}
+
+	public static double max(double[] arr) {
+		double max = Double.NEGATIVE_INFINITY;
+		for(double v : arr) {
+			if(v>max) {
+				max = v;
+			}
+		}
+		return max;
+	}
+
+	public static double max_col(double[][] matrix, int col) {
+		double max = Double.NEGATIVE_INFINITY;
+		for(double[] arr : matrix) {
+			double v = arr[col]; 
+			if(v>max) {
+				max = v;
+			}
+		}
+		return max;
+	}
+
+	public static double max(double[] arr, int from, int to) {
+		double max = Double.NEGATIVE_INFINITY;
+		for(int i=from;i<=to;i++) {
+			double v = arr[i];
+			if(v>max) {
+				max = v;
+			}
+		}
+		return max;
+	}
+	
+	public static double max_col(double[][] matrix, int col, int from, int to) {
+		double max = Double.NEGATIVE_INFINITY;
+		for(int i=from;i<=to;i++) {
+			double[] arr = matrix[i];
+			double v = arr[col]; 
+			if(v>max) {
+				max = v;
+			}
+		}
+		return max;
+	}
+
+	public static double[] toPrimitive(ArrayList<Double> list) {
+		double[] arr = new double[list.size()];
+		int iter = 0;
+		for(Double d : list) {
+			arr[iter++] = d.doubleValue();
+		}
+		return arr;
+	}
+
+	public static int sum(int[] arr) {
+		int sum = 0;
+		for(int i : arr) {
+			sum+=i;
+		}
+		return sum;
+	}
+
 }

@@ -617,7 +617,7 @@ public class Solutions {
 	public double[] run_naive(){
 		print_special_configurations();
 		HungarianKevinStern solver = new HungarianKevinStern(k);
-		System.out.println("Solutions.run_naive() k="+k+" threshold="+threshold+" "+solver.get_name());
+		if(Config.verbose) System.out.println("Solutions.run_naive() k="+k+" threshold="+threshold+" "+solver.get_name());
 		//final double[][] local_similarity_matrix = new double[k][k];
 		USE_GLOBAL_MATRIX = false;
 		
@@ -656,7 +656,7 @@ public class Solutions {
 		run_times[0] = (stop-start);		
 		int size = size(alignment_matrix);
 		double check_sum = sum(alignment_matrix);
-		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_computed_cells);
+		if(Config.verbose) System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_computed_cells);
 
 		return run_times;
 	}
@@ -2140,7 +2140,7 @@ public class Solutions {
 		}
 		return sum;
 	}
-	public double sum(double[][] alignment_matrix) {
+	public static double sum(double[][] alignment_matrix) {
 		double sum = 0;
 		for(double[] array : alignment_matrix) {
 			for(double d : array) {
@@ -2206,7 +2206,7 @@ public class Solutions {
 	private static final double EQUAL = 1;
 	private static final double MIN_SIM = 0;
 	
-	private static double sim(final int set_id1, final int set_id2, final double[] vec_1, final double[] vec_2) {
+	public static double sim(final int set_id1, final int set_id2, final double[] vec_1, final double[] vec_2) {
 		if(set_id1==set_id2) {
 			return EQUAL;
 		}else if(vec_1==null || vec_2==null){//may happen e.g., for stop words
@@ -2222,7 +2222,7 @@ public class Solutions {
 	 * @param vectorB
 	 * @return
 	 */
-	private static double cosine_similarity(final double[] vectorA, final double[] vectorB) {
+	public static double cosine_similarity(final double[] vectorA, final double[] vectorB) {
 		double dotProduct = 0.0;
 	    for (int i = 0; i < vectorA.length; i++) {
 	        dotProduct += vectorA[i] * vectorB[i];

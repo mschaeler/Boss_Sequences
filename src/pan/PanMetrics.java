@@ -7,15 +7,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+
+import bert.SentenceEmbedding;
 import boss.util.Config;
 import boss.util.Util;
 
 public class PanMetrics {//TODO micro average
 	public static boolean use_jum_k = false;
 	//static final double[] core_thresholds = {0.19,0.18,0.17,0.16,0.15,0.14,0.13,0.12,0.11,0.1};
-	static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
+	//static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
 	//static final double[] core_thresholds = {0.69,0.68,0.67,0.66,0.65,0.64,0.63,0.62,0.61,0.6};
-	//static final double[] core_thresholds = {0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.7};
+	static final double[] core_thresholds = {0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.7};
 	//static final double[] core_thresholds = {0.8,0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.70,0.69,0.68};
 	static final double IS_CORE_CELL = 1.0d;
 	static final double IS_REACHABLE_CELL = 0.5d;
@@ -57,6 +59,10 @@ public class PanMetrics {//TODO micro average
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_jaccard_matrices;
 		//SemanticTest.print_jaccard_texts();//to get the ground truth
 		new PanMetrics("Jaccard").run_seda_();
+	}
+	public static void run_sentence_embedding(ArrayList<double[][]> matrices, int[][] ground_truth_offsets, ArrayList<SentenceEmbedding[]> pairs) {
+		PanResult.clear();
+		new PanMetrics("Sentence Embedding").run_sentence_embedding_(matrices, ground_truth_offsets, pairs);
 	}
 	
 	public void out_results() {
@@ -295,7 +301,78 @@ public class PanMetrics {//TODO micro average
 		return src_documents;
 	}
 	
-	
+	public void run_sentence_embedding_(ArrayList<double[][]> matrices, int[][] ground_truth_offsets, ArrayList<SentenceEmbedding[]> pairs) {
+		for(int i=0;i<pairs.size();i++) {//For each data set pair
+			final SentenceEmbedding[] pair = pairs.get(i);
+			final int[] ground_truth_offset = ground_truth_offsets[i];
+			final double[][] matrix = matrices.get(i);
+			
+			boolean[] ex_marked_susp = new boolean[matrix.length]; 
+			for(int offset=ground_truth_offset[0];offset<=ground_truth_offset[1];offset++) {
+				ex_marked_susp[offset] = true;
+			}
+			boolean[] ex_marked_src  = new boolean[matrix[0].length];
+			for(int offset=ground_truth_offset[2];offset<=ground_truth_offset[3];offset++) {
+				ex_marked_src[offset] = true;
+			}
+			
+			if(i==8) {
+				System.err.println(i);
+			}
+			
+			final double all_true_positives = get_retrieved_elements(ex_marked_susp, ex_marked_src);
+			
+			System.out.println("i="+i+" "+pair[0].name+" vs. "+pair[1].name+Arrays.toString(ground_truth_offsets[i]));
+			final boolean[][] marked_cells = new boolean[matrix.length][matrix[0].length];
+			
+			for(double core_threshold : core_thresholds) {// For each core_threshold
+				double start = System.currentTimeMillis();
+				
+				boolean[] marked_susp = new boolean[matrix.length]; 
+				boolean[] marked_src  = new boolean[matrix[0].length];
+				
+				for(int line=0;line<matrix.length;line++) {
+					for(int col=0;col<matrix[0].length;col++) {
+						if(matrix[line][col]>=core_threshold) {
+							marked_cells[line][col] = true;
+							marked_susp[line] = true;
+							marked_src[col] = true;
+						}else{
+							marked_cells[line][col] = false;	
+						}
+						
+					}
+				}
+				
+				
+				double retrieved_elements = get_retrieved_elements(marked_susp, marked_src);
+				double found_true_positives = 0;
+				for(int offset=ground_truth_offset[0];offset<=ground_truth_offset[1];offset++) {
+					if(marked_susp[offset]) {
+						found_true_positives++;
+					};
+				}
+				for(int offset=ground_truth_offset[2];offset<=ground_truth_offset[3];offset++) {
+					if(marked_src[offset]) {
+						found_true_positives++;
+					};
+				}
+				
+				double recall = found_true_positives / all_true_positives;
+				if(recall>1) {
+					System.err.println("recall>1");
+				}
+				double precision = (retrieved_elements>0) ? found_true_positives / retrieved_elements : 0;
+				if(precision>1) {
+					System.err.println("precision>1");
+				}
+				double granularity 	  = gran(marked_susp, ground_truth_offset[0], ground_truth_offset[1]);
+				PanResult pr = new PanResult(name, -1, core_threshold, precision, recall, granularity, all_true_positives, found_true_positives, retrieved_elements);
+				System.out.println(pr);
+			}
+		}
+		out_results();
+	}
 	
 	public void run_seda_() {
 		List<String> l = MatrixLoader.get_all_susp_src_directories();

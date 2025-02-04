@@ -110,6 +110,13 @@ public class Book {
 		}
 		return ret;
 	}
+	public ArrayList<String> to_list(){
+		ArrayList<String> ret = new ArrayList<>(1000);
+		for(Chapter c : my_chapters) {
+			c.to_list(ret);
+		}
+		return ret;
+	}
 
 	public int size() {
 		int size = 0;

@@ -1,5 +1,7 @@
 package plus.data;
 
+import java.util.ArrayList;
+
 /**
  * The text is without any String pre-preprocessing. Pure text, with commas, Capitalization etc.
  * The token sequence is pre-processed in an arbitrary way.
@@ -26,7 +28,9 @@ public class Paragraph {
 	public String to_single_line_string(){
 		return my_paragraph_as_text;
 	}
-
+	public void to_list(ArrayList<String> ret) {
+		ret.add(my_paragraph_as_text);
+	}
 	public int size() {
 		return my_paragraph_as_text.split(" ").length;
 	}

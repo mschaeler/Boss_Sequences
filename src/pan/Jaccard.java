@@ -110,7 +110,7 @@ public class Jaccard {
 	 * @param k - window size
 	 * @return
 	 */
-	private int[][] create_windows(int[] raw_paragraph, final int k) {	
+	public static int[][] create_windows(int[] raw_paragraph, final int k) {	
 		int[][] windows; 
 		if(raw_paragraph.length-k+1<0) {
 			System.err.println("Solutions.create_windows(): raw_paragraph.length-k+1<0");
@@ -157,7 +157,7 @@ public class Jaccard {
 	 * @param tokens_t2 window of the src document
 	 * @return exact jaccard similarity
 	 */
-	double jaccard(final int[] tokens_t1, final int[] tokens_t2) {
+	public static double jaccard(final int[] tokens_t1, final int[] tokens_t2) {
 		HashSet<Integer> tokens_hashed = new HashSet<Integer>(tokens_t1.length);
 		for(int t : tokens_t1) {
 			tokens_hashed.add(t);

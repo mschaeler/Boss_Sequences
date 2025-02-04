@@ -66,6 +66,11 @@ public class Chapter {
 		
 		return ret+" ";
 	}
+	public void to_list(ArrayList<String> ret) {
+		for(int i=0;i<my_paragraphs.size();i++) {
+			my_paragraphs.get(i).to_list(ret);
+		}
+	}
 	public int size() {
 		int size = 0;
 		for(Paragraph p : my_paragraphs) {

@@ -1515,7 +1515,7 @@ public class SemanticTest {
 		return result;
 	}
 
-	private static ArrayList<int[]> encode_(ArrayList<String> raw_book, HashMap<String, Integer> token_ids) {
+	public static ArrayList<int[]> encode_(ArrayList<String> raw_book, HashMap<String, Integer> token_ids) {
 		ArrayList<int[]> result = new ArrayList<int[]>(raw_book.size());
 		//we ignore Chapters
 		

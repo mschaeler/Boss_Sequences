@@ -178,6 +178,34 @@ public abstract class Tokenizer {
 		return ret;
 	}
 	
+	public static ArrayList<String> tokenize_bible_de(String org){
+		if(Jaccard.verbose_level>=Jaccard.print_everything) {System.out.println("org=\t\t\t"+org);}
+		String temp = Tokenizer.replace_non_alphabetic_characters(org, Book.LANGUAGE_GERMAN);
+		if(Jaccard.verbose_level>=Jaccard.print_everything) {System.out.println("alpha numeric=\t\t"+temp);}
+		temp = Tokenizer.remove_duplicate_whitespaces(temp);
+		if(Jaccard.verbose_level>=Jaccard.print_everything) {System.out.println("whitespaces=\t\t"+temp);}
+		String[] tokens = temp.split(" ");
+		
+		tokens = Tokenizer.to_lower_case(tokens);
+		//if(verbose_level>=print_everything) System.out.println("to_lower_case\t\t"+Util.outTSV(tokens)); 
+		//tokens = Tokenizer.stop_word_removal(tokens, language);//sometimes stop words are modified upon stemming. Thus, check it twice.
+		//if(Jaccard.verbose_level>=Jaccard.print_everything) System.out.println("stop_word_removal\t"+Util.outTSV(tokens));
+
+		tokens = Tokenizer.stop_word_removal(tokens, Book.LANGUAGE_GERMAN);
+		if(Jaccard.verbose_level>=Jaccard.print_everything) System.out.println("stop_word_removal\t"+Util.outTSV(tokens));
+		//TODO check for empty Strings, remove nulls
+		ArrayList<String> ret = new ArrayList<String>();
+		for(String s : tokens) {
+			if(s != null) {
+				if(s.length()!=0) {
+					ret.add(s);	
+				}
+			}
+		}
+		
+		return ret;
+	}
+	
 	public static ArrayList<String> tokenize(String org, boolean use_stemming){
 		if(Jaccard.verbose_level>=Jaccard.print_everything) {System.out.println("org=\t\t\t"+org);}
 		String temp = Tokenizer.replace_non_alphabetic_characters(org, Book.LANGUAGE_ENGLISH);
