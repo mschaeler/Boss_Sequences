@@ -11,16 +11,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
+import org.apache.commons.math4.legacy.stat.correlation.PearsonsCorrelation;
 import boss.util.Config;
 import boss.util.Util;
 
 /**
- * 
+ * Contains all results of a query document to a set of corpus documents. Typically, we use Luther Bible as query and all other versions as corpus.
+ * The results contain (1) The mapping of query paragraph to their 1-NN most similar paragraph per corpus document in all_indexes[][], (2) the corresponding similarity values, (3) the linearized matrices
  * @author b1074672
  *
  */
 public class BibleResult {
-	public static final String folder = "./results/bible_correctness/";
+	static final String folder = "./results/bible_correctness/";
 	
 	/**
 	 * window size
@@ -43,7 +45,7 @@ public class BibleResult {
 	 */
 	final double[] cell_similarities;
 	
-	public BibleResult(int _k, String _approach, double[][] _all_sims, int[][] _all_indexes, double[] _cell_similarities){
+	BibleResult(int _k, String _approach, double[][] _all_sims, int[][] _all_indexes, double[] _cell_similarities){
 		this.k = _k;
 		this.aprraoch 		   = _approach;
 		this.all_sims 		   = _all_sims;
@@ -77,6 +79,9 @@ public class BibleResult {
 		}
 	}
 
+	/**
+	 * Writes this object to a file
+	 */
 	public void to_file() {
 		File dir = new File(folder);
 		if(!dir.exists()) {
@@ -111,14 +116,14 @@ public class BibleResult {
 		}
 	}
 	
-	public static HashMap<Integer, BibleResult> load(String approach){
+	static HashMap<Integer, BibleResult> load(String approach){
 		HashMap<Integer, BibleResult> res = new HashMap<Integer, BibleResult>(Config.k_s.length);
 		for(int k : Config.k_s) {
 			res.put(k, load(approach, k));
 		}
 		return res;
 	}
-	public static BibleResult load(String approach, int k){
+	private static BibleResult load(String approach, int k){
 		System.out.print("load("+approach+","+k+")");
 		double start = System.currentTimeMillis();
 		
@@ -194,23 +199,26 @@ public class BibleResult {
 		return new BibleResult(k, approach, all_sims, all_indexes, cell_similarities);
 	}
 	
-	public static HashMap<Integer, BibleResult> load_seda(){
+	static HashMap<Integer, BibleResult> load_seda(){
 		return load("seda");
 	}
 	
-	public static HashMap<Integer, BibleResult> load_jaccard(){
+	static HashMap<Integer, BibleResult> load_jaccard(){
 		return load("jaccard");
 	}
 	
-	public static HashMap<Integer, BibleResult> load_fast_text(){
+	static HashMap<Integer, BibleResult> load_fast_text(){
 		return load("fest_text");//Note the typo
 	}
 	
-	public static BibleResult get_ground_truth() {
+	static BibleResult get_ground_truth() {
 		return BertBibleBase.get_ground_truth();
 	}
 	
-	public static void main(String[] args) {
+	/**
+	 * This outputs the accuracy metric to console
+	 */
+	public static void compute_mapping_accuracy() {
 		BibleResult bert = get_ground_truth();
 		bert.out("all_indexes");
 		correct_mapping(bert);
@@ -237,6 +245,117 @@ public class BibleResult {
 		}
 	}
 	
+	public static void compute_similarity_correlation() {
+		BibleResult bert = get_ground_truth();
+		bert.out("all_indexes");
+		//correct_mapping(bert);
+		HashMap<Integer, BibleResult> seda = load("seda");
+		HashMap<Integer, BibleResult> jaccard = load("jaccard");
+		HashMap<Integer, BibleResult> fast_text = load("fest_text");
+		
+		System.out.println("SeDA");
+		for(Entry<Integer, BibleResult> e : seda.entrySet()) {
+			System.out.print("k="+e.getKey()+"\t");
+			similarity_correlation(bert, e.getValue());
+		}
+		
+		System.out.println("Jaccard");
+		for(Entry<Integer, BibleResult> e : jaccard.entrySet()) {
+			System.out.print("k="+e.getKey()+"\t");
+			similarity_correlation(bert, e.getValue());
+		}
+		
+		System.out.println("FastText");
+		for(Entry<Integer, BibleResult> e : fast_text.entrySet()) {
+			System.out.print("k="+e.getKey()+"\t");
+			similarity_correlation(bert, e.getValue());
+		}
+	}
+	
+	static void similarity_correlation(BibleResult ground_truth, BibleResult to_check) {
+		final int num_corpus_docs = ground_truth.all_sims[0].length;
+		double[] corpus_1nn_correlation = new double[num_corpus_docs];
+		
+		
+		for(int corpus_doc_id=0;corpus_doc_id<num_corpus_docs;corpus_doc_id++) {
+			double correlation = correlation(ground_truth.all_sims, to_check.all_sims, corpus_doc_id);
+			corpus_1nn_correlation[corpus_doc_id] = correlation;
+		}
+		
+		double avg_corpus_1nn_correlation = Util.avg(corpus_1nn_correlation);
+		double cell_sim_correlation = new PearsonsCorrelation().correlation(ground_truth.cell_similarities, to_check.cell_similarities);
+		System.out.println("similarity_correlation()\t"+Util.outTSV(corpus_1nn_correlation)+"\tavgf\t"+avg_corpus_1nn_correlation+"\tcell\t"+cell_sim_correlation);
+	}
+
+	//FIXME Can't be fixed
+	@Deprecated
+	public double[][][] reconstruct_matrices(){
+		final int num_docs 			   = this.all_indexes[0].length;
+		final int num_lines_per_matrix = this.all_indexes.length;
+		
+		final int num_columns = this.cell_similarities.length / num_docs / num_lines_per_matrix;
+		
+		if(num_columns*num_lines_per_matrix*num_columns!=this.cell_similarities.length) {
+			System.err.println("num_columns*num_lines_per_matrix*num_columns!=this.cell_similarities.length");
+		}
+		
+		double[][][] matrices = new double[num_docs][num_lines_per_matrix][num_columns];//TODO
+		int pointer = 0;
+		for(int doc_id=0;doc_id<num_docs;doc_id++) {
+			double[][] matrix = matrices[doc_id];
+			for(int line=0;line<num_lines_per_matrix;line++) {
+				for(int col=0;col<num_columns;col++){
+					matrix[line][col] = this.cell_similarities[pointer]++;
+				}
+			}
+		}
+		//check if the other mebers are identic after reduce()
+		return matrices;
+	}
+	
+	private static double correlation(double[][] matrix_1, double[][] matrix_2, int corpus_doc_id) {
+		// (1) get the desired feature vectors
+		double[] vec_1 = new double[matrix_1.length];
+		double[] vec_2 = new double[matrix_2.length];
+		for(int i=0;i<vec_1.length;i++) {
+			vec_1[i] = matrix_1[i][corpus_doc_id];
+			vec_2[i] = matrix_2[i][corpus_doc_id];
+		}
+		double correlation = new PearsonsCorrelation().correlation(vec_1, vec_2);
+		
+		return correlation;
+	}
+
+	static final double[] thresholds = {0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1,0.0};
+	public static void main(String[] args) {
+		//compute_mapping_accuracy();
+		compute_similarity_correlation();
+		//Does not work: compute_mapping_accuracy(thresholds,"seda");
+	}
+	
+	/*static void compute_mapping_accuracy(double[] all_thresholds, String approach) {
+		BibleResult bert = get_ground_truth();
+		HashMap<Integer, BibleResult> h = null;
+		if(approach.toLowerCase().equals("seda")) {
+			 h = load_seda();
+		}else{
+			System.err.println("compute_mapping_accuracy() approach="+approach);
+			return;
+		}
+		for(double theta : all_thresholds) {
+			System.out.println("SeDA theta="+theta);	
+			for(Entry<Integer, BibleResult> e : h.entrySet()) {//all values of k
+				System.out.print("k="+e.getKey()+"\t");
+				double[][][] matrices = e.getValue().reconstruct_matrices();
+				BibleResult br = new BibleResult(matrices, e.getValue());
+				similarity_correlation(bert, br);
+			}
+		}
+		
+		
+		
+	}*/
+
 	/**
 	 * XXX Has problems with Volx Bible
 	 * @return
@@ -257,6 +376,12 @@ public class BibleResult {
 		return result;
 	}
 	
+	/**
+	 * Computes the accuracy of the mapping to_check, to a given ground truth (usually Bert)
+	 * @param ground_truth
+	 * @param to_check
+	 * @return
+	 */
 	static int[] correct_mapping(BibleResult ground_truth, BibleResult to_check) {
 		int[] result = new int[to_check.all_indexes[0].length];
 		

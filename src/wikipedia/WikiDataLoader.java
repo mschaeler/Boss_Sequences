@@ -28,9 +28,14 @@ import boss.test.SemanticTest;
 import boss.util.Config;
 
 public class WikiDataLoader {
+	/**
+	 * By default true. ONly the materialize function sets it to false.
+	 */
+	public static boolean return_stemword = true;
+	
 	public static final int THOUSAND = 1000;
 	//static final int[] intput_sequence_length = {2*THOUSAND, 20*THOUSAND, 200*THOUSAND, 2*THOUSAND*THOUSAND};
-	static final int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
+	int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
 	//static final int[] intput_sequence_length = {16*THOUSAND};
 	//int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
 	int[] all_solutions = {6};
@@ -46,7 +51,7 @@ public class WikiDataLoader {
 	public static final int print_nothing 		= -1;
 	public static final int print_final_token 	= 0;
 	public static final int print_everything 	= 1;
-	static double threshold = 0.7;
+	public double threshold = 0.7;
 	int num_repititions = 1;
 	/**
 	 * -1 print nothing
@@ -80,6 +85,8 @@ public class WikiDataLoader {
 		return resultStringBuilder.toString();
 	}
 	
+	//TODO prepare_solution(ArrayList<String> tokens) umbiegen, so dass einfach das gesamte Dokument. -> vielleicht auch nochmal drüber nachdenken, wie ganu die queries generiert werden.
+	public boolean use_entire_doc = false;
 	void prepare_solution(ArrayList<String> tokens) {
 		System.out.println("Words after pre-processing= "+tokens.size());
 		HashSet<String> unique_tokens = new HashSet<String>(tokens.size());
@@ -104,10 +111,18 @@ public class WikiDataLoader {
 		int mid = tokens.size() / 2;
 		ArrayList<String> book_1 = new ArrayList<String>(mid);
 		ArrayList<String> book_2 = new ArrayList<String>(mid);
-		for(int i=0;i<mid;i++) {
-			book_1.add(tokens.get(i));
-			book_2.add(tokens.get(mid+i));
+		if(use_entire_doc) {
+			for(int i=0;i<tokens.size();i++) {
+				book_1.add(tokens.get(i));
+				book_2.add(tokens.get(i));
+			}
+		}else{
+			for(int i=0;i<mid;i++) {
+				book_1.add(tokens.get(i));
+				book_2.add(tokens.get(mid+i));
+			}
 		}
+		
 		
 		this.raw_paragraphs_b1  = encode(book_1, token_ids);
 		this.raw_paragraphs_b2  = encode(book_2, token_ids);
@@ -148,11 +163,43 @@ public class WikiDataLoader {
 		return result;
 	}
 	
+	/**
+	 * For wiki correctness experiment. Materializes the stream of tokens
+	 */
+	public static void materilaize_token_stream() {
+		return_stemword = false;
+		new WikiDataLoader().materilaize_token_stream(test_file, 16000);//TODO make length parameter
+		return_stemword = true;
+	}
+	
+	private void materilaize_token_stream(String file, int length) {
+		System.out.println("materilaize_token_stream.run("+file+","+length+")");
+		String line = load_file(file);
+		ArrayList<String> tokens = tokenize_txt_align(line);
+		
+		File dir = new File(folder);
+		if(!dir.exists()) {
+			dir.mkdir();
+		}
+		//(1) write all_sims
+		try(BufferedWriter writer = new BufferedWriter(new FileWriter(folder+"wikipedia_tokens.txt"))){
+			for(int i=0;i<Math.min(length, tokens.size());i++) {
+				writer.write(tokens.get(i));
+				writer.write("\n");
+				if(i%1000==0) {
+					System.out.println(i+" of "+tokens.size());
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void run(){
 		new WikiDataLoader().run(test_file);
 	}
 	
-	private void run(String file) {
+	void run(String file) {
 		System.out.println("WikiDataLoader.run()");
 		String line = load_file(file);
 		ArrayList<String> tokens = tokenize_txt_align(line);
@@ -200,7 +247,9 @@ public class WikiDataLoader {
 		return ret;
 	}
 
-	private void run_solution(int solution_enum) {
+	public boolean RESULTS_TO_FILE = true;
+	public double[][] last_result = null;
+	void run_solution(int solution_enum) {
 		ArrayList<double[]> all_run_times = new ArrayList<double[]>();
 		double[] run_times=null;
 		
@@ -216,13 +265,16 @@ public class WikiDataLoader {
 					run_times = s.run_baseline();
 				}else if(solution_enum == SemanticTest.NAIVE) {
 					run_times = s.run_naive();
-				}else if(solution_enum == 6) {//TODO FastText
+				}else if(solution_enum == 6) {//TODO FastText JACCARD
 					run_times = s.run_fast_text();
+				}else if(solution_enum == SemanticTest.JACCARD) {
+					run_times = s.jaccard_windows();
 				}else{
 					System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 				}
 				run_time += run_times[0];
 			}
+			last_result = s.alignement_matrix;
 			run_time /= repitions-1;
 			double[] temp = {run_time};
 			all_run_times.add(temp);
@@ -298,7 +350,13 @@ public class WikiDataLoader {
 					    if(!stopwords.contains(t)) {//@FIX in original code
 							String stem_word = stemmer.stem(t.toLowerCase());
 							if(!stopwords.contains(stem_word)) {
-								ret.add(stem_word);	
+								if(return_stemword) {
+									ret.add(stem_word);
+								}else{
+									//only used for correctness experiment with wikipedia
+									ret.add(t);
+								}
+								
 							}
 					    }
 					}

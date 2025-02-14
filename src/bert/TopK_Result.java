@@ -1,9 +1,11 @@
 package bert;
 
+import java.util.HashSet;
+
 public class TopK_Result implements Comparable<TopK_Result>{
-	final int offset_susp;
-	final int offset_src;
-	final double score;
+	public final int offset_susp;
+	public final int offset_src;
+	public final double score;
 	
 	public TopK_Result(int offset_susp, int offset_src, double score) {
 		this.offset_susp = offset_susp;
@@ -29,5 +31,27 @@ public class TopK_Result implements Comparable<TopK_Result>{
 		}
 		System.out.println("susp("+offset_susp+")="+pair[0].sentences.get(offset_susp));
 		System.out.println("src("+offset_src+")="+pair[1].sentences.get(offset_src));
+	}
+
+	public static void out(TopK_Result[] res) {
+		String ret = "";
+		for(TopK_Result r : res){
+			ret+=r+" ";
+		}
+		System.out.println(ret);
+	}
+
+	public static int overlap(TopK_Result[] res, TopK_Result[] ground_truth) {
+		HashSet<Integer> g_t = new HashSet<Integer>();
+		for(TopK_Result tr : ground_truth) {
+			g_t.add(tr.offset_src);
+		}
+		int count = 0;
+		for(TopK_Result tr : res) {
+			if(g_t.contains(tr.offset_src)) {
+				count++;
+			}
+		}
+		return count;
 	}
 }

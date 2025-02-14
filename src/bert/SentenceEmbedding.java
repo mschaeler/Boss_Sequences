@@ -39,9 +39,30 @@ public class SentenceEmbedding {
 	static final String path_pan_susp = "./src_python/data/pan11/sentences/susp/";
 	
 	public String name;
-	ArrayList<String> sentences;
-	ArrayList<double[]> vectors;
+	public ArrayList<String> sentences;
+	public ArrayList<double[]> vectors;
 	String text = "";
+	
+	/**
+	 * Constructor for Wikipedia Bert Embeddings
+	 * @param path
+	 * @param file_name
+	 * @param sentences
+	 * @param vectors
+	 */
+	public SentenceEmbedding(String path, String file_name, ArrayList<String> sentences, ArrayList<double[]> vectors){
+		name = path+file_name;
+		this.sentences = sentences;
+		this.vectors = vectors;
+		
+		System.out.println(this);
+		for(String s : sentences) {
+			text+=s+" ";
+		}
+		if(sentences.size()!=vectors.size()) {
+			System.err.println("sentences.size()!=vectors.size() :"+sentences.size()+" "+vectors.size());
+		}
+	}
 	
 	public SentenceEmbedding(String path, String file_name){
 		name = path+file_name;
@@ -119,7 +140,7 @@ public class SentenceEmbedding {
 		return embedings;
 	}
 	
-	private void normalize(double[] arr) {
+	private static void normalize(double[] arr) {
 		double length = 0;
 		for(double v : arr) {
 			length += (v*v);
@@ -326,6 +347,9 @@ public class SentenceEmbedding {
 	}
 
 	public static void main(String[] args) {
+		load_wikipedia_emebddings();
+		System.exit(0);
+		
 		//new SentenceEmbedding(path_pan_src, "00732");
 		ArrayList<double[][]> matrices = new ArrayList<double[][]>();
 		ArrayList<SentenceEmbedding[]> pairs = load_pairs();
@@ -349,4 +373,69 @@ public class SentenceEmbedding {
 		PanMetrics.run_sentence_embedding(matrices, ground_truth_offsets, pairs);
 	}
 	
+	/**
+	 * 
+	 * @param path
+	 * @return
+	 */
+	public static SentenceEmbedding load_wikipedia_emebddings(String path) {
+		int k = 10;//TODO parse from file name
+		File sentence_file = new File(path+"wiki-1024000_4000.txt");//TODO change me
+		if(!sentence_file.exists()) {
+			System.err.println(sentence_file+" Does not exist.");
+		}
+		ArrayList<String> tokens = new ArrayList<String>(4000);
+		try(BufferedReader reader = new BufferedReader(new FileReader(sentence_file))){
+			String line;
+			    
+		    while ((line = reader.readLine()) != null) {
+		    	tokens.add(line);
+		    }
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		ArrayList<String> sentences = new ArrayList<String>(tokens.size());
+		for(int window=0;window<tokens.size()-k+1;window++) {
+			String temp = "";
+			for(int i=0;i<k;i++) {
+				temp +=tokens.get(window+i)+" ";
+			}
+			sentences.add(temp);
+		}
+		
+		File vector_file = new File(path+"wiki_windows.vec");
+		if(!vector_file.exists()) {
+			System.err.println(vector_file+" Does not exist.");
+		}
+		
+		ArrayList<double[]> vectors = new ArrayList<double[]>(tokens.size());
+		try(BufferedReader reader = new BufferedReader(new FileReader(vector_file))){
+			String line;
+			
+		    while ((line = reader.readLine()) != null) {
+		    	String[] values_str = line.split(" ");
+		    	double[] arr = new double[values_str.length];
+	        	for(int i=0;i<arr.length;i++) {
+	        		arr[i] = Double.parseDouble(values_str[i]);
+	        	}
+	        	normalize(arr);
+		    	vectors.add(arr);
+		    }
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		if(sentences.size()!=vectors.size()) {
+			System.err.println("sentences.size()!=vectors.size()");
+		}
+		
+		return new SentenceEmbedding(path, "wiki-1024000_4000.txt", sentences, vectors);
+	}
+	public static SentenceEmbedding load_wikipedia_emebddings() {
+		return load_wikipedia_emebddings("./data/wikipedia/");
+	}
 }

@@ -5,6 +5,8 @@ import java.util.HashSet;
 
 public class Util {
 
+	public static final long seed = 1234567;
+
 	public static void double_array_to_byte_array(double[] line, byte[] bUFFER) {
 		// TODO Auto-generated method stub
 		
@@ -170,6 +172,33 @@ public class Util {
 			sum+=i;
 		}
 		return sum;
+	}
+	
+	public static double sum(double[] arr) {
+		double sum = 0;
+		for(double i : arr) {
+			sum+=i;
+		}
+		return sum;
+	}
+
+	public static double avg(double[] arr) {
+		double sum = sum(arr);
+		return sum/(double)arr.length;
+	}
+
+	public static int[] toPrimitive(HashSet<Integer> query_ids) {
+		int[] ret = new int[query_ids.size()];
+		int i=0;
+		for(int val : query_ids) {
+			ret[i++] = val;
+		}
+		return ret;
+	}
+
+	public static int[] to_array(int k) {
+		int[] temp = {k};
+		return temp;
 	}
 
 }

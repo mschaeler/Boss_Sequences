@@ -2233,7 +2233,7 @@ public class Solutions {
 	    return dotProduct;
 	}
 	
-	public double[][] jaccard_windows(){
+	public double[] jaccard_windows(){
 		if(!Config.STEM_WORDS) {//In case we do not stem, replace all sets having maximal similarity s.t. it counts for jaccard as overlap
 			HashSet<Integer> duplicates = new HashSet<Integer>();
 			final double[][] global_cost_matrix_book = fill_similarity_matrix();
@@ -2251,8 +2251,8 @@ public class Solutions {
 				}
 			}
 		}
-		
-		double[][] matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
+		double start = System.currentTimeMillis();
+		double[][] matrix = this.alignement_matrix;
 		for(int row=0;row<matrix.length;row++) {
 			int[] w_r = k_with_windows_b1[row];
 			for(int colum=0;colum<matrix[0].length;colum++) {
@@ -2261,7 +2261,9 @@ public class Solutions {
 				matrix[row][colum] = jaccard_sim;
 			}
 		}
-		return matrix;
+		double stop = System.currentTimeMillis();
+		double[] ret = {stop-start};
+		return ret;
 	}
 	
 	private void replace(int[][] windows, int id, int replace_me_id) {

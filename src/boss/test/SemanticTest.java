@@ -85,7 +85,8 @@ public class SemanticTest {
 	static final int BOUND_TIGHTNESS    = 3;
 	static final int MEMORY_CONSUMPTION = 4;
 	static final int DUMMY    			= 5;
-	static final int FAST_TEXT   		= 6;
+	public static final int FAST_TEXT   		= 6;
+	public static final int JACCARD		= 6;
 	
 	static boolean header_written = false;
 	//For bound statistics
@@ -353,7 +354,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"eval_k_jump"};//if no experiment specified run the bible experiment 
+			String[] temp = {"wiki_mat"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
@@ -421,6 +422,8 @@ public class SemanticTest {
 			statistics();
 		}else if(contains(args, "wiki")) {
 			WikiDataLoader.run();
+		}else if(contains(args, "wiki_mat")) {//First step of the Wikipedia correctness experiment
+			WikiDataLoader.materilaize_token_stream();
 		}else{
 			System.err.println("main(): No valid experiment specified "+Arrays.toString(args));
 		}
