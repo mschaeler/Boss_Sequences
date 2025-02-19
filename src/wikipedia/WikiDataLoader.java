@@ -265,7 +265,7 @@ public class WikiDataLoader {
 					run_times = s.run_baseline();
 				}else if(solution_enum == SemanticTest.NAIVE) {
 					run_times = s.run_naive();
-				}else if(solution_enum == 6) {//TODO FastText JACCARD
+				}else if(solution_enum == SemanticTest.FAST_TEXT) {//TODO FastText JACCARD
 					run_times = s.run_fast_text();
 				}else if(solution_enum == SemanticTest.JACCARD) {
 					run_times = s.jaccard_windows();

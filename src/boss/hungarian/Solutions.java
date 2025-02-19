@@ -2283,12 +2283,15 @@ public class Solutions {
 			tokens_hashed.add(t);
 		}
 		
-		int size_intersection = 0;
+		
+		HashSet<Integer> intersection = new HashSet<Integer>(tokens_hashed.size());
 		for(int t : tokens_t2) {
 			if(tokens_hashed.contains(t)) {
-				size_intersection++;
+				intersection.add(t);//avoids the duplicate set problem
 			}
 		}
+		int size_intersection = intersection.size();
+		
 		//size union
 		for(int t : tokens_t2) {
 			tokens_hashed.add(t);
@@ -2303,9 +2306,9 @@ public class Solutions {
 			System.err.println("jaccard_sim!=jaccard_sim_c");
 		}*/
 		
-		if(jaccard_sim>=0.8) {
-			System.out.println(Arrays.toString(tokens_t1));
-			System.out.println(Arrays.toString(tokens_t2));
+		if(jaccard_sim>1) {
+			System.err.println(Arrays.toString(tokens_t1));
+			System.err.println(Arrays.toString(tokens_t2));
 		}
 		
 		return jaccard_sim;

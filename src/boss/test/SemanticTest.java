@@ -86,7 +86,7 @@ public class SemanticTest {
 	static final int MEMORY_CONSUMPTION = 4;
 	static final int DUMMY    			= 5;
 	public static final int FAST_TEXT   		= 6;
-	public static final int JACCARD		= 6;
+	public static final int JACCARD		= 7;
 	
 	static boolean header_written = false;
 	//For bound statistics

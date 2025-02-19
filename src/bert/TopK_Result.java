@@ -7,6 +7,12 @@ public class TopK_Result implements Comparable<TopK_Result>{
 	public final int offset_src;
 	public final double score;
 	
+	/**
+	 * 
+	 * @param offset_susp
+	 * @param offset_src
+	 * @param score
+	 */
 	public TopK_Result(int offset_susp, int offset_src, double score) {
 		this.offset_susp = offset_susp;
 		this.offset_src = offset_src;
