@@ -104,13 +104,13 @@ public class CompactWindow {
 	}
 	
 	public static ArrayList<ArrayList<CompactWindow>> create_all_compact_window(int[] sequence, long[] min_hashes) {
-		System.out.println("Create all Empty compact windows");
+		//System.out.println("Create all Empty compact windows");
 		ArrayList<ArrayList<CompactWindow>> all_empty_windows = new ArrayList<ArrayList<CompactWindow>>(MinHash.num_oph_bins);
 		for(int bin=0;bin<MinHash.num_oph_bins;bin++) {
 			ArrayList<CompactWindow> temp = create_all_compact_window_bin_alternate(sequence, min_hashes, bin);
-			for(CompactWindow w : temp) {
+			/*for(CompactWindow w : temp) {
 				System.out.println(w);
-			}
+			}*/
 			all_empty_windows.add(temp);
 		}
 		return all_empty_windows;
@@ -123,7 +123,7 @@ public class CompactWindow {
 				is_empty.set(i);
 			}
 		}
-		System.out.println(is_empty);
+		//System.out.println(is_empty);
 		
 		ArrayList<Integer> candidates_condensed = new ArrayList<Integer>(is_empty.size());
 		//int q = 0;

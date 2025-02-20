@@ -2,6 +2,7 @@ package oph;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +20,10 @@ public class OPH {
 	final ArrayList<ArrayList<CompactWindow>> empty_windows;
 	final ArrayList<ArrayList<NonEmptyCompactWindow>> non_empty_windows;
 	final int sketch_size;
+	private double run_time;
+	
+	final BitSet marked_src;
+	BitSet marked_susp;
 	
 	public OPH(int[] text, int sketch_size) {
 		this(text, my_min_hasher.h(text,0,text.length), sketch_size);
@@ -28,16 +33,77 @@ public class OPH {
 		MinHash.num_oph_bins = sketch_size;
 		my_oph_vector = MinHash.get_oph_vector(my_min_hashes);
 		this.sketch_size = sketch_size;
+		marked_src = new BitSet(text.length);
 		
 		empty_windows = CompactWindow.create_all_compact_window(text, my_min_hashes);
 		non_empty_windows = NonEmptyCompactWindow.create_all_compact_window(text, my_min_hashes);
+	}
+	
+	/**
+	 * 
+	 * @param query_sequence - usually the suspicious document
+	 * @param threshold
+	 * @param k window size
+	 * @return one array of overlapping intervals per window
+	 */
+	public ArrayList<ArrayList<Integer>> query(int[] query_sequence, double threshold, int k) {
+		System.out.println("OPH.query(int[],t="+threshold+",k="+k+")");
+		this.marked_src.clear();
+				
+		double start = System.currentTimeMillis();
+		
+		long[] hashes = my_min_hasher.h(query_sequence,0,query_sequence.length);
+		long[][] hashed_windows = create_hashed_windows(hashes, k);
+		this.marked_susp = new BitSet(hashed_windows.length);
+		ArrayList<ArrayList<Integer>> ret = new ArrayList<ArrayList<Integer>>(hashed_windows.length);
+		
+		for(int query_window=0;query_window<hashed_windows.length;query_window++) {
+			ArrayList<Integer> temp = query(hashed_windows[query_window], threshold);
+			ret.add(temp);
+			if(!temp.isEmpty()) {
+				marked_susp.set(query_window, query_window+k);
+			}
+			if(query_window%300==0) {
+				System.out.print(query_window+" of "+hashed_windows.length+" ");
+			}
+		}
+		System.out.println();
+		
+		double stop = System.currentTimeMillis();
+		this.run_time = (stop-start);
+		System.out.println("query(int[] query_sequence, double threshold, int k) done in "+(stop-start)+" ms");
+		return ret;
+	}
+	
+	/**
+	 * 
+	 * @param raw_paragraphs all the paragraphs
+	 * @param k - window size
+	 * @return
+	 */
+	private static long[][] create_hashed_windows(long[] min_hashes, final int k) {	
+		long[][] windows; 
+		if(min_hashes.length-k+1<0) {
+			System.err.println("Solutions.create_windows(): raw_paragraph.length-k+1<0");
+			windows = new long[1][];
+			windows[0] = min_hashes.clone();
+		}else{
+			windows = new long[min_hashes.length-k+1][k];//pre-allocate the storage space for the
+			for(int i=0;i<windows.length;i++){
+				//create one window
+				for(int j=0;j<k;j++) {
+					windows[i][j] = min_hashes[i+j];
+				}
+			}
+		}
+		return windows;
 	}
 	
 	public ArrayList<Integer> query(int[] query_sequence, double threshold) {
 		long[] hashes = my_min_hasher.h(query_sequence,0,query_sequence.length);
 		return query(hashes, threshold);
 	}
-	public ArrayList<Integer> query(int[] query_sequence, int from, int to, double threshold) {
+	ArrayList<Integer> query(int[] query_sequence, int from, int to, double threshold) {
 		long[] hashes = my_min_hasher.h(query_sequence, from, to);
 		return query(hashes, threshold);
 	}
@@ -104,7 +170,9 @@ public class OPH {
 	 * @param C_e - the set of collided empty OPH compact windows
 	 * @return
 	 */
-	private static ArrayList<Integer> oph_interval_scan(double k, double theta, ArrayList<NonEmptyCompactWindow> C, ArrayList<CompactWindow> C_e) {
+	private ArrayList<Integer> oph_interval_scan(double k, double theta, ArrayList<NonEmptyCompactWindow> C, ArrayList<CompactWindow> C_e) {
+		//System.out.println("oph_interval_scan() |C|="+C.size()+" |C_e|="+C_e.size());
+		//double start = System.currentTimeMillis();
 		ArrayList<Integer> solution_intervals = new ArrayList<Integer>();
 		ArrayList<Endpoint> endpoints = new ArrayList<Endpoint>();
 		
@@ -208,15 +276,17 @@ public class OPH {
 						solution_intervals.add(u_x);
 						int end = all_u_x[i+1]-1;
 						solution_intervals.add(end);
+						marked_src.set(u_x, all_u_x[i+1]);//end exclusive
 						//Second intervall
 						solution_intervals.add(v_y);
 						end = all_v_x[j+1]-1;
 						solution_intervals.add(end);
+						marked_src.set(v_y, all_v_x[j+1]);//end exclusive
 					}
 				}
 			}
 		}
-
+		//System.out.println("[DONE] in "+(System.currentTimeMillis()-start)+" ms found "+solution_intervals.size()+" intervals");
 		return solution_intervals;
 	}
 	
@@ -260,5 +330,14 @@ public class OPH {
 		int[] query = {1,2,3,4,5};
 		long[] hashes = {5,6,7,8};
 		example_4.query(query, 0.8);
+	}
+	public Double get_runtime() {
+		return run_time;
+	}
+	public BitSet marked_src() {
+		return marked_src;
+	}
+	public BitSet marked_sup() {
+		return this.marked_susp;
 	}
 }

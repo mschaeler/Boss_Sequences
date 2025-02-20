@@ -92,7 +92,7 @@ public class NonEmptyCompactWindow {
 			int my_bin = MinHash.get_bin(hash_vector[i]);
 			if(my_bin == bin) {
 				if(hash_vector[i]<=hash_vector[index_token_min_hash]) {//XXX The paper says <= though < would make more sense
-					System.err.println("(3) hash_vector[i]<=hash_vector[index_token_min_hash] " + this);
+					System.err.println("(3) hash_vector[i]<=hash_vector[index_token_min_hash] " + this +" h(c="+index_token_min_hash+")="+hash_vector[index_token_min_hash]+" but i="+i+" h(i)="+hash_vector[i]);
 					is_correct = false;
 				}//else it is k
 				
@@ -105,7 +105,7 @@ public class NonEmptyCompactWindow {
 				System.err.println("(4) my_bin!=bin "+this);
 				is_correct = false;
 			}else{
-				if(!(hash_vector[l-1]<hash_vector[index_token_min_hash])) {
+				if(!(hash_vector[l-1]<=hash_vector[index_token_min_hash])) {//XXX deviation from the paper saying <
 					System.err.println("(4) !(hash_vector[l-1]<hash_vector[index_token_min_hash]) "+this);
 					is_correct = false;
 				}
@@ -118,7 +118,7 @@ public class NonEmptyCompactWindow {
 				System.err.println("(5) my_bin!=bin "+this);
 				is_correct = false;
 			}else{
-				if(!(hash_vector[r+1]<hash_vector[index_token_min_hash])) {
+				if(!(hash_vector[r+1]<=hash_vector[index_token_min_hash])) {//XXX deviation from the paper saying <
 					System.err.println("(5) !(hash_vector[r+1]<hash_vector[index_token_min_hash]) "+this);
 					is_correct = false;
 				}
@@ -139,7 +139,7 @@ public class NonEmptyCompactWindow {
 				bin_token_position.add(i);
 			}
 		}
-		System.out.println("Token position with hash value in bin="+bin+" :"+bin_token_position);
+		//System.out.println("Token position with hash value in bin="+bin+" :"+bin_token_position);
 		
 		ArrayList<Integer> windows = new ArrayList<Integer>(bin_token_position.size()*3);//index, start and end sequence the token dominates
 		for(int i=0;i<bin_token_position.size();i++) {
@@ -158,7 +158,7 @@ public class NonEmptyCompactWindow {
 						int down=i-1;
 						for(;down>=0;down--) {
 							int other_position =  bin_token_position.get(down);
-							if(hashes[other_position]<my_hash) {
+							if(hashes[other_position]<=my_hash) {
 								from = other_position+1;
 								break;
 							}
@@ -176,7 +176,7 @@ public class NonEmptyCompactWindow {
 						int up=i+1;
 						for(;up<bin_token_position.size();up++) {
 							int other_position =  bin_token_position.get(up);
-							if(hashes[other_position]<my_hash) {
+							if(hashes[other_position]<=my_hash) {
 								to = other_position-1;
 								break;
 							}
@@ -206,9 +206,9 @@ public class NonEmptyCompactWindow {
 		ArrayList<ArrayList<NonEmptyCompactWindow>> all_empty_windows = new ArrayList<ArrayList<NonEmptyCompactWindow>>(MinHash.num_oph_bins);
 		for(int bin=0;bin<MinHash.num_oph_bins;bin++) {
 			ArrayList<NonEmptyCompactWindow> temp = create_windows(sequence, min_hashes, bin);
-			for(NonEmptyCompactWindow w : temp) {
+			/*for(NonEmptyCompactWindow w : temp) {
 				System.out.println(w);
-			}
+			}*/
 			
 			all_empty_windows.add(temp);
 		}
