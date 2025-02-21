@@ -215,6 +215,18 @@ public class BibleResult {
 		return BertBibleBase.get_ground_truth();
 	}
 	
+	
+	public static void compute_mapping_accuracy(String approach, HashMap<Integer, BibleResult> apporach_data) {
+		BibleResult bert = get_ground_truth();
+		bert.out("all_indexes");
+		correct_mapping(bert);
+		
+		System.out.println(approach);
+		for(Entry<Integer, BibleResult> e : apporach_data.entrySet()) {
+			System.out.print("k="+e.getKey()+"\t");
+			correct_mapping(bert, e.getValue());
+		}
+	}
 	/**
 	 * This outputs the accuracy metric to console
 	 */

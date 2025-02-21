@@ -1,6 +1,7 @@
 package bert;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashMap;
 
 import boss.embedding.Embedding;
@@ -11,6 +12,7 @@ import boss.semantic.Sequence;
 import boss.test.SemanticTest;
 import boss.util.Config;
 import boss.util.Util;
+import oph.OPH;
 import pan.Jaccard;
 import plus.data.Book;
 
@@ -39,9 +41,9 @@ public class BertBibleBase {
 	 * The first book becomes the query, all others are part of the corpus. Note, there is no return value, but we use the static member variables
 	 * @param all_books
 	 */
-	static void get_corpus_and_query(ArrayList<Book> all_books){
+	public static void get_corpus_and_query(ArrayList<Book> all_books){
 		boolean found_query = false;
-		ArrayList<SentenceEmbedding> corpus = new ArrayList<SentenceEmbedding>();
+		corpus = new ArrayList<SentenceEmbedding>();
 		
 		for(Book b : all_books) {
 			ArrayList<String> sentences = b.to_list();
@@ -121,6 +123,92 @@ public class BertBibleBase {
 		System.out.println(Util.outTSV(all_sims));
 		System.out.println();
 		return new BibleResult(-1, "Bert", all_sims, all_indexes, Util.toPrimitive(all_scores));
+	}
+	
+	public static BibleResult oph_experiment() {
+		if(BertBibleBase.books==null) {
+			get_bible_books();
+			get_corpus();
+		}		
+		
+		double[][] all_sims = new double[query.sentences.size()][corpus.size()];
+		int[][] all_indexes = new int[query.sentences.size()][corpus.size()];
+		int sketch_size = 32;
+		
+		ArrayList<ArrayList<String>> tokenized_books = Tokenizer.tokenize(books);
+		ArrayList<String> all_tokens_ordered = Sequence.get_unique_tokens_orderd(tokenized_books);
+		HashMap<String, Integer> token_ids = SemanticTest.strings_to_int(all_tokens_ordered);
+		
+		/**
+		 * [document][paragraph][token_ids]
+		 */
+		//ArrayList<ArrayList<int[]>> all_docs_paragraphs = new ArrayList<ArrayList<int[]>>(); 
+		
+		ArrayList<ArrayList<OPH>> all_docs_paragraphs = new ArrayList<ArrayList<OPH>>(); 
+
+		//Encode all doc paragraphs as int[]
+		for(SentenceEmbedding book : corpus) {
+			ArrayList<OPH> all_ps = new ArrayList<OPH>();
+			for(String p : book.sentences) {
+				ArrayList<String> paragraph = Tokenizer.tokenize_bible_de(p);
+				int[] raw_paragraph  = SemanticTest.encode_(paragraph, token_ids).get(0);//XXX is only one
+				OPH temp = new OPH(raw_paragraph, sketch_size);
+				all_ps.add(temp);
+			}
+			all_docs_paragraphs.add(all_ps);
+		}
+		
+		double[] thresholds = {0.1,0.2,0.3,0.4,0.5};//TODO check parameters
+		
+		for(int i=0;i<query.sentences.size();i++) {
+			System.out.println("**Find most similar paragraph to i="+i+" "+query.sentences.get(i)+" "+query.name);
+			ArrayList<String> paragraph = Tokenizer.tokenize_bible_de(query.sentences.get(i));
+			int[] raw_query   = SemanticTest.encode_(paragraph, token_ids).get(0);//is only one int[]
+			//int[][] k_with_windows_b1 = Jaccard.create_windows(raw_paragraphs_b1, Math.min(k, raw_paragraphs_b1.length));//TODO min(k)
+			
+			for(int i_c=0;i_c<corpus.size();i_c++) {
+				final ArrayList<OPH> my_tokenized_paragraphs = all_docs_paragraphs.get(i_c);
+				double max_similarity = Double.NEGATIVE_INFINITY;
+				int index_most_similar = -1;
+				
+				for(int p_id=0;p_id<my_tokenized_paragraphs.size();p_id++) {
+					//System.out.print("i="+i+"\t"+corpus.get(i_c).name+" p="+p_id+"\t");
+					OPH current = my_tokenized_paragraphs.get(p_id);
+					//The problem is OPH does not give us similarity values, only overlaps. thus we compute some array sim[current.text.length]
+					//There is one array per paragraph
+					//We compute the overlap multiple times with increasing threshold. Then, in the end for every token we know the highest threshold such that it marked as overlap
+					final double[] token_similarities = new double[current.num_tokens()];
+					
+					for(double threshold : thresholds) {
+						current.query(raw_query, threshold);
+						BitSet found_overlaps = current.marked_src();
+						for (int index = found_overlaps.nextSetBit(0); index >= 0; index = found_overlaps.nextSetBit(index+1)) {
+							token_similarities[index] = threshold;
+						}
+					}
+					//System.out.println(Util.outTSV(token_similarities));
+					double sim_score_paragraphs = Util.sum(token_similarities);
+					sim_score_paragraphs /= (double) token_similarities.length;
+					
+					//System.out.println(sim_score_paragraphs+"\t"+Util.outTSV(token_similarities));
+					all_scores.add(sim_score_paragraphs);
+					if(sim_score_paragraphs>max_similarity) {
+						index_most_similar = p_id;
+						max_similarity = sim_score_paragraphs;
+					}
+					//System.out.println(Util.outTSV(matrix));
+					//System.out.println();
+				}
+				System.out.println("Found j="+index_most_similar+" sim="+max_similarity+" "+corpus.get(i_c).sentences.get(index_most_similar));
+				all_sims[i][i_c] = max_similarity;
+				all_indexes[i][i_c] = index_most_similar;
+			}
+		}
+		System.out.println(Util.outTSV(all_sims));
+		System.out.println();
+		BibleResult br = new BibleResult(-1, "oph", all_sims, all_indexes, Util.toPrimitive(all_scores));
+		br.to_file();
+		return br;
 	}
 	
 	static void jaccard_experiment(SentenceEmbedding query, ArrayList<SentenceEmbedding> corpus, ArrayList<Book> books, int k) {

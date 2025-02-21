@@ -26,6 +26,7 @@ import boss.hungarian.Solutions;
 import boss.lexicographic.StopWords;
 import boss.test.SemanticTest;
 import boss.util.Config;
+import oph.OPH;
 
 public class WikiDataLoader {
 	/**
@@ -38,11 +39,11 @@ public class WikiDataLoader {
 	int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
 	//static final int[] intput_sequence_length = {16*THOUSAND};
 	//int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
-	int[] all_solutions = {6};
+	public int[] all_solutions = {6};
 	
 	static String folder = "./data/wikipedia/";
 	//static String test_file = "test-5000.txt";
-	static String test_file = "wiki-1024000.txt";
+	public static String test_file = "wiki-1024000.txt";
 	static String embedding_path = "all_words_wiki.tsv";
 	
 	static boolean header_written = false;
@@ -199,7 +200,7 @@ public class WikiDataLoader {
 		new WikiDataLoader().run(test_file);
 	}
 	
-	void run(String file) {
+	public void run(String file) {
 		System.out.println("WikiDataLoader.run()");
 		String line = load_file(file);
 		ArrayList<String> tokens = tokenize_txt_align(line);
@@ -255,7 +256,14 @@ public class WikiDataLoader {
 		
 		for(int k : Config.wiki_k_s) {
 			Solutions.dense_global_matrix_buffer = null;
-			Solutions s = new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);
+			Solutions s = null;
+			OPH src_index = null;//only used if solution_enum == SemanticTest.OPH
+			if(solution_enum != SemanticTest.OPH) {
+				s=new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);	
+			}			
+			if(solution_enum == SemanticTest.OPH) {
+				src_index = new OPH(raw_paragraphs_b1.get(0), 32);//same sketch size as always, only one long paragraph 
+			}
 			int repitions = 0;
 			double run_time = 0;
 			while(repitions++<num_repititions) {
@@ -269,12 +277,17 @@ public class WikiDataLoader {
 					run_times = s.run_fast_text();
 				}else if(solution_enum == SemanticTest.JACCARD) {
 					run_times = s.jaccard_windows();
+				}else if(solution_enum == SemanticTest.OPH) {
+					src_index.query(raw_paragraphs_b2.get(0), threshold, k);
+					double[] temp = {src_index.get_runtime()};//for all other approaches it is an array...
+					run_times = temp;
 				}else{
 					System.err.println("SemanticTest.run() unknown solution enum: "+solution_enum);
 				}
 				run_time += run_times[0];
 			}
-			last_result = s.alignement_matrix;
+			if(s!=null)
+				last_result = s.alignement_matrix;
 			run_time /= repitions-1;
 			double[] temp = {run_time};
 			all_run_times.add(temp);

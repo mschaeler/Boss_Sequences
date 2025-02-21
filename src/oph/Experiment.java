@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 
+import bert.BertBibleBase;
+import bert.BibleResult;
 import boss.lexicographic.Tokenizer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
@@ -11,8 +13,75 @@ import boss.test.SemanticTest;
 import boss.util.Config;
 import boss.util.Util;
 import plus.data.Book;
+import wikipedia.WikiDataLoader;
 
 public class Experiment {
+	static void run_bible_runtime_experiment() {
+		ArrayList<Book> en_books = ImporterAPI.get_all_english_books();
+		ArrayList<Book> de_books = ImporterAPI.get_all_german_books();
+		
+		double threshold = 0.4;//the same as always
+		int[] k_s = Config.k_s;
+		
+		ArrayList<double[]> all_results = new ArrayList<double[]>();
+		{
+			double[] runtime_reuslts = run_bible_runtime_experiment(0,0,en_books.get(0),en_books.get(1), threshold, k_s);
+			all_results.add(runtime_reuslts);
+		}
+		for(int i=0;i<de_books.size();i++) {
+			final Book b_1 = de_books.get(i); 
+			for(int j=i+1;j<de_books.size();j++) {
+				final Book b_2 = de_books.get(j);
+				double[] runtime_reuslts = run_bible_runtime_experiment(i,j,b_1,b_2, threshold, k_s);
+				all_results.add(runtime_reuslts);
+			}
+		}
+		System.out.println("****************");
+		double[] agg_results = new double[k_s.length];
+		
+		System.out.println("k\t"+Util.outTSV(k_s));
+		for(int i=0;i<k_s.length;i++) {
+			System.out.println("k="+k_s[i]+"\t"+agg_results[i]);
+		}
+	}
+	
+	private static double[] run_bible_runtime_experiment(int i_b_1,int i_b_2, Book b_1, Book b_2, double threshold, int[] k_s) {
+		System.out.println("i="+i_b_1+" j="+i_b_2+" "+b_1.text_name+" vs. "+b_2.text_name);
+		
+		boolean use_stemming = false;
+		
+		ArrayList<String> b_1_tokens = Tokenizer.tokenize(b_1, use_stemming);
+		ArrayList<String> b_2_tokens = Tokenizer.tokenize(b_2, use_stemming);
+				
+		ArrayList<ArrayList<String>> tokenized_books = new ArrayList<ArrayList<String>>();
+		tokenized_books.add(b_1_tokens);
+		tokenized_books.add(b_2_tokens);
+		
+		ArrayList<String> all_tokens_ordered = Sequence.get_unique_tokens_orderd(tokenized_books);
+		
+		HashMap<String, Integer> token_ids = SemanticTest.strings_to_int(all_tokens_ordered);
+		
+		int[] src  = SemanticTest.encode_(b_1_tokens, token_ids).get(0);//does the order rake a significant difference?
+		int[] query= SemanticTest.encode_(b_2_tokens, token_ids).get(0);
+		
+		int sketch_size = 32;
+		OPH index_src = new OPH(src, sketch_size);
+		
+		double[] run_time_results = new double[k_s.length];
+		
+		for(int i=0;i<run_time_results.length;i++) {
+			int k = k_s[i];
+			System.out.println("k="+k);
+			index_src.query(query, threshold, k);
+			double run_time = index_src.get_runtime();
+			run_time_results[i] = run_time;
+		}
+		System.out.println(Util.outTSV(k_s));
+		System.out.println(Util.outTSV(run_time_results));
+		
+		return run_time_results;
+	}
+
 	static void run_bible_test_experiment() {
 		ArrayList<Book> books = ImporterAPI.get_all_english_books();
 		System.out.println(books.get(0).text_name);
@@ -180,8 +249,27 @@ public class Experiment {
 		}
 	}
 	
+	static void run_bible_correctness_experiment() {
+		BibleResult br = BertBibleBase.oph_experiment();
+		HashMap<Integer, BibleResult> appraoch_data = new HashMap<Integer, BibleResult>(1);
+		appraoch_data.put(-1, br);
+		
+		BibleResult.compute_mapping_accuracy("OPH", appraoch_data );
+	}
+	
+	static void run_wiki_runtime_experiment() {
+		WikiDataLoader wdl = new WikiDataLoader();
+		wdl.RESULTS_TO_FILE = false;
+		wdl.threshold = 0.4;//The value to detect near duplicates
+		wdl.all_solutions = Util.to_array(SemanticTest.OPH);
+		wdl.run(WikiDataLoader.test_file);
+	}
+	
 	public static void main(String[] args) {
 		//run_bible_test_experiment();
-		run_pan_experiment();
+		//run_pan_experiment();
+		//run_bible_correctness_experiment();
+		//run_bible_runtime_experiment();
+		run_wiki_runtime_experiment();
 	}
 }

@@ -100,10 +100,12 @@ public class OPH {
 	}
 	
 	public ArrayList<Integer> query(int[] query_sequence, double threshold) {
+		this.marked_src.clear();
 		long[] hashes = my_min_hasher.h(query_sequence,0,query_sequence.length);
 		return query(hashes, threshold);
 	}
 	ArrayList<Integer> query(int[] query_sequence, int from, int to, double threshold) {
+		this.marked_src.clear();
 		long[] hashes = my_min_hasher.h(query_sequence, from, to);
 		return query(hashes, threshold);
 	}
@@ -339,5 +341,8 @@ public class OPH {
 	}
 	public BitSet marked_sup() {
 		return this.marked_susp;
+	}
+	public int num_tokens() {
+		return this.my_min_hashes.length;
 	}
 }

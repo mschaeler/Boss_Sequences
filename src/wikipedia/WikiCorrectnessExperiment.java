@@ -21,6 +21,9 @@ public class WikiCorrectnessExperiment {
 	
 	static int num_buckets = 10;
 	
+	/**
+	 * computes for each line of the matrix (i.e., query) the top_k results
+	 */
 	static void run() {
 		SentenceEmbedding bert_embedding = SentenceEmbedding.load_wikipedia_emebddings();
 		double[][] m_bert = get_bert_matrix(bert_embedding.vectors);
@@ -122,6 +125,12 @@ public class WikiCorrectnessExperiment {
 		out_box_plott("Fast Text", m_bert, m_fast_text);
 	}
 
+	/**
+	 * Outputs raw information to plot boxplott. To this end, we first partition the data according to the Bert similarity value which is in [0,1] into <code>num_buckets</code> buckets
+	 * @param name
+	 * @param m_bert
+	 * @param other_matrix
+	 */
 	private static void out_box_plott(String name, double[][] m_bert, double[][] other_matrix) {
 		System.out.println(name);
 		final int size = m_bert.length;//asserts quadratic matrix 

@@ -202,7 +202,7 @@ public class NonEmptyCompactWindow {
 	}
 	
 	public static ArrayList<ArrayList<NonEmptyCompactWindow>> create_all_compact_window(int[] sequence, long[] min_hashes) {
-		System.out.println("Create all Non-Empty compact windows");
+		//System.out.println("Create all Non-Empty compact windows");
 		ArrayList<ArrayList<NonEmptyCompactWindow>> all_empty_windows = new ArrayList<ArrayList<NonEmptyCompactWindow>>(MinHash.num_oph_bins);
 		for(int bin=0;bin<MinHash.num_oph_bins;bin++) {
 			ArrayList<NonEmptyCompactWindow> temp = create_windows(sequence, min_hashes, bin);
