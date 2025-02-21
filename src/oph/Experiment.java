@@ -9,6 +9,7 @@ import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
 import boss.test.SemanticTest;
 import boss.util.Config;
+import boss.util.Util;
 import plus.data.Book;
 
 public class Experiment {
@@ -43,12 +44,15 @@ public class Experiment {
 		
 	}
 	
-	static void run_pan_experiment() {
+	static double[][] run_pan_experiment(double threshold, int[] my_k_s) {
 		ArrayList<Book>[] all_pairs_excerpt = pan.Data.load_all_plagiarism_excerpts();
 		ArrayList<Book>[] all_pairs = pan.Data.load_all_entire_documents();
-		PanResult[] all_results = new PanResult[all_pairs.length];
+		int num_pairs = all_pairs.length;
+		//num_pairs = 3;//for debug
 		
-		for(int pair=0;pair<all_pairs.length;pair++) {
+		PanResult[] all_results = new PanResult[num_pairs];
+		
+		for(int pair=0;pair<num_pairs;pair++) {
 			System.out.println("************Pair "+pair);
 			ArrayList<Book> src_plagiat_pair = all_pairs[pair];
 			ArrayList<Book> excerpt_pair = all_pairs_excerpt[pair];
@@ -93,7 +97,7 @@ public class Experiment {
 			gtruth_src.set (offset_src , offset_src+raw_excerpt_src.length);
 			gtruth_susp.set(offset_susp, offset_susp+raw_excerpt_sups.length);
 			
-			PanResult pr = new PanResult(pair,gtruth_src,gtruth_susp);
+			PanResult pr = new PanResult(pair, threshold, gtruth_src,gtruth_susp);
 			all_results[pair] = pr;
 			/*System.out.println("Offsets src ["+offset_src+","+(offset_src+raw_excerpt_src.length)+"]");
 			System.out.println("Offsets susp ["+offset_susp+","+(offset_susp+raw_excerpt_sups.length)+"]");*/
@@ -102,9 +106,8 @@ public class Experiment {
 			OPH src = new OPH(raw_paragraphs_src, sketch_size);
 			
 			ArrayList<Double> run_times = new ArrayList<Double>(Config.k_s.length);
-			int[] my_k_s = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
 			for(int k : my_k_s) {
-				src.query(raw_paragraphs_sups, 0.3, k);
+				src.query(raw_paragraphs_sups, threshold, k);
 				run_times.add(src.get_runtime());
 				pr.add(k, src.marked_src(), src.marked_sup(), src.get_runtime());
 				
@@ -116,6 +119,8 @@ public class Experiment {
 		for(PanResult pr : all_results) {
 			System.out.println(pr);
 		}
+		
+		return PanResult.aggregate(all_results);
 	}
 	
 	private static boolean check(int[] raw_paragraph, int[] raw_excerpt, int offset) {
@@ -141,6 +146,39 @@ public class Experiment {
 //		src.query(supicious_doc, 0.3, 16);
 	}
 	
+	static void run_pan_experiment(){
+		double[] thresholds = {0.4,0.41,0.42,0.43,0.43,0.44,0.45};
+		//int[] my_k_s = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
+		int[] my_k_s = Config.k_s;
+		
+		
+		ArrayList<double[][]> all_results = new ArrayList<double[][]>(thresholds.length);
+		for(double t : thresholds) {
+			all_results.add(run_pan_experiment(t, my_k_s));
+		}
+		ArrayList<String> precision_macro = new ArrayList<String>();
+		precision_macro.add(Util.concat("Precision macro", thresholds));
+		for(int i=0;i<my_k_s.length;i++) {
+			precision_macro.add(Util.concat("k="+my_k_s[i], i, PanResult.o_precision, all_results));	
+		}
+				
+		ArrayList<String> recall_macro = new ArrayList<String>();
+		recall_macro.add(Util.concat("Recall macro", thresholds));
+		for(int i=0;i<my_k_s.length;i++) {
+			recall_macro.add(Util.concat("k="+my_k_s[i], i ,PanResult.o_recall, all_results));	
+		}
+		
+		ArrayList<String> run_times = new ArrayList<String>();
+		run_times.add(Util.concat("Run times", thresholds));
+		for(int i=0;i<my_k_s.length;i++) {
+			run_times.add(Util.concat("k="+my_k_s[i], i ,PanResult.o_run_time, all_results));	
+		}
+		System.out.println("**************");
+		System.out.println("Aggregated results for OPH");
+		for(int i=0;i<precision_macro.size();i++) {
+			System.out.println(precision_macro.get(i)+"\t\t"+recall_macro.get(i)+"\t\t"+run_times.get(i));
+		}
+	}
 	
 	public static void main(String[] args) {
 		//run_bible_test_experiment();

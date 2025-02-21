@@ -3,6 +3,8 @@ package boss.util;
 import java.util.ArrayList;
 import java.util.HashSet;
 
+import oph.PanResult;
+
 public class Util {
 
 	public static final long seed = 1234567;
@@ -199,6 +201,23 @@ public class Util {
 	public static int[] to_array(int k) {
 		int[] temp = {k};
 		return temp;
+	}
+
+	public static String concat(final String s, double[] arr) {
+		String ret = s;
+		for(double d : arr) {
+			ret+="\t"+d;
+		}
+		return ret;
+	}
+
+	public static String concat(final String s, int index_k, int index_measure, ArrayList<double[][]> all_results) {
+		String ret = s;
+		for(double[][] m : all_results) {
+			double d = m[index_k][index_measure];
+			ret+="\t"+d;
+		}
+		return ret;
 	}
 
 }
