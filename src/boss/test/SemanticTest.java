@@ -12,6 +12,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 
+import com.sun.source.tree.Tree;
+
 import boss.embedding.Embedding;
 import boss.embedding.MatchesWithEmbeddings;
 import boss.hungarian.HungarianAlgorithmPranayImplementation;
@@ -82,7 +84,7 @@ public class SemanticTest {
 	public static final int SOLUTION 	= 0;
 	public static final int BASELINE 	= 1;
 	public static final int NAIVE    	= 2;
-	static final int BOUND_TIGHTNESS    = 3;
+	public static final int BOUND_TIGHTNESS    = 3;
 	static final int MEMORY_CONSUMPTION = 4;
 	static final int DUMMY    			= 5;
 	public static final int FAST_TEXT   = 6;
@@ -355,7 +357,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"wiki_mat"};//if no experiment specified run the bible experiment 
+			String[] temp = {"bound", "bound_pan", "remaining"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
@@ -372,12 +374,89 @@ public class SemanticTest {
 		}else if(contains(args, "fast_text")) {
 			run_pan_correctness_experiments_avg_word_2_vec();
 		}else if(contains(args, "bound")) {
+			//int[] k_s = {3,4};
 			final int[] k_s= Config.k_s;//{3,4,5,6,7,8};
 			//double[] thetas = {0.5,0.6,0.7,0.8,0.9};
-			double[] thetas = {0.9};
-			for(double threshold : thetas) {
-				run_bible_experiments(SOLUTION,k_s, threshold, false);	
+			if(contains(args, "bound_bible")) {
+				if(contains(args, "shares")) {//TODO
+					double[] thetas = {0.9};//Does not matter
+					for(double threshold : thetas) {
+						run_bible_experiments(BOUND_TIGHTNESS,k_s, threshold, false);	
+					}
+				}else{
+					double[] thetas = {0.9};//Does not matter
+					for(double threshold : thetas) {
+						run_bible_experiments(BOUND_TIGHTNESS,k_s, threshold, false);	
+					}
+				}		
+			}else if(contains(args, "bound_pan")) {
+				if(contains(args, "shares")) {
+					Solutions.record_solution_statistics = true;
+					int[] my_k_s = {3,4,5,6,7,8};
+					double threshold = 0.7; 
+					run_pan_bounds_experiments(my_k_s, SOLUTION, threshold);
+					
+					int largest_k = my_k_s[my_k_s.length-1];
+					double[][] agg_results = new double[largest_k+1][Solutions.solution_statistics.get(0).length];
+					
+					System.out.println("k\tthreshold\tsize\t|C|\tO(1)\tO(k)\tO(k²)\ttrue positives\ttime\tidx time");
+					for(double[] arr  : Solutions.solution_statistics) {
+						System.out.println(Util.outTSV(arr));
+						int k=(int)arr[0];
+						Util.add_to(agg_results[k], arr);
+					}
+					System.out.println("k\tthreshold\tsize\t|C|\tO(1)\tO(k)\tO(k²)\ttrue positives\ttime\tidx time");
+					for(double[] arr  : agg_results) {
+						System.out.println(Util.outTSV(arr));
+					}
+				}else if(contains(args, "remaining")) {
+					Solutions.record_solution_statistics = true;
+					double[] thresholds = {0.5,0.6,0.7,0.8,0.9};
+					int[] my_k_s = Util.to_array(10);
+					
+					for(double t : thresholds) {
+						run_pan_bounds_experiments(my_k_s, SOLUTION, t);
+					}
+					
+				}else{//similarity over estimation
+					double threshold = 0.0;
+					run_pan_bounds_experiments(k_s, BOUND_TIGHTNESS, threshold);	
+				}
+				
+			}else if(contains(args, "bound_wiki")) {
+				WikiDataLoader wdl = new WikiDataLoader();
+				wdl.RESULTS_TO_FILE = false;
+				if(contains(args, "shares")) {
+					int[] my_k_s = {3,4,5,6,7,8};
+					Config.wiki_k_s = my_k_s;
+					wdl.all_solutions = Util.to_array(SOLUTION);
+					wdl.intput_sequence_length = Util.to_array(8000);
+				}else if(contains(args, "remaining")) {
+					Solutions.record_solution_statistics = true;
+					Config.wiki_k_s = Util.to_array(10);
+					double[] thresholds = {0.5,0.6,0.7,0.8,0.9};
+					wdl.all_solutions = Util.to_array(SOLUTION);
+					wdl.intput_sequence_length = Util.to_array(8000);
+					wdl.run(WikiDataLoader.test_file, thresholds);
+					
+					System.out.println("k\tthreshold\tsize\t|C|\tO(1)\tO(k)\tO(k²)\ttrue positives\ttime\tidx time");
+					for(double[] arr  : Solutions.solution_statistics) {
+						System.out.println(Util.outTSV(arr));
+					}
+				}else {
+					wdl.all_solutions = Util.to_array(BOUND_TIGHTNESS);
+					wdl.intput_sequence_length = Util.to_array(2000);
+					Config.wiki_k_s = Config.k_s;
+					wdl.run(WikiDataLoader.test_file);
+				}
+				//Remaining tuples
+				//wdl.all_solutions = Util.to_array(SOLUTION);
+				//wdl.intput_sequence_length = Util.to_array(8000);
+				
+			}else{
+				System.err.println("Found bound flag in args but no corpus");
 			}
+			evaluate_bounds(Solutions.bound_results);
 		}else if(contains(args, "m")) {
 			final int[] k_s= {3};//The same for all k's
 			double[] thetas = {0.5,0.6,0.7,0.8,0.9};
@@ -435,6 +514,79 @@ public class SemanticTest {
 		for(double threshold = 0.0; threshold<1.0;threshold+=0.1) {
 			no_match_words(embeddings, threshold);	
 		}*/	
+	}
+
+	/**
+	 * 
+	 * @param bound_results [k,cand,O(1),O(k),O(k*k)]
+	 */
+	private static void evaluate_bounds(ArrayList<double[]> bound_results) {
+		HashSet<Integer> all_k_s = new HashSet<Integer>();
+		for(double[] arr : bound_results) {
+			all_k_s.add((int) arr[0]);
+		}
+		int[] k_s = new int[all_k_s.size()];
+		int i=0;
+		for(int k : all_k_s) {
+			k_s[i++] = k;
+		}
+		Arrays.sort(k_s);
+		
+		System.out.println("k\t|C|\tO(1)\tO(k)\tO(k*k)");
+		ArrayList<double[]> all_aggregates = new ArrayList<double[]>(k_s.length);
+		for(i=0;i<k_s.length;i++) {
+			int k = k_s[i];
+			ArrayList<double[]> all_results_k = new ArrayList<double[]>();
+			//get the right results
+			for(double[] arr : bound_results) {
+				if(arr[0] == k) {
+					all_results_k.add(arr);
+				}
+			}
+			//aggregate
+			double[] aggregate = new double[bound_results.get(0).length];
+			aggregate[0] = k;
+			for(double[] arr : all_results_k) {
+				aggregate[1] += arr[1]; // Candidate bound
+				aggregate[2] += arr[2]; // O(1) bound
+				aggregate[3] += arr[3]; // O(k) bound
+				aggregate[4] += arr[4]; // O(k*k) bound
+			}
+			aggregate[1] /= (double)all_results_k.size(); // Candidate bound
+			aggregate[2] /= (double)all_results_k.size(); // O(1) bound
+			aggregate[3] /= (double)all_results_k.size(); // O(k) bound
+			aggregate[4] /= (double)all_results_k.size(); // O(k*k) bound
+			System.out.println(Util.outTSV(aggregate));
+			all_aggregates.add(aggregate);
+		}
+		//print for tikz
+		System.out.println("\\addplot coordinates{%Candidates bound ");
+		for(double[] arr : all_aggregates) {
+			System.out.print("("+arr[0]+","+arr[1]+") ");
+		}
+		System.out.println();
+		System.out.println("};");
+		
+		System.out.println("\\addplot coordinates{%O(1) bound ");
+		for(double[] arr : all_aggregates) {
+			System.out.print("("+arr[0]+","+arr[2]+") ");
+		}
+		System.out.println();
+		System.out.println("};");
+		
+		System.out.println("\\addplot coordinates{%O(k) bound ");
+		for(double[] arr : all_aggregates) {
+			System.out.print("("+arr[0]+","+arr[3]+") ");
+		}
+		System.out.println();
+		System.out.println("};");
+		
+		System.out.println("\\addplot coordinates{%O(k*k) bound ");
+		for(double[] arr : all_aggregates) {
+			System.out.print("("+arr[0]+","+arr[4]+") ");
+		}
+		System.out.println();
+		System.out.println("};");
 	}
 
 	private static String to_tsv(String[] arr) {
@@ -803,6 +955,38 @@ public class SemanticTest {
 	}
 	
 
+	
+	static void run_pan_bounds_experiments(int[] k_s, int solution_enum, double threshold) {
+		Config.REMOVE_STOP_WORDS = false;		
+		ArrayList<Book>[] all_src_plagiats_pairs;
+		
+		all_src_plagiats_pairs = pan.Data.load_all_entire_documents();
+		for(ArrayList<Book> src_plagiat_pair : all_src_plagiats_pairs) {
+			Solutions.dense_global_matrix_buffer = null;
+			SemanticTest.embedding_vector_index_buffer = null;
+			for(int k : k_s){
+				boolean pan_embeddings = true;
+				ArrayList<Solutions> solutions = prepare_solution(src_plagiat_pair,k,threshold, pan_embeddings);
+				for(Solutions s : solutions) {
+					if(solution_enum==SOLUTION) {
+						s.run_solution();
+					}else if(solution_enum==BOUND_TIGHTNESS) {
+						s.run_bound_tightness_exp();	
+					}else{
+						System.err.println("Unknown solution_enum");
+					}
+				}
+			}
+			if(solution_enum==SOLUTION) {
+				System.out.println("k\tthreshold\tsize\t|C|\tO(1)\tO(k)\tO(k²)\ttrue positives\ttime\tidx time");
+				for(double[] arr  : Solutions.solution_statistics) {
+					System.out.println(Util.outTSV(arr));
+				}
+			}
+		}
+		Config.REMOVE_STOP_WORDS = true;
+	}
+	
 	static void run_pan_correctness_experiments() {
 		Config.REMOVE_STOP_WORDS = false;
 		//final int[] k_s= {3,4,5,6,7,8};

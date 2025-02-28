@@ -2,6 +2,7 @@ package wikipedia;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Random;
@@ -12,6 +13,7 @@ import boss.hungarian.Solutions;
 import boss.test.SemanticTest;
 import boss.util.Config;
 import boss.util.Util;
+import oph.OPH;
 
 public class WikiCorrectnessExperiment {
 	static int num_queries = 20;
@@ -188,7 +190,7 @@ public class WikiCorrectnessExperiment {
 		return res;
 	}
 
-	static double[][] get_bert_matrix(ArrayList<double[]> vectors){
+	public static double[][] get_bert_matrix(ArrayList<double[]> vectors){
 		System.out.print("get_bert_matrix() ");
 		double start = System.currentTimeMillis(); 
 		
@@ -272,8 +274,8 @@ public class WikiCorrectnessExperiment {
 	}
 
 	public static void main(String[] args) {
-		out_box_plott();
-		//run();
+		//out_box_plott();
+		run();
 	}
 	
 	static void out_box_plott() {
@@ -330,5 +332,41 @@ public class WikiCorrectnessExperiment {
 	}
 	static void out(String s) {
 		System.out.println("\t"+s);
+	}
+	
+	public static void get_oph_matrix() {		
+		WikiDataLoader wdl = new WikiDataLoader();
+		wdl.RESULTS_TO_FILE = false;
+		wdl.threshold = 0.0;
+		Config.wiki_k_s = Util.to_array(k);
+		wdl.intput_sequence_length = Util.to_array(4000);//TODO length parameter not hard coded
+		wdl.use_entire_doc = true;
+		
+		String line = wdl.load_file(WikiDataLoader.test_file);
+		ArrayList<String> tokens = wdl.tokenize_txt_align(line);
+		ArrayList<String> input = wdl.shorten_to_length(tokens, wdl.intput_sequence_length[0]);
+		wdl.prepare_solution(input);
+		
+		double[] thresholds = {0.1,0.2,0.3,0.4,0.5};//TODO check parameters
+		int sketch_size = OPH.sketch_size;
+		OPH src_index = new OPH(wdl.raw_paragraphs_b1.get(0), sketch_size);//same sketch size as always, only one long paragraph 
+		
+		
+		//TODO split wdl.raw_paragraphs_b2 into k-width windows
+		for(int[] query : wdl.raw_paragraphs_b2) {//XXX Sind das schon die windows?
+			
+			final double[] token_similarities = new double[2];
+			
+			for(double threshold : thresholds) {
+				src_index.query(query, threshold, k);
+				BitSet found_overlaps = src_index.marked_src();
+				for (int index = found_overlaps.nextSetBit(0); index >= 0; index = found_overlaps.nextSetBit(index+1)) {
+					token_similarities[index] = threshold;
+				}
+			}
+			//convert windows and corresponding similarity
+			
+			//TODO extract top
+		}
 	}
 }

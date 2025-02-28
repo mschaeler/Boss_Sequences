@@ -198,8 +198,8 @@ public class Util {
 		return ret;
 	}
 
-	public static int[] to_array(int k) {
-		int[] temp = {k};
+	public static int[] to_array(int value) {
+		int[] temp = {value};
 		return temp;
 	}
 
@@ -218,6 +218,15 @@ public class Util {
 			ret+="\t"+d;
 		}
 		return ret;
+	}
+
+	public static void add_to(final double[] target, double[] add_me) {
+		if(target.length!=add_me.length) {
+			System.err.println("target.length!=add_me.length");
+		}
+		for(int i=0;i<target.length;i++) {
+			target[i] += add_me[i];
+		}
 	}
 
 }

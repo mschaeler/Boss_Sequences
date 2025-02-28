@@ -329,13 +329,24 @@ public class Solutions {
 		double check_sum = sum(alignment_matrix);
 		System.out.println("k="+k+"\t"+(stop-start)+"\tms\t"+check_sum+"\t"+size+"\t"+count_num_candidates+"\t"+count_survived_o_1_bound+"\t"+count_survived_o_k_bound+"\t"+count_survived_pruning+"\t"+count_computed_cells);
 		
-		System.out.println("Candidate bound mean overestimation\t"+mean(candidate_bound_differences));
-		System.out.println("O(1) bound mean overestimation\t"+mean(o_1_bound_differences));
-		System.out.println("O(k) bound mean overestimation\t"+mean(o_k_bound_differences));
-		System.out.println("O(k²) bound mean overestimation\t"+mean(o_k_square_bound_differences));
+		double c_b = mean(candidate_bound_differences);
+		double o_1_b = mean(o_1_bound_differences);
+		double o_k_b = mean(o_k_bound_differences);
+		double o_k_k_b = mean(o_k_square_bound_differences);
+		
+		System.out.println("Candidate bound mean overestimation\t"+c_b);
+		System.out.println("O(1) bound mean overestimation\t"+o_1_b);
+		System.out.println("O(k) bound mean overestimation\t"+o_k_b);
+		System.out.println("O(k²) bound mean overestimation\t"+o_k_k_b);
 
+		double[] bounds = {k, c_b, o_1_b, o_k_b, o_k_k_b};
+		bound_results.add(bounds);
+		
 		return run_times;
 	}
+	public static ArrayList<double[]> bound_results = new ArrayList<double[]>();
+	
+	
 	
 	private double max_value(double[][] local_similarity_matrix) {
 		double min_value = Double.MAX_VALUE;
@@ -988,6 +999,10 @@ public class Solutions {
 		int size = size(alignement_matrix);
 		double check_sum = sum(alignement_matrix);
 		System.out.println("k="+k+"\t"+(stop-start)+"\tms\tcheck_sum=\t"+check_sum+"\t"+size+"\tcandidates\t"+count_candidates+"\tO(1)\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
+		if(record_solution_statistics) {
+			double[] statistics = {k,threshold,size,count_candidates,count_survived_pruning,count_survived_second_pruning,count_survived_third_pruning,count_cells_exceeding_threshold,(stop-start),(stop_candidates-start)};
+			solution_statistics.add(statistics);
+		}
 		//clean up
 		/*count_candidates = 0;
 		count_survived_pruning = 0;
@@ -996,6 +1011,8 @@ public class Solutions {
 		count_cells_exceeding_threshold = 0;*/
 		return run_times;
 	}
+	public static ArrayList<double[]> solution_statistics = new ArrayList<double[]>();
+	public static boolean record_solution_statistics = false;
 	
 	MyArrayList merge(BitSet[] my_candidates) {//, MyArrayList candidates_correct) {
 		final int size = my_candidates[0].size();

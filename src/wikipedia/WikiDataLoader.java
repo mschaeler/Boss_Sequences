@@ -26,6 +26,7 @@ import boss.hungarian.Solutions;
 import boss.lexicographic.StopWords;
 import boss.test.SemanticTest;
 import boss.util.Config;
+import boss.util.Util;
 import oph.OPH;
 
 public class WikiDataLoader {
@@ -36,7 +37,7 @@ public class WikiDataLoader {
 	
 	public static final int THOUSAND = 1000;
 	//static final int[] intput_sequence_length = {2*THOUSAND, 20*THOUSAND, 200*THOUSAND, 2*THOUSAND*THOUSAND};
-	int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
+	public int[] intput_sequence_length = {2*THOUSAND, 4*THOUSAND, 8*THOUSAND, 16*THOUSAND, 2*16*THOUSAND, 3*16*THOUSAND, 4*16*THOUSAND, 5*16*THOUSAND};//, 5*16*THOUSAND, 6*16*THOUSAND, 7*16*THOUSAND, 8*16*THOUSAND, 9*16*THOUSAND};
 	//static final int[] intput_sequence_length = {16*THOUSAND};
 	//int[] all_solutions = {SemanticTest.NAIVE, SemanticTest.BASELINE, SemanticTest.SOLUTION};
 	public int[] all_solutions = {6};
@@ -200,6 +201,26 @@ public class WikiDataLoader {
 		new WikiDataLoader().run(test_file);
 	}
 	
+	public void run(String file, double[] threshold) {
+		System.out.println("WikiDataLoader.run()");
+		String line = load_file(file);
+		ArrayList<String> tokens = tokenize_txt_align(line);
+		//out_unique_tokens(tokens);
+		System.out.println("tokenize() returned "+tokens.size()+ " tokens");
+		int length = intput_sequence_length[0];//only the shortest
+		ArrayList<String> input = shorten_to_length(tokens, length);
+		System.out.println(input);
+		prepare_solution(input);
+		
+		for(double t : threshold) {
+			this.threshold = t;
+			System.out.println("*** threshold = "+t);
+			for(int solution_enum : all_solutions) {
+				run_solution(solution_enum);	
+			}
+		}
+	}
+	
 	public void run(String file) {
 		System.out.println("WikiDataLoader.run()");
 		String line = load_file(file);
@@ -240,7 +261,7 @@ public class WikiDataLoader {
 		}
 	}
 
-	private ArrayList<String> shorten_to_length(ArrayList<String> tokens, int length) {
+	ArrayList<String> shorten_to_length(ArrayList<String> tokens, int length) {
 		ArrayList<String> ret = new ArrayList<String>(length);
 		for(int i=0;i<length;i++){
 			ret.add(tokens.get(i));
@@ -262,7 +283,8 @@ public class WikiDataLoader {
 				s=new Solutions(raw_paragraphs_b1, raw_paragraphs_b2, k, threshold, embedding_vector_index);	
 			}			
 			if(solution_enum == SemanticTest.OPH) {
-				src_index = new OPH(raw_paragraphs_b1.get(0), 32);//same sketch size as always, only one long paragraph 
+				int sketch_size = OPH.sketch_size;
+				src_index = new OPH(raw_paragraphs_b1.get(0), sketch_size);//same sketch size as always, only one long paragraph 
 			}
 			int repitions = 0;
 			double run_time = 0;
@@ -273,6 +295,8 @@ public class WikiDataLoader {
 					run_times = s.run_baseline();
 				}else if(solution_enum == SemanticTest.NAIVE) {
 					run_times = s.run_naive();
+				}else if(solution_enum == SemanticTest.BOUND_TIGHTNESS) {
+					run_times = s.run_bound_tightness_exp();
 				}else if(solution_enum == SemanticTest.FAST_TEXT) {//TODO FastText JACCARD
 					run_times = s.run_fast_text();
 				}else if(solution_enum == SemanticTest.JACCARD) {

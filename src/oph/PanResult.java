@@ -135,7 +135,7 @@ public class PanResult {
 			}
 		}
 		
-		System.out.println("Aggregated results "+all_results[0].threshold);
+		System.out.println("Aggregated results "+all_results[0].threshold+" sktech_size="+OPH.sketch_size);
 		normalize(aggregate, num_file_pairs);
 		System.out.println(header);
 		for(double[] arr : aggregate) {

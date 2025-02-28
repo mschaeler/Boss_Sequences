@@ -19,7 +19,7 @@ public class OPH {
 	final long[] my_oph_vector;
 	final ArrayList<ArrayList<CompactWindow>> empty_windows;
 	final ArrayList<ArrayList<NonEmptyCompactWindow>> non_empty_windows;
-	final int sketch_size;
+	public static int sketch_size = 8;
 	private double run_time;
 	
 	final BitSet marked_src;
@@ -32,7 +32,7 @@ public class OPH {
 		my_min_hashes = min_hashes;
 		MinHash.num_oph_bins = sketch_size;
 		my_oph_vector = MinHash.get_oph_vector(my_min_hashes);
-		this.sketch_size = sketch_size;
+		OPH.sketch_size = sketch_size;
 		marked_src = new BitSet(text.length);
 		
 		empty_windows = CompactWindow.create_all_compact_window(text, my_min_hashes);
@@ -46,7 +46,7 @@ public class OPH {
 	 * @param k window size
 	 * @return one array of overlapping intervals per window
 	 */
-	public ArrayList<ArrayList<Integer>> query(int[] query_sequence, double threshold, int k) {
+	public void query(int[] query_sequence, double threshold, int k) {
 		System.out.println("OPH.query(int[],t="+threshold+",k="+k+")");
 		this.marked_src.clear();
 				
@@ -55,16 +55,14 @@ public class OPH {
 		long[] hashes = my_min_hasher.h(query_sequence,0,query_sequence.length);
 		long[][] hashed_windows = create_hashed_windows(hashes, k);
 		this.marked_susp = new BitSet(hashed_windows.length);
-		ArrayList<ArrayList<Integer>> ret = new ArrayList<ArrayList<Integer>>(hashed_windows.length);
 		
 		for(int query_window=0;query_window<hashed_windows.length;query_window++) {
-			ArrayList<Integer> temp = query(hashed_windows[query_window], threshold);
-			ret.add(temp);
-			if(!temp.isEmpty()) {
+			boolean found_overlap = query(hashed_windows[query_window], threshold);
+			if(found_overlap) {
 				marked_susp.set(query_window, query_window+k);
 			}
 			if(query_window%300==0) {
-				System.out.print(query_window+" of "+hashed_windows.length+" ");
+				System.out.print("["+query_window+" of "+hashed_windows.length+"] ");
 			}
 		}
 		System.out.println();
@@ -72,7 +70,6 @@ public class OPH {
 		double stop = System.currentTimeMillis();
 		this.run_time = (stop-start);
 		System.out.println("query(int[] query_sequence, double threshold, int k) done in "+(stop-start)+" ms");
-		return ret;
 	}
 	
 	/**
@@ -99,18 +96,18 @@ public class OPH {
 		return windows;
 	}
 	
-	public ArrayList<Integer> query(int[] query_sequence, double threshold) {
+	public boolean query(int[] query_sequence, double threshold) {
 		this.marked_src.clear();
 		long[] hashes = my_min_hasher.h(query_sequence,0,query_sequence.length);
 		return query(hashes, threshold);
 	}
-	ArrayList<Integer> query(int[] query_sequence, int from, int to, double threshold) {
+	boolean query(int[] query_sequence, int from, int to, double threshold) {
 		this.marked_src.clear();
 		long[] hashes = my_min_hasher.h(query_sequence, from, to);
 		return query(hashes, threshold);
 	}
 
-	ArrayList<Integer> query(long[] query_min_hashes, double threshold) {
+	boolean query(long[] query_min_hashes, double threshold) {
 		long[] oph_vector = MinHash.get_oph_vector(query_min_hashes);
 		//get colliding empty compact windows
 		ArrayList<CompactWindow> colliding_emtpy_windows = get_colliding_emtpy_windows(oph_vector,empty_windows);
@@ -162,20 +159,20 @@ public class OPH {
 		}
 		
 		return ret;
-	}
-	
+	}	
+
 	/**
 	 * 
 	 * @param k - sketch size, i.e., number of hash oph bin
 	 * @param theta - Jaccard threshold in [0,1]
 	 * @param C - the set of collided non-empty OPH compact windows
 	 * @param C_e - the set of collided empty OPH compact windows
-	 * @return
+	 * @return true if there was at least one overlap. The overlaps itself are in <code>marked_src</code>
 	 */
-	private ArrayList<Integer> oph_interval_scan(double k, double theta, ArrayList<NonEmptyCompactWindow> C, ArrayList<CompactWindow> C_e) {
+	private boolean oph_interval_scan(double k, double theta, ArrayList<NonEmptyCompactWindow> C, ArrayList<CompactWindow> C_e) {
 		//System.out.println("oph_interval_scan() |C|="+C.size()+" |C_e|="+C_e.size());
 		//double start = System.currentTimeMillis();
-		ArrayList<Integer> solution_intervals = new ArrayList<Integer>();
+		//ArrayList<Integer> solution_intervals = new ArrayList<Integer>();//usually we do not need the intervals directly
 		ArrayList<Endpoint> endpoints = new ArrayList<Endpoint>();
 		
 		final double LOWER_HALF_NON_EMPTY_WINODW = 1;
@@ -189,7 +186,7 @@ public class OPH {
 		double k_theta = k*theta;
 		
 		if(((double)C.size())+k_theta*((double)C_e.size())<k_theta) {
-			return solution_intervals;
+			return false;
 		}
 		/**
 		 * Kind of contains the number of open windows
@@ -211,8 +208,12 @@ public class OPH {
 		Collections.sort(endpoints);
 		
 		
-		int[] all_u_x = get_all_distinct_values_sortetd(endpoints);
-		HashMap<Integer, ArrayList<Endpoint>> enpoints_grouped_by_u = get_enpoints_grouped_by_u(all_u_x, endpoints);
+		//int[] all_u_x = get_all_distinct_values_sortetd(endpoints);
+		//HashMap<Integer, ArrayList<Endpoint>> enpoints_grouped_by_u = get_enpoints_grouped_by_u(all_u_x, endpoints);//TODO optimize this such to avoid doubling this stuff
+		
+		//TODO use this
+		HashMap<Integer, ArrayList<Endpoint>> enpoints_grouped_by_u = new HashMap<Integer, ArrayList<Endpoint>>(100);
+		int[] all_u_x = get_enpoints_grouped_by_u(endpoints, enpoints_grouped_by_u);
 		
 		//HashMap<Integer,ArrayList<NonEmptyCompactWindow>> C_prime = new HashMap<Integer,ArrayList<NonEmptyCompactWindow>>(C.size());
 		//HashMap<Integer,CompactWindow> C_e_prime = new HashMap<Integer,CompactWindow>(C_e.size());
@@ -220,15 +221,15 @@ public class OPH {
 		HashSet<Integer> C_prime = new HashSet<Integer>();
 		HashSet<Integer> C_e_prime = new HashSet<Integer>();
 		
+		boolean found_overlap = false;
 		
 		for(int i=0;i<all_u_x.length;i++) {
 			int u_x = all_u_x[i];
-			
-			
+					
 			for(Endpoint e : enpoints_grouped_by_u.get(u_x)) {//Lines 8-11
-				if(e.u!=u_x) {
+				/*if(e.u!=u_x) {
 					System.err.println("e.u!=u_x");
-				}
+				}*/
 				
 				cnt += e.w;
 				if(e.w==LOWER_HALF_NON_EMPTY_WINODW) {
@@ -261,37 +262,67 @@ public class OPH {
 				}
 				Collections.sort(endpoints_prime);
 				
-				int[] all_v_x = get_all_distinct_values_sortetd(endpoints_prime);
-				HashMap<Integer, ArrayList<Endpoint>> enpoints_grouped_by_v_x = get_enpoints_grouped_by_u(all_v_x, endpoints_prime);
+				//TODO optimize me
+				//int[] all_v_x = get_all_distinct_values_sortetd(endpoints_prime);
+				//HashMap<Integer, ArrayList<Endpoint>> enpoints_grouped_by_v_x = get_enpoints_grouped_by_u(all_v_x, endpoints_prime);
+				HashMap<Integer, ArrayList<Endpoint>> enpoints_grouped_by_v_x = new HashMap<Integer, ArrayList<Endpoint>>(100);
+				int[] all_v_x = get_enpoints_grouped_by_u(endpoints_prime, enpoints_grouped_by_v_x);
+				
+				//TODO early abort ???
 				
 				for(int j=0;j<all_v_x.length;j++) {
 					int v_y = all_v_x[j];
 					
 					for(Endpoint e : enpoints_grouped_by_v_x.get(v_y)) {
-						if(e.u!=v_y) {
-							System.err.println("e.u!=v_y");
-						}
+						//if(e.u!=v_y) {
+						//	System.err.println("e.u!=v_y");
+						//}
 						cnt_prime += e.w;
 					}
 					if(cnt_prime>=k_theta) {
+						found_overlap = true;
 						//This is a bit tricky. We a found overlap in two intervals, since we cut the compact window in half
-						solution_intervals.add(u_x);
-						int end = all_u_x[i+1]-1;
-						solution_intervals.add(end);
+						//solution_intervals.add(u_x);
+						//int end = all_u_x[i+1]-1;
+						//solution_intervals.add(end);
 						marked_src.set(u_x, all_u_x[i+1]);//end exclusive
 						//Second intervall
-						solution_intervals.add(v_y);
-						end = all_v_x[j+1]-1;
-						solution_intervals.add(end);
+						//solution_intervals.add(v_y);
+						//end = all_v_x[j+1]-1;
+						//solution_intervals.add(end);
 						marked_src.set(v_y, all_v_x[j+1]);//end exclusive
 					}
 				}
 			}
 		}
 		//System.out.println("[DONE] in "+(System.currentTimeMillis()-start)+" ms found "+solution_intervals.size()+" intervals");
-		return solution_intervals;
+		return found_overlap;
 	}
 	
+	private static int[] get_enpoints_grouped_by_u(ArrayList<Endpoint> endpoints, HashMap<Integer, ArrayList<Endpoint>> result) {
+		HashSet<Integer> temp = new HashSet<Integer>();
+		
+		for(Endpoint e : endpoints) {
+			int key = e.u;
+			ArrayList<Endpoint> add_me_here = result.get(key);
+			if(add_me_here==null) {
+				add_me_here = new ArrayList<Endpoint>();
+				result.put(key, add_me_here);
+				temp.add(key);
+			}
+			add_me_here.add(e);
+		}
+		
+		int[] all_u = new int[temp.size()];
+		int i=0;
+		for(int u : temp) {
+			all_u[i++] = u;
+		}
+		Arrays.sort(all_u);
+		return all_u;
+	}
+
+	@Deprecated
 	private static HashMap<Integer, ArrayList<Endpoint>> get_enpoints_grouped_by_u(int[] all_u_x, ArrayList<Endpoint> endpoints) {
 		HashMap<Integer, ArrayList<Endpoint>> result = new HashMap<Integer, ArrayList<Endpoint>>(all_u_x.length);
 		
@@ -312,6 +343,7 @@ public class OPH {
 		return result;
 	}
 
+	@Deprecated
 	private static int[] get_all_distinct_values_sortetd(ArrayList<Endpoint> endpoints) {
 		HashSet<Integer> temp = new HashSet<Integer>();
 		for(Endpoint e : endpoints) {
@@ -344,5 +376,115 @@ public class OPH {
 	}
 	public int num_tokens() {
 		return this.my_min_hashes.length;
+	}
+	public static boolean result_is_equal(BitSet result_org, BitSet result_seq) {
+		System.out.println("result_is_equal(BitSet result_org, BitSet result_seq)");
+		if(result_org.size()!=result_seq.size()) {
+			System.err.println("result_org.size()!=result_seq.size()");
+			return false;
+		}
+		for(int i=0;i<result_org.size();i++) {
+			if(result_org.get(i)!=result_seq.get(i)) {
+				System.err.println("result_org.get(i)!=result_seq.get(i)");
+				System.out.println(result_org);
+				System.out.println(result_seq);
+				return false;
+			}
+		}
+		System.out.println("result_is_equal(BitSet result_org, BitSet result_seq) return=true");
+		return true;
+	}
+
+	public void query_exhaustive(int[] query_sequence, double threshold, int k) {
+		System.out.println("OPH.query_exhaustive(int[],t="+threshold+",k="+k+")");
+		this.marked_src.clear();
+				
+		double start = System.currentTimeMillis();
+		
+		long[] hashes = my_min_hasher.h(query_sequence,0,query_sequence.length);
+		long[][] hashed_windows = create_hashed_windows(hashes, k);
+		
+		this.marked_susp = new BitSet(hashed_windows.length);
+		
+		for(int query_window=0;query_window<hashed_windows.length;query_window++) {
+			boolean found_overlap = query_exhaustive(hashed_windows[query_window], threshold, k);
+			if(found_overlap) {
+				marked_susp.set(query_window, query_window+k);
+			}
+			if(query_window%300==0) {
+				System.out.print("["+query_window+" of "+hashed_windows.length+"] ");
+			}
+		}
+		System.out.println();
+		
+		double stop = System.currentTimeMillis();
+		this.run_time = (stop-start);
+		System.out.println("query_exhaustive(int[] query_sequence, double threshold, int k) done in "+(stop-start)+" ms");
+	}
+	
+	/**
+	 * 
+	 * @param query_hashes
+	 * @param threshold
+	 * @param window_size
+	 * @return
+	 */
+	private boolean query_exhaustive(final long[] query_window_hashes, final double threshold, final int window_size) {
+		final long[] query_oph_vector = MinHash.get_oph_vector(query_window_hashes);
+		long[] src_window_buffer = new long[window_size];
+		boolean found_overlap = false;
+		
+		//for w = 0, create the first window of src
+		int src_window=0;
+		for(int i=0;i<window_size;i++) {
+			src_window_buffer[i] = my_min_hashes[i];
+		}
+		long[] src_oph_vector = MinHash.get_oph_vector(src_window_buffer);//TODO buffer
+		double sim = OPH.estimate_jaccard_sim(query_oph_vector, src_oph_vector);
+		if(sim>threshold) {
+			this.marked_src.set(src_window);
+			found_overlap = true;
+		}
+		src_window++;
+		
+		for(;src_window<this.my_min_hashes.length-window_size+1;src_window++) {
+			int offset = (src_window-1) % window_size;
+			long new_value = my_min_hashes[src_window+window_size-1];
+			src_window_buffer[offset] = new_value;
+			MinHash.get_oph_vector(src_window_buffer);//TODO buffer
+			sim = OPH.estimate_jaccard_sim(query_oph_vector, src_oph_vector);
+			if(sim>threshold) {
+				this.marked_src.set(src_window);
+				found_overlap = true;
+			}
+		}
+		
+		return found_overlap;
+	}
+	
+	private static double estimate_jaccard_sim(final long[] query_oph_vector, final long[] src_window_buffer) {
+		/**
+		 * Number of identical non empty OPH hash values
+		 */
+		double N_mat = 0;
+		/**
+		 * Number of identical empty OPH hash values
+		 */
+		double N_emp = 0;
+		/**
+		 * OPH sketch_size
+		 */
+		final double k = OPH.sketch_size;
+		for(int i=0;i<query_oph_vector.length;i++) {
+			if(query_oph_vector[i]==src_window_buffer[i]) {
+				if(query_oph_vector[i]==MinHash.EMPTY) {
+					N_emp++;
+				}else{
+					N_mat++;
+				}
+			}
+		}
+		
+		return N_mat/(k-N_emp);//Eq. (3)
 	}
 }

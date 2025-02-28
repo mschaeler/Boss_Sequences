@@ -6,6 +6,7 @@ import java.util.HashMap;
 
 import bert.BertBibleBase;
 import bert.BibleResult;
+import bert.SentenceEmbedding;
 import boss.lexicographic.Tokenizer;
 import boss.load.ImporterAPI;
 import boss.semantic.Sequence;
@@ -13,6 +14,7 @@ import boss.test.SemanticTest;
 import boss.util.Config;
 import boss.util.Util;
 import plus.data.Book;
+import wikipedia.WikiCorrectnessExperiment;
 import wikipedia.WikiDataLoader;
 
 public class Experiment {
@@ -64,7 +66,7 @@ public class Experiment {
 		int[] src  = SemanticTest.encode_(b_1_tokens, token_ids).get(0);//does the order rake a significant difference?
 		int[] query= SemanticTest.encode_(b_2_tokens, token_ids).get(0);
 		
-		int sketch_size = 32;
+		int sketch_size = OPH.sketch_size;
 		OPH index_src = new OPH(src, sketch_size);
 		
 		double[] run_time_results = new double[k_s.length];
@@ -171,7 +173,7 @@ public class Experiment {
 			/*System.out.println("Offsets src ["+offset_src+","+(offset_src+raw_excerpt_src.length)+"]");
 			System.out.println("Offsets susp ["+offset_susp+","+(offset_susp+raw_excerpt_sups.length)+"]");*/
 			
-			int sketch_size = 32;
+			int sketch_size = OPH.sketch_size;
 			OPH src = new OPH(raw_paragraphs_src, sketch_size);
 			
 			ArrayList<Double> run_times = new ArrayList<Double>(Config.k_s.length);
@@ -202,13 +204,13 @@ public class Experiment {
 	}
 
 	static void run(int[] src_document, int[] supicious_doc){
-		int sketch_size = 32;
+		int sketch_size = OPH.sketch_size;
 		OPH src = new OPH(src_document, sketch_size);
 		src.query(supicious_doc, 0.3);
 		ArrayList<Double> run_times = new ArrayList<Double>(Config.k_s.length);
 		int[] my_k_s = {3,6,12,24,48,96};
 		for(int k : my_k_s) {
-			src.query(supicious_doc, 0.3, k);
+			src.query_exhaustive(supicious_doc, 0.3, k);
 			run_times.add(src.get_runtime());
 		}
 		System.out.println(run_times);
@@ -216,11 +218,17 @@ public class Experiment {
 	}
 	
 	static void run_pan_experiment(){
-		double[] thresholds = {0.4,0.41,0.42,0.43,0.43,0.44,0.45};
-		//int[] my_k_s = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
-		int[] my_k_s = Config.k_s;
+		//double[] thresholds = {0.4,0.41,0.42,0.43,0.43,0.44,0.45};
+		//double[] thresholds = {0.4,0.41,0.42};
+		double[] thresholds = {0.1,0.2,0.3,0.4,0.45,0.5,0.6,0.7};
+		int[] my_k_s = {3,4,5,6,7,8,9,10,11,12,13,14,15};
+		//int[] my_k_s = {6,7,8,9,10,11};
+		OPH.sketch_size = 8;
+		//int[] my_k_s = Config.k_s;
 		
-		
+		/**
+		 * 
+		 */
 		ArrayList<double[][]> all_results = new ArrayList<double[][]>(thresholds.length);
 		for(double t : thresholds) {
 			all_results.add(run_pan_experiment(t, my_k_s));
@@ -243,10 +251,22 @@ public class Experiment {
 			run_times.add(Util.concat("k="+my_k_s[i], i ,PanResult.o_run_time, all_results));	
 		}
 		System.out.println("**************");
-		System.out.println("Aggregated results for OPH");
+		System.out.println("Aggregated results for OPH sketch_size="+OPH.sketch_size);
 		for(int i=0;i<precision_macro.size();i++) {
 			System.out.println(precision_macro.get(i)+"\t\t"+recall_macro.get(i)+"\t\t"+run_times.get(i));
 		}
+		System.out.println("coordinates {%OPH F1");
+		for(int i_k=0;i_k<my_k_s.length;i_k++) {
+			for(int i_t=0;i_t<thresholds.length;i_t++) {
+				double precision = all_results.get(i_t)[i_k][PanResult.o_precision];
+				double recall = all_results.get(i_t)[i_k][PanResult.o_recall];
+				double f_1 = 2.0d / ((1.0d/precision) + (1.0d/recall)); 
+				System.out.print("("+my_k_s[i_k]+", "+thresholds[i_t]+", "+f_1+") ");
+			}
+			System.out.println();
+			System.out.println();
+		}
+		System.out.println("};");
 	}
 	
 	static void run_bible_correctness_experiment() {
@@ -265,11 +285,16 @@ public class Experiment {
 		wdl.run(WikiDataLoader.test_file);
 	}
 	
+	static void run_wiki_correctness_experiment() {
+		WikiCorrectnessExperiment.get_oph_matrix();
+	}
+	
 	public static void main(String[] args) {
 		//run_bible_test_experiment();
 		//run_pan_experiment();
 		//run_bible_correctness_experiment();
 		//run_bible_runtime_experiment();
-		run_wiki_runtime_experiment();
+		//run_wiki_runtime_experiment();
+		run_wiki_correctness_experiment();
 	}
 }
