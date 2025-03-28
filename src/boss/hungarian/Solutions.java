@@ -473,31 +473,9 @@ public class Solutions {
 //			get_avg_vector(k_with_windows_b2[0], avg_vec_window_column);//init the column
 			
 			for(int column=0;column<alignment_matrix[0].length;column++) {	
-				final int[] window_column = k_with_windows_b2[column];
-				//get_avg_vector(window_column, avg_vec_window_column);
-				/*if(column!=0) {//update the averaged vector
-					//System.out.println(Util.outTSV(avg_vec_window_column));
-					update_avg_vector(k_with_windows_b2[column-1], window_column, avg_vec_window_column);//TODO Check me
-				}*/
-				/*//TODO remove me
-				for(int dim=0;dim<avg_vec_window_column_copy.length;dim++) {
-					if(!is_equal(avg_vec_window_column_copy[dim],avg_vec_window_column[dim])) {
-						System.err.println("dim="+dim);
-						System.out.println(Util.outTSV(avg_vec_window_column));
-						System.out.println(Util.outTSV(avg_vec_window_column_copy));
-						System.out.println(Util.outTSV(k_with_windows_b2[column-1]));
-						System.out.println(Util.outTSV(k_with_windows_b2[column]));
-						System.out.println(k_with_windows_b2[column-1][0]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column-1][0])));
-						System.out.println(k_with_windows_b2[column][0]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column-1][0])));
-						System.out.println(k_with_windows_b2[column][1]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column][1])));
-						System.out.println(k_with_windows_b2[column][2]+" "+Util.outTSV(embedding_vector_index.get(k_with_windows_b2[column][2])));
-						System.err.println("dim="+dim);
-					}
-				}*/
-				//final double similarity = cosine(avg_vec_window_line,avg_vec_window_column[column]);//TODO materialize norm of line window? squrared_nom vec b?
 				final double similarity = cosine_similarity(avg_vec_window_line,avg_vec_window_column[column]);
 				if(similarity>=threshold_times_k) {
-					alignment_matrix[line][column] = similarity/(double)k;//normalize
+					alignment_matrix[line][column] = similarity;
 					count_computed_cells++;
 				}//else keep it zero
 			}

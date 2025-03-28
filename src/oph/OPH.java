@@ -7,6 +7,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import boss.util.Util;
+
 public class OPH {
 	static boolean debug = false;
 	static {
@@ -14,9 +16,12 @@ public class OPH {
 			System.err.println("DEBUG");
 	}
 	
-	static final MinHash my_min_hasher = new MinHash(MinHash.default_num_hash_functions);
+	public static final MinHash my_min_hasher = new MinHash(MinHash.default_num_hash_functions);
+	/**
+	 * MinHash values for every token
+	 */
 	final long[] my_min_hashes;
-	final long[] my_oph_vector;
+	//final long[] my_oph_vector;
 	final ArrayList<ArrayList<CompactWindow>> empty_windows;
 	final ArrayList<ArrayList<NonEmptyCompactWindow>> non_empty_windows;
 	public static int sketch_size = 8;
@@ -31,17 +36,54 @@ public class OPH {
 	public OPH(int[] text, long[] min_hashes, int sketch_size) {
 		my_min_hashes = min_hashes;
 		MinHash.num_oph_bins = sketch_size;
-		my_oph_vector = MinHash.get_oph_vector(my_min_hashes);
+		//my_oph_vector = MinHash.get_oph_vector(my_min_hashes);
 		OPH.sketch_size = sketch_size;
 		marked_src = new BitSet(text.length);
 		
+		double start = System.currentTimeMillis();
 		empty_windows = CompactWindow.create_all_compact_window(text, my_min_hashes);
 		non_empty_windows = NonEmptyCompactWindow.create_all_compact_window(text, my_min_hashes);
+		double stop = System.currentTimeMillis();
+		System.out.println("OPH() index creation in "+(stop-start)+" ms");
+	}
+	
+	
+	/**
+	 * For Wiki correctness Experiment
+	 * @param hashed_window - the min hashes of hte window
+	 * @param thresholds
+	 * @return one array of similarity windows of the tokens of the src doc
+	 */
+	public double[] query(int window_id, long[][] all_hashed_window, double[] thresholds) {
+		long[] hashed_window = all_hashed_window[window_id];
+		final int k = hashed_window.length;
+		//System.out.println("OPH.query(long[],t[]="+Util.outTSV(thresholds)+",k="+k+")");
+		this.marked_src.clear();
+		double[] similrity_values = new double[marked_src.size()];		
+		
+		double start = System.currentTimeMillis();
+		
+		for(double t : thresholds) {
+			this.marked_src.clear();
+			query(hashed_window, t);
+			for(int i=0;i<similrity_values.length;i++) {
+				if(this.marked_src.get(i)) {
+					similrity_values[i] = t;
+				}
+			}
+		}
+		
+		double stop = System.currentTimeMillis();
+		this.run_time = (stop-start);
+		if(window_id%300 == 0)
+			System.out.println("Query q="+window_id+" of "+all_hashed_window.length+" OPH.query(long[],t[]="+Util.outTSV(thresholds)+",k="+k+") "+(stop-start)+" ms");
+		
+		return similrity_values;
 	}
 	
 	/**
 	 * 
-	 * @param query_sequence - usually the suspicious document
+	 * @param query_sequence - usually the entire suspicious document
 	 * @param threshold
 	 * @param k window size
 	 * @return one array of overlapping intervals per window
@@ -78,7 +120,7 @@ public class OPH {
 	 * @param k - window size
 	 * @return
 	 */
-	private static long[][] create_hashed_windows(long[] min_hashes, final int k) {	
+	public static long[][] create_hashed_windows(long[] min_hashes, final int k) {	
 		long[][] windows; 
 		if(min_hashes.length-k+1<0) {
 			System.err.println("Solutions.create_windows(): raw_paragraph.length-k+1<0");
@@ -93,6 +135,7 @@ public class OPH {
 				}
 			}
 		}
+		//System.out.println(min_hashes.length+"-"+(k+1)+" to "+windows.length);
 		return windows;
 	}
 	
@@ -462,7 +505,7 @@ public class OPH {
 		return found_overlap;
 	}
 	
-	private static double estimate_jaccard_sim(final long[] query_oph_vector, final long[] src_window_buffer) {
+	private static double estimate_jaccard_sim(final long[] oph_vector_1, final long[] oph_vector_2) {
 		/**
 		 * Number of identical non empty OPH hash values
 		 */
@@ -475,9 +518,9 @@ public class OPH {
 		 * OPH sketch_size
 		 */
 		final double k = OPH.sketch_size;
-		for(int i=0;i<query_oph_vector.length;i++) {
-			if(query_oph_vector[i]==src_window_buffer[i]) {
-				if(query_oph_vector[i]==MinHash.EMPTY) {
+		for(int i=0;i<oph_vector_1.length;i++) {
+			if(oph_vector_1[i]==oph_vector_2[i]) {
+				if(oph_vector_1[i]==MinHash.EMPTY) {
 					N_emp++;
 				}else{
 					N_mat++;
@@ -486,5 +529,25 @@ public class OPH {
 		}
 		
 		return N_mat/(k-N_emp);//Eq. (3)
+	}
+	public double[][] wiki_correctness_experiment(final long[][] query_oph_vectors, final int k) {
+		long[][] hashed_windows = create_hashed_windows(this.my_min_hashes, k);
+		final long[][] my_oph_vectors = MinHash.get_oph_vectors(hashed_windows);
+		double start = System.currentTimeMillis();
+		
+		final double[][] matrix = new double[my_oph_vectors.length][query_oph_vectors.length];
+		
+		for(int line=0;line<my_oph_vectors.length;line++) {
+			final long[] my_current_oph_vector = my_oph_vectors[line];
+			for(int column=0;column<query_oph_vectors.length;column++) {
+				final double similarity = estimate_jaccard_sim(my_current_oph_vector, query_oph_vectors[column]);
+				matrix[line][column] = similarity;
+			}
+			if(line%300 == 0)
+				System.out.println("Query q="+line+" of "+query_oph_vectors.length+" OPH.wiki_correctness_experiment(long[][],k="+k+") "+(System.currentTimeMillis()-start)+" ms");
+			
+		}
+		
+		return matrix;
 	}
 }

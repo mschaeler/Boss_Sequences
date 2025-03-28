@@ -72,6 +72,7 @@ public class BertBibleBase {
 	}
 	
 	public static void materialize_results() {
+		get_corpus_and_query(get_bible_books());
 		for(int k : Config.k_s) {
 			//fast_text_experiment(query, corpus, books, k);
 			seda_experiment(query, corpus, books, k);
@@ -95,6 +96,8 @@ public class BertBibleBase {
 	static BibleResult get_bert_result(SentenceEmbedding query, ArrayList<SentenceEmbedding> corpus) {
 		double[][] all_sims = new double[query.sentences.size()][corpus.size()];
 		int[][] all_indexes = new int[query.sentences.size()][corpus.size()];
+		
+		double start = System.currentTimeMillis();
 		
 		for(int i=0;i<query.sentences.size();i++) {
 			String paragraph = query.sentences.get(i);
@@ -120,8 +123,10 @@ public class BertBibleBase {
 			}
 			System.out.println();
 		}
+		double stop = System.currentTimeMillis();
 		System.out.println(Util.outTSV(all_sims));
 		System.out.println();
+		System.out.println("Done in "+(stop-start)+" ms");
 		return new BibleResult(-1, "Bert", all_sims, all_indexes, Util.toPrimitive(all_scores));
 	}
 	
@@ -146,7 +151,7 @@ public class BertBibleBase {
 		
 		ArrayList<ArrayList<OPH>> all_docs_paragraphs = new ArrayList<ArrayList<OPH>>(); 
 
-		//Encode all doc paragraphs as int[]
+		//Encode all doc paragraphs as int[] - Done for each Bible text, i.e., Luther, Schlachter, ... 
 		for(SentenceEmbedding book : corpus) {
 			ArrayList<OPH> all_ps = new ArrayList<OPH>();
 			for(String p : book.sentences) {
@@ -160,17 +165,20 @@ public class BertBibleBase {
 		
 		double[] thresholds = {0.1,0.2,0.3,0.4,0.5};//TODO check parameters
 		
+		// For each paragraph of the query Bible text
 		for(int i=0;i<query.sentences.size();i++) {
 			System.out.println("**Find most similar paragraph to i="+i+" "+query.sentences.get(i)+" "+query.name);
 			ArrayList<String> paragraph = Tokenizer.tokenize_bible_de(query.sentences.get(i));
 			int[] raw_query   = SemanticTest.encode_(paragraph, token_ids).get(0);//is only one int[]
 			//int[][] k_with_windows_b1 = Jaccard.create_windows(raw_paragraphs_b1, Math.min(k, raw_paragraphs_b1.length));//TODO min(k)
 			
+			// For each Bible text in the corpus
 			for(int i_c=0;i_c<corpus.size();i_c++) {
 				final ArrayList<OPH> my_tokenized_paragraphs = all_docs_paragraphs.get(i_c);
 				double max_similarity = Double.NEGATIVE_INFINITY;
 				int index_most_similar = -1;
 				
+				//Find the best fitting paragraph, i.e., execute a top_1() query
 				for(int p_id=0;p_id<my_tokenized_paragraphs.size();p_id++) {
 					//System.out.print("i="+i+"\t"+corpus.get(i_c).name+" p="+p_id+"\t");
 					OPH current = my_tokenized_paragraphs.get(p_id);

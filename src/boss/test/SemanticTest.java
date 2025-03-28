@@ -14,6 +14,8 @@ import java.util.Map.Entry;
 
 import com.sun.source.tree.Tree;
 
+import bert.BertBibleBase;
+import bert.BibleResult;
 import boss.embedding.Embedding;
 import boss.embedding.MatchesWithEmbeddings;
 import boss.hungarian.HungarianAlgorithmPranayImplementation;
@@ -357,7 +359,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"bound", "bound_pan", "remaining"};//if no experiment specified run the bible experiment 
+			String[] temp = {"fast_text_eval"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time
@@ -367,6 +369,11 @@ public class SemanticTest {
 			run_bible_experiments(solution_enum, k_s, threshold, true);
 		}else if(contains(args, "p")) {//pan response time
 			run_pan_experiments();
+		}else if(contains(args, "correct_bible")) {//pan response time
+			if(contains(args, "materialize")){
+				BertBibleBase.materialize_results();
+			}					
+			BibleResult.compute_mapping_accuracy();
 		}else if(contains(args, "pc")) {//pan correctness SeDA time old
 			run_pan_correctness_experiments();
 		}else if(contains(args, "j")) {//jaccard

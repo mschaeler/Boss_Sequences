@@ -119,6 +119,16 @@ public class MinHash {
 		return sim;
 	}
 	
+	public static long[][] get_oph_vectors(long[][] min_hash_vectors){
+		long[][] oph_vectors = new long[min_hash_vectors.length][];
+		
+		for(int i=0;i<min_hash_vectors.length;i++) {
+			oph_vectors[i] = get_oph_vector(min_hash_vectors[i]);
+		}
+		
+		return oph_vectors;
+	}
+	
 	static long[] get_oph_vector(long[] min_hash_vector){
 		long[] oph_vector = new long[num_oph_bins];
 		for(int i=0;i<oph_vector.length;i++) {

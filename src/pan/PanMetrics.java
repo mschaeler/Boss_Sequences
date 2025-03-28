@@ -17,7 +17,7 @@ public class PanMetrics {//TODO micro average
 	//static final double[] core_thresholds = {0.19,0.18,0.17,0.16,0.15,0.14,0.13,0.12,0.11,0.1};
 	//static final double[] core_thresholds = {1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
 	//static final double[] core_thresholds = {0.69,0.68,0.67,0.66,0.65,0.64,0.63,0.62,0.61,0.6};
-	static final double[] core_thresholds = {0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.7};
+	static double[] core_thresholds = {1.0,0.9,0.8,0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
 	//static final double[] core_thresholds = {0.8,0.79,0.78,0.77,0.76,0.75,0.74,0.73,0.72,0.71,0.70,0.69,0.68};
 	static final double IS_CORE_CELL = 1.0d;
 	static final double IS_REACHABLE_CELL = 0.5d;
@@ -42,6 +42,8 @@ public class PanMetrics {//TODO micro average
 	
 	public static void run_avg_word_2_vec() {
 		PanResult.clear();
+		double[] temp = {0.95,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
+		PanMetrics.core_thresholds = temp;
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_avg_word_2_vec_matrices;
 		//SemanticTest.print_seda_texts();//to get the ground truth
 		new PanMetrics("SeDA").run_seda_();
@@ -128,7 +130,7 @@ public class PanMetrics {//TODO micro average
 				//micro metrics
 				double m_recall = sum_found_true_postives / sum_all_true_postives;
 				micro_recall+="\t"+m_recall;
-				double m_precision = sum_found_true_postives / sum_retrieved;
+				double m_precision = (sum_retrieved>0) ? (sum_found_true_postives / sum_retrieved) : 0;
 				micro_precision+="\t"+m_precision;
 			
 			}

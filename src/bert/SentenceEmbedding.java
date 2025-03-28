@@ -348,14 +348,14 @@ public class SentenceEmbedding {
 
 	public static void main(String[] args) {
 		load_wikipedia_emebddings();
-		System.exit(0);
+		//System.exit(0);
 		
 		//new SentenceEmbedding(path_pan_src, "00732");
 		ArrayList<double[][]> matrices = new ArrayList<double[][]>();
 		ArrayList<SentenceEmbedding[]> pairs = load_pairs();
 		//show_plags(i,pairs);
 		out_top_sentence_pairs(pairs);
-		System.exit(0);
+		//System.exit(0);
 		
 		
 		ArrayList<int[]> offsets = new ArrayList<int[]>();
