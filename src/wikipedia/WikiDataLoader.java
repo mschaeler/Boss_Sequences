@@ -196,7 +196,7 @@ public class WikiDataLoader {
 			e.printStackTrace();
 		}
 	}
-
+	
 	public static void run(){
 		new WikiDataLoader().run(test_file);
 	}

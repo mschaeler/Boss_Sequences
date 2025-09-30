@@ -92,6 +92,7 @@ public class SemanticTest {
 	public static final int FAST_TEXT   = 6;
 	public static final int JACCARD		= 7;
 	public static final int OPH			= 8;
+	public static final int CORPUS		= 9;
 	
 	static boolean header_written = false;
 	//For bound statistics
@@ -359,7 +360,7 @@ public class SemanticTest {
 	
 	public static void main(String[] args) {
 		if(args.length==0) {
-			String[] temp = {"fast_text_eval"};//if no experiment specified run the bible experiment 
+			String[] temp = {"wiki"};//if no experiment specified run the bible experiment 
 			args = temp;
 		}
 		if(contains(args, "b")) {//Bible response time

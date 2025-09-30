@@ -42,7 +42,8 @@ public class PanMetrics {//TODO micro average
 	
 	public static void run_avg_word_2_vec() {
 		PanResult.clear();
-		double[] temp = {0.95,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
+		//double[] temp = {0.95,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1};
+		double[] temp = {0.5,0.6,0.7,0.8,0.85,0.88,0.89,0.9,0.91,0.95};
 		PanMetrics.core_thresholds = temp;
 		MatrixLoader.path_to_matrices = MatrixLoader.path_to_avg_word_2_vec_matrices;
 		//SemanticTest.print_seda_texts();//to get the ground truth

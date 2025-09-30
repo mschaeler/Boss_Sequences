@@ -57,6 +57,62 @@ public class Solutions {
 	final double[] col_maxima;	
 	double sum_cols;
 	
+	/**
+	 * Constructor for the corpus experiment
+	 * @param raw_paragraphs_b1
+	 * @param raw_paragraphs_b2
+	 * @param k
+	 * @param threshold
+	 * @param embedding_vector_index
+	 */
+	public Solutions(int[] raw_paragraphs_b1, int[] raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index, final int max_id) {
+		this.k = k;
+		this.k_double = (double) k;
+		this.threshold = threshold;
+		this.threshold_times_k = threshold * k;
+		this.num_paragraphs = 1;
+		MAX_SIM_ADDITION_NEW_NODE = 1.0 / k_double; 
+		
+		this.raw_paragraph_b1 = raw_paragraphs_b1;
+		this.raw_paragraph_b2 = raw_paragraphs_b2;
+		this.k_with_windows_b1 = create_windows(raw_paragraph_b1, k);
+		this.k_with_windows_b2 = create_windows(raw_paragraph_b2, k);
+		this.embedding_vector_index = embedding_vector_index;
+		this.mrb = new MatrixRingBuffer(k);
+		
+		//Prepare the buffers for the alignment matrixes
+		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
+		
+		HashSet<Integer> tokens_b1 = new HashSet<Integer>();
+		HashSet<Integer> tokens_b2 = new HashSet<Integer>();
+		
+		for(int id : raw_paragraphs_b1) {
+			tokens_b1.add(id);
+		}
+		this.tokens_b1 = new int[tokens_b1.size()];
+		int i=0;
+		for(int id : tokens_b1) {
+			this.tokens_b1[i++] = id;
+		}
+		Arrays.sort(this.tokens_b1);
+		
+		for(int id : raw_paragraph_b2) {//Second paragraph
+			tokens_b2.add(id);
+		}
+		
+		this.tokens_b2 = new int[tokens_b2.size()];//XXX do I need this?
+		i=0;
+		for(int id : tokens_b2) {
+			this.tokens_b2[i++] = id;
+		}
+		Arrays.sort(this.tokens_b2);
+		
+		this.max_id = max_id;
+		create_dense_matrix();//XXX optimize me
+				
+		this.col_maxima = new double[k];
+	}
+	
 	public Solutions(ArrayList<int[]> raw_paragraphs_b1, ArrayList<int[]> raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index) {
 		this.k = k;
 		this.k_double = (double) k;
@@ -197,7 +253,7 @@ public class Solutions {
 	 * @param k - window size
 	 * @return
 	 */
-	private int[][] create_windows(int[] raw_paragraph, final int k) {	
+	public static int[][] create_windows(int[] raw_paragraph, final int k) {	
 		int[][] windows; 
 		if(raw_paragraph.length-k+1<0) {
 			System.err.println("Solutions.create_windows(): raw_paragraph.length-k+1<0");
@@ -674,7 +730,7 @@ public class Solutions {
 		return true;
 	}
 	
-	MyArrayList condense(final BitSet candidates_line) {
+	public static MyArrayList condense(final BitSet candidates_line) {
 		MyArrayList candidates_condensed = new MyArrayList(candidates_line.size());
 		//int q = 0;
 		//boolean found_run = false;
@@ -928,6 +984,96 @@ public class Solutions {
 		return run_times;
 	}
 	
+	public double[] run_solution_corpus(MyArrayList[] all_runs) {
+		boolean verbose = false;
+		if(verbose) print_special_configurations();
+		HungarianDeep2 solver = new HungarianDeep2(k);
+		solver.set_matrix(mrb.buffer);
+		if(verbose) System.out.println("Solutions.run_solution_corpus() k="+k+" threshold="+threshold+" "+solver.get_name());
+		USE_GLOBAL_MATRIX = true;
+		
+		//Some variable
+		double[] run_times = new double[num_paragraphs];
+		double stop,start;		
+		
+		start = System.currentTimeMillis();
+		double stop_idx_creation = System.currentTimeMillis();
+		double stop_candidates = stop_idx_creation;
+		
+		for(int line=0;line<alignement_matrix.length;line++) {
+			//Validate candidates
+			final MyArrayList candidates_condensed = all_runs[line];
+			
+			//XXX Debug
+			/*if(candidates_condensed==null) {
+				if(all_candidates_stored.get(line).size()!=0) {
+					System.err.println("False Line removal "+line);
+					System.err.println(all_candidates_stored.get(line));
+					int b1_new = this.k_with_windows_b1[line][k-1];
+					System.err.println("a = b1 new = "+b1_new);
+					int index_window_b2 = all_candidates_stored.get(line).get(0);
+					int b2_new = this.k_with_windows_b2[index_window_b2][k-1];
+					System.err.println("q = b2 new = "+b2_new);
+					System.err.println("sim() ="+dense_global_matrix_buffer[b1_new][b2_new]);
+					
+					for(int b_1token : this.k_with_windows_b1[line]) {
+						for(int b_2token : this.k_with_windows_b2[index_window_b2]) {
+							if(dense_global_matrix_buffer[b_1token][b_2token]>=threshold) {
+								System.err.println("("+b_1token+", "+b_2token+")->"+dense_global_matrix_buffer[b_1token][b_2token]);
+							}	
+						}
+					}
+					System.err.println();
+				}
+			}else if(candidates_condensed.size()!=all_candidates_stored.get(line).size()){
+				System.err.println("Run is different "+line);
+				System.err.println(candidates_condensed);
+				System.err.println(all_candidates_stored.get(line));
+				int b1_new = this.k_with_windows_b1[line][k-1];
+				System.err.println("a = b1 new = "+b1_new);
+				int index_window_b2 = all_candidates_stored.get(line).get(0);
+				int b2_new = this.k_with_windows_b2[index_window_b2][k-1];
+				System.err.println("q = b2 new = "+b2_new);
+				System.err.println("sim() ="+dense_global_matrix_buffer[b1_new][b2_new]);
+			}*/
+			
+			
+			if(candidates_condensed==null) {
+				continue;//No candidates in this line
+			}
+			final double[] alignment_matrix_line   = alignement_matrix[line];
+			
+			
+			final int size = candidates_condensed.size();
+			final int[] raw_candidates = candidates_condensed.ARRAY;
+			for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
+				final int run_start = raw_candidates[c];
+				final int run_stop = raw_candidates[c+1];
+				
+				validate_run_deep(solver, line, run_start, run_stop, alignment_matrix_line);
+			}
+		}
+		
+		stop = System.currentTimeMillis();
+		run_times[0] = stop-start;
+		if(verbose) { 
+			int size = size(alignement_matrix);
+			double check_sum = sum(alignement_matrix);
+			System.out.println("k="+k+"\t"+(stop-start)+"\tms\tcheck_sum=\t"+check_sum+"\t"+size+"\tcandidates\t"+count_candidates+"\tO(1)\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
+			if(record_solution_statistics) {
+				double[] statistics = {k,threshold,size,count_candidates,count_survived_pruning,count_survived_second_pruning,count_survived_third_pruning,count_cells_exceeding_threshold,(stop-start),(stop_candidates-start)};
+				solution_statistics.add(statistics);
+			}
+		}
+		//clean up
+		count_candidates = 0;
+		count_survived_pruning = 0;
+		count_survived_second_pruning = 0;
+		count_survived_third_pruning = 0;
+		count_cells_exceeding_threshold = 0;
+		return run_times;
+	}
+	
 	public double[] run_solution() {
 		print_special_configurations();
 		HungarianDeep2 solver = new HungarianDeep2(k);
@@ -982,13 +1128,18 @@ public class Solutions {
 			solution_statistics.add(statistics);
 		}
 		//clean up
-		/*count_candidates = 0;
+		count_candidates = 0;
 		count_survived_pruning = 0;
 		count_survived_second_pruning = 0;
 		count_survived_third_pruning = 0;
-		count_cells_exceeding_threshold = 0;*/
+		count_cells_exceeding_threshold = 0;
+		
+		//XXX for debug
+		all_candidates_stored = all_candidates;
+		
 		return run_times;
 	}
+	public ArrayList<MyArrayList> all_candidates_stored;
 	public static ArrayList<double[]> solution_statistics = new ArrayList<double[]>();
 	public static boolean record_solution_statistics = false;
 	
@@ -1198,7 +1349,8 @@ public class Solutions {
 	}
 	
 	/**
-	 * inverted_index.get(token_id)[] -> List of all other other_token_id's with sim(token_id, other_token_id) > threshold, ordered asc by token_id.
+	 * inverted_indextoken_id[] -> List of all other other_token_id's with sim(token_id, other_token_id) > threshold, ordered asc by token_id.
+	 * Note if inverted_indextoken_id[] == null. This token is not in tokens_b1.
 	 * @param matrix global similarity matrix of the Books. 
 	 */
 	private MyArrayList[] create_neihborhood_index(final double[][] matrix) {
@@ -2323,10 +2475,11 @@ public class Solutions {
 			}
 		}
 		double stop = System.currentTimeMillis();
-		double check_sum = sum(dense_global_matrix_buffer);
-		int size = dense_global_matrix_buffer.length*dense_global_matrix_buffer[0].length;
+		//TODO extra version for corpus?
+		//double check_sum = sum(dense_global_matrix_buffer);
+		//int size = dense_global_matrix_buffer.length*dense_global_matrix_buffer[0].length;
 		
-		System.out.println("create_dense_matrix()\t"+(stop-start)+" check sum=\t"+check_sum+" size="+size);
+		//System.out.println("create_dense_matrix()\t"+(stop-start)+" check sum=\t"+check_sum+" size="+size);
 	}
 
 	public double[] run_dummy() {

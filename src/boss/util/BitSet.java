@@ -71,7 +71,7 @@ public class BitSet{
     /**
      * The internal field corresponding to the serialField "bits".
      */
-    private final long[] words;
+    public final long[] words;
 
     /**
      * The number of words in the logical size of this BitSet.
@@ -333,6 +333,21 @@ public class BitSet{
             System.arraycopy(set.words, wordsInCommon,
                              words, wordsInCommon,
                              wordsInUse - wordsInCommon);
+    }
+    
+    public void or(java.util.ArrayList<BitSet> all_sets) {
+        for(BitSet bs : all_sets) {
+        	if(this.wordsInUse<bs.wordsInUse) {
+        		this.wordsInUse = bs.wordsInUse;
+        	}
+        }
+
+        // Perform logical OR on words in common
+        for (int i = 0; i < this.words.length; i++) {
+        	for(BitSet bs : all_sets) {
+        		words[i] |= bs.words[i];
+            }	
+        }
     }
     
     public void or(BitSet[] all_sets, final int ids[]) {
