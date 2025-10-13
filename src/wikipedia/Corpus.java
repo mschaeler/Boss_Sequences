@@ -70,7 +70,7 @@ public class Corpus {
 	/**
 	 * The list of all articles. If one concats them, one gets this.tokens.
 	 */
-	CorpusArticle[] my_articles;
+	public CorpusArticle[] my_articles;
 	/**
 	 * The threshold $\theta$ in the paper.
 	 */
@@ -166,7 +166,7 @@ public class Corpus {
 		for(int i=0;i<num_articles;i++) {
 			my_articles[i] = new CorpusArticle(i);
 		}
-		System.out.println(" in "+(System.currentTimeMillis()-start)+" ms");
+		System.out.println(" in "+(System.currentTimeMillis()-start)+" ms "+num_articles+" articles");
 		/*for(Article a : my_articles) {
 			System.out.println(a);
 		}*/
@@ -404,7 +404,7 @@ public class Corpus {
 	}
 
 	public class CorpusArticle{
-		final int[] my_tokens = new int[average_length_wikipedia_article];
+		public final int[] my_tokens = new int[average_length_wikipedia_article];
 		final int article_number;
 		final int[][] k_width_windows;
 		/**
@@ -479,30 +479,32 @@ public class Corpus {
 		}
 		
 		//For each query document
-		//int solution_enum = SemanticTest.SOLUTION;
-		int solution_enum = SemanticTest.CORPUS;
+		//int solution_enum = SemanticTest.SOLUTION; FAST_TEXT CORPUS
+		int solution_enum = SemanticTest.FAST_TEXT;
 		for(int i=0;i<num_articles;i++) {
 			final CorpusArticle query = my_corpus.my_articles[i];
+			
+			//TODO materialize sim();
+			double start = System.currentTimeMillis();
+			HashMap<Integer, double[]> sim = new HashMap<Integer, double[]>(query.unique_tokens.length);
+			final int num_tokens = my_corpus.candidate_producing_token_pairs.length;
+			
+			for(int my_token : query.unique_tokens) {
+				final double[] sim_line = new double[num_tokens];
+				for(int other_token=0;other_token<num_tokens;other_token++) {
+					double token_sim = Solutions.sim(my_token, other_token, my_corpus.embedding_vector_index.get(my_token), my_corpus.embedding_vector_index.get(other_token));
+					sim_line[other_token] = token_sim;
+				}
+
+				sim.put(my_token, sim_line);
+			}
+			double stop = System.currentTimeMillis();
+			System.out.println("Materialized sim() in "+(stop-start)+" ms");
+			
 			HashMap<CorpusArticle, MyArrayList[]> corpus_candidates_all_docs = candidate_runs.get(i);
 			for(Entry<CorpusArticle, MyArrayList[]> e : corpus_candidates_all_docs.entrySet()) {
-				WikiCorpusSolution w = new WikiCorpusSolution(query, e.getKey(), e.getValue(), my_corpus.embedding_vector_index, my_corpus.k, my_corpus.threshold, solution_enum);
+				WikiCorpusSolution w = new WikiCorpusSolution(sim, query, e.getKey(), e.getValue(), my_corpus.embedding_vector_index, my_corpus.k, my_corpus.threshold, solution_enum);
 			}
-		}
-	}
-
-	private static void process_candidate_runs(CorpusArticle query, CorpusArticle key, MyArrayList[] all_runs) {
-		int num_lines = all_runs.length;
-		for(int line=0;line<num_lines;line++) {
-			if(all_runs[line]!=null){
-				int size = all_runs[line].size();
-				int[] raw_runs = all_runs[line].ARRAY;
-				for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
-					final int run_start = raw_runs[c];
-					final int run_stop  = raw_runs[c+1];
-					
-					//TODO
-				}
-			}//else no candidates in this line
 		}
 	}
 }

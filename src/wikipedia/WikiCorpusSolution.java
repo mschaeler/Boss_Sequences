@@ -11,14 +11,14 @@ import boss.util.MyArrayList;
 import wikipedia.Corpus.CorpusArticle;
 
 public class WikiCorpusSolution {
-	public WikiCorpusSolution(CorpusArticle query, CorpusArticle article, MyArrayList[] all_runs, HashMap<Integer, double[]> embedding_vector_index, int k, double threshold, int solution_enum) {
+	public WikiCorpusSolution(HashMap<Integer, double[]> similarities, CorpusArticle query, CorpusArticle article, MyArrayList[] all_runs, HashMap<Integer, double[]> embedding_vector_index, int k, double threshold, int solution_enum) {
 		//System.out.println("WikiCorpusSolution(query="+query.article_number+", article="+article.article_number+")");
 		//double start = System.currentTimeMillis();
 		HashSet<Integer> all_ids = new HashSet<Integer>();
-		for(int token : query.my_tokens) {
+		for(int token : query.unique_tokens) {
 			all_ids.add(token);
 		}
-		for(int token : article.my_tokens) {
+		for(int token : article.unique_tokens) {
 			all_ids.add(token);
 		}
 		ArrayList<Integer> all_tokens_ordered = new ArrayList<Integer>(all_ids.size());
@@ -56,14 +56,53 @@ public class WikiCorpusSolution {
 			Integer new_id = new_tokenids.get(old_id);
 			raw_paragraph_b2[i] = new_id.intValue();
 		}
+		
+		//TODO measure time
 		double start = System.currentTimeMillis();
-		Solutions s = new Solutions(raw_paragraph_b1, raw_paragraph_b2, k, threshold, new_embedding_vector_index, max_id);
+		int max_id_query   = query.unique_tokens[query.unique_tokens.length-1];
+		int max_id_article = article.unique_tokens[article.unique_tokens.length-1];
+		double[][] sim = new double[new_tokenids.get(max_id_article)+1][];
+		
+		final int array_length = new_tokenids.get(max_id_query)+1;
+		int[] unique_tokens_b1 = new int[article.unique_tokens.length];
+		for(int i=0;i<article.unique_tokens.length;i++) {
+			int old_id_a = article.unique_tokens[i];
+			final int new_id_a = new_tokenids.get(old_id_a).intValue();
+			sim[new_id_a] = new double[array_length];
+			unique_tokens_b1[i] = new_id_a;
+		}
+		
+		for(int old_id_q : query.unique_tokens){
+			final int new_id_q = new_tokenids.get(old_id_q).intValue();
+			final double[] sim_line_all_tokens = similarities.get(old_id_q);
+			
+			for(int old_id_a : article.unique_tokens) {
+				int new_id_a = new_tokenids.get(old_id_a).intValue();
+				double sim_value = sim_line_all_tokens[old_id_a];
+				sim[new_id_a][new_id_q] = sim_value;
+			}
+		}
+		double stop = System.currentTimeMillis();
+		//System.out.println("Start-stop "+(stop-start));
+		
+		
+		int[] unique_tokens_b2 = new int[query.unique_tokens.length];
+		for(int i=0;i<query.unique_tokens.length;i++) {
+			int old_id_q = query.unique_tokens[i];
+			final int new_id_q = new_tokenids.get(old_id_q).intValue();
+			unique_tokens_b2[i] = new_id_q;
+		}
+		
+		start = System.currentTimeMillis();
+		Solutions s = new Solutions(sim, raw_paragraph_b1, raw_paragraph_b2, k, threshold, new_embedding_vector_index, max_id, unique_tokens_b1, unique_tokens_b2);
 		
 		double[] run_times;
 		if(solution_enum==SemanticTest.SOLUTION) {
 			run_times = s.run_solution();	
 		}else if(solution_enum==SemanticTest.CORPUS){
 			run_times = s.run_solution_corpus(all_runs);	
+		}else if(solution_enum==SemanticTest.FAST_TEXT) {
+			run_times = s.run_fast_text();
 		}else{
 			run_times = s.run_naive();
 		}

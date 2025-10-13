@@ -65,7 +65,7 @@ public class Solutions {
 	 * @param threshold
 	 * @param embedding_vector_index
 	 */
-	public Solutions(int[] raw_paragraphs_b1, int[] raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index, final int max_id) {
+	public Solutions(double[][] sim, int[] raw_paragraphs_b1, int[] raw_paragraphs_b2, final int k, final double threshold, HashMap<Integer, double[]> embedding_vector_index, final int max_id, final int[] unique_tokens_b1, final int[] unique_tokens_b2) {
 		this.k = k;
 		this.k_double = (double) k;
 		this.threshold = threshold;
@@ -82,33 +82,22 @@ public class Solutions {
 		
 		//Prepare the buffers for the alignment matrixes
 		this.alignement_matrix = new double[k_with_windows_b1.length][k_with_windows_b2.length];
+		this.tokens_b1 	= unique_tokens_b1;
+		this.tokens_b2 	= unique_tokens_b2;
+		this.max_id 	= max_id;
+		dense_global_matrix_buffer = sim;
 		
-		HashSet<Integer> tokens_b1 = new HashSet<Integer>();
-		HashSet<Integer> tokens_b2 = new HashSet<Integer>();
+		/*create_dense_matrix();//XXX optimize me
 		
-		for(int id : raw_paragraphs_b1) {
-			tokens_b1.add(id);
-		}
-		this.tokens_b1 = new int[tokens_b1.size()];
-		int i=0;
-		for(int id : tokens_b1) {
-			this.tokens_b1[i++] = id;
-		}
-		Arrays.sort(this.tokens_b1);
-		
-		for(int id : raw_paragraph_b2) {//Second paragraph
-			tokens_b2.add(id);
-		}
-		
-		this.tokens_b2 = new int[tokens_b2.size()];//XXX do I need this?
-		i=0;
-		for(int id : tokens_b2) {
-			this.tokens_b2[i++] = id;
-		}
-		Arrays.sort(this.tokens_b2);
-		
-		this.max_id = max_id;
-		create_dense_matrix();//XXX optimize me
+		//TODO check sim
+		for(int token_b1 : tokens_b1) {
+			for(int token_b2 : tokens_b2) {
+				double my_sim = sim[token_b1][token_b2];
+				if(my_sim!=dense_global_matrix_buffer[token_b1][token_b2]) {
+					System.err.println("check sim("+token_b1+","+token_b2+")="+my_sim+" vs. "+dense_global_matrix_buffer[token_b1][token_b2]+" (buffered)");
+				}
+			}
+		}*/
 				
 		this.col_maxima = new double[k];
 	}
@@ -1078,7 +1067,8 @@ public class Solutions {
 		print_special_configurations();
 		HungarianDeep2 solver = new HungarianDeep2(k);
 		solver.set_matrix(mrb.buffer);
-		System.out.println("Solutions.run_solution() k="+k+" threshold="+threshold+" "+solver.get_name());
+		boolean verbose = false;
+		if(verbose ) System.out.println("Solutions.run_solution() k="+k+" threshold="+threshold+" "+solver.get_name());
 		USE_GLOBAL_MATRIX = true;
 		
 		//Some variable
@@ -1121,8 +1111,10 @@ public class Solutions {
 		run_times[0] = stop-start;
 		
 		int size = size(alignement_matrix);
-		double check_sum = sum(alignement_matrix);
-		System.out.println("k="+k+"\t"+(stop-start)+"\tms\tcheck_sum=\t"+check_sum+"\t"+size+"\tcandidates\t"+count_candidates+"\tO(1)\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
+		if(verbose) {
+			double check_sum = sum(alignement_matrix);
+			System.out.println("k="+k+"\t"+(stop-start)+"\tms\tcheck_sum=\t"+check_sum+"\t"+size+"\tcandidates\t"+count_candidates+"\tO(1)\t"+count_survived_pruning+"\t"+count_survived_second_pruning+"\t"+count_survived_third_pruning+"\t"+count_cells_exceeding_threshold+"\t"+(stop_candidates-start)+"\t"+(stop_idx_creation-start));
+		}
 		if(record_solution_statistics) {
 			double[] statistics = {k,threshold,size,count_candidates,count_survived_pruning,count_survived_second_pruning,count_survived_third_pruning,count_cells_exceeding_threshold,(stop-start),(stop_candidates-start)};
 			solution_statistics.add(statistics);
@@ -2461,7 +2453,7 @@ public class Solutions {
 		return jaccard_sim;
 	}
 	
-	private void create_dense_matrix() {
+	private double create_dense_matrix() {
 		double start = System.currentTimeMillis();
 		dense_global_matrix_buffer = new double[max_id+1][max_id+1];//This is big....
 		for(int line_id=0;line_id<dense_global_matrix_buffer.length;line_id++) {
@@ -2476,10 +2468,11 @@ public class Solutions {
 		}
 		double stop = System.currentTimeMillis();
 		//TODO extra version for corpus?
-		//double check_sum = sum(dense_global_matrix_buffer);
-		//int size = dense_global_matrix_buffer.length*dense_global_matrix_buffer[0].length;
+		double check_sum = sum(dense_global_matrix_buffer);
+		int size = dense_global_matrix_buffer.length*dense_global_matrix_buffer[0].length;
 		
-		//System.out.println("create_dense_matrix()\t"+(stop-start)+" check sum=\t"+check_sum+" size="+size);
+		System.out.println("create_dense_matrix()\t"+(stop-start)+" check sum=\t"+check_sum+" size="+size);
+		return stop-start;
 	}
 
 	public double[] run_dummy() {

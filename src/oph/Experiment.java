@@ -14,8 +14,10 @@ import boss.test.SemanticTest;
 import boss.util.Config;
 import boss.util.Util;
 import plus.data.Book;
+import wikipedia.Corpus;
 import wikipedia.WikiCorrectnessExperiment;
 import wikipedia.WikiDataLoader;
+import wikipedia.Corpus.CorpusArticle;
 
 public class Experiment {
 	static void run_bible_runtime_experiment() {
@@ -289,12 +291,53 @@ public class Experiment {
 		WikiCorrectnessExperiment.get_oph_matrix();
 	}
 	
+	static void run_corpus_experiment_wiki() {
+		int sketch_size = OPH.sketch_size;;//default value. Paper uses much larger values -> slower
+		double threshold = 0.4;
+		int k = 10;
+		double start, stop;
+		
+		Corpus my_corpus = new Corpus();
+		CorpusArticle[] my_articles = my_corpus.my_articles;
+		//Offline indexing part
+		OPH[] index = new OPH[my_articles.length];
+		start = System.currentTimeMillis();
+		for(int i=0;i<index.length;i++){
+			index[i] = new OPH(my_articles[i].my_tokens, sketch_size);
+		}
+		stop = System.currentTimeMillis();
+		System.out.println("OPH index created in "+(stop-start)+" ms");
+		
+		ArrayList<Double> run_times = new ArrayList<Double>();
+		start = System.currentTimeMillis();
+		for(int q=0;q<index.length;q++) {
+			final int[] query = my_articles[q].my_tokens;
+			//for(int article=0;article<index.length;article++) {
+			for(int article=0;article<3;article++) {
+				if(article==q) {
+					continue;//not myself
+				}
+				index[article].query(query,threshold,k);
+				run_times.add(index[article].run_time);
+			}
+		}
+		stop = System.currentTimeMillis();
+		
+		double sum = 0.0d;
+		for(double d : run_times) {
+			sum+=d;
+		}
+		double avg = sum / (double)run_times.size();
+		System.out.println("OPH average run time =\t"+avg);
+	}
+	
 	public static void main(String[] args) {
 		//run_bible_test_experiment();
 		//run_pan_experiment();
 		//run_bible_correctness_experiment();
 		//run_bible_runtime_experiment();
 		//run_wiki_runtime_experiment();
-		run_wiki_correctness_experiment();
+		//run_wiki_correctness_experiment();
+		run_corpus_experiment_wiki();
 	}
 }

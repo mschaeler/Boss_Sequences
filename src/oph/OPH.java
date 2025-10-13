@@ -25,7 +25,7 @@ public class OPH {
 	final ArrayList<ArrayList<CompactWindow>> empty_windows;
 	final ArrayList<ArrayList<NonEmptyCompactWindow>> non_empty_windows;
 	public static int sketch_size = 8;
-	private double run_time;
+	double run_time;
 	
 	final BitSet marked_src;
 	BitSet marked_susp;
