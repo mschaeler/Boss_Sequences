@@ -45,6 +45,7 @@ public class WikiDataLoader {
 	static String folder = "./data/wikipedia/";
 	//static String test_file = "test-5000.txt";
 	public static String test_file = "wiki-1024000.txt";
+	public static String corpus_file = "wiki-1024000-corpus.txt";
 	static String embedding_path = "all_words_wiki.tsv";
 	
 	static boolean header_written = false;
@@ -85,6 +86,27 @@ public class WikiDataLoader {
 		}
 		
 		return resultStringBuilder.toString();
+	}
+	
+	ArrayList<String> load_corpus(String file_name) {
+		File f = new File(folder+file_name);
+		if(!f.exists()) {
+			System.err.println("!f.exists()");
+			return null;
+		}
+		ArrayList<String> articles = new ArrayList<String>(2200);
+	    try (FileReader in = new FileReader(f); BufferedReader br = new BufferedReader(in);) {
+	        String line;
+	        while ((line = br.readLine()) != null) {
+	            articles.add(line);
+	        }
+	    } catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return articles;
 	}
 	
 	//TODO prepare_solution(ArrayList<String> tokens) umbiegen, so dass einfach das gesamte Dokument. -> vielleicht auch nochmal drüber nachdenken, wie ganu die queries generiert werden.
@@ -172,6 +194,27 @@ public class WikiDataLoader {
 		return_stemword = false;
 		new WikiDataLoader().materilaize_token_stream(test_file, 16000);//TODO make length parameter
 		return_stemword = true;
+	}
+	
+	static void materialize_tokens(ArrayList<String> all_unique_tokens) {
+		System.out.println("materilaize_tokens(ArrayList<String>("+all_unique_tokens.size()+"))");
+				
+		File dir = new File(folder);
+		if(!dir.exists()) {
+			dir.mkdir();
+		}
+		//(1) write all_sims
+		try(BufferedWriter writer = new BufferedWriter(new FileWriter(folder+"wikipedia_corpus_tokens.txt"))){
+			for(int i=0;i<all_unique_tokens.size();i++) {
+				writer.write(all_unique_tokens.get(i));
+				writer.write("\n");
+				if(i%1000==0) {
+					System.out.println(i+" of "+all_unique_tokens.size());
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private void materilaize_token_stream(String file, int length) {

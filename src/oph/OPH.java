@@ -89,7 +89,7 @@ public class OPH {
 	 * @return one array of overlapping intervals per window
 	 */
 	public void query(int[] query_sequence, double threshold, int k) {
-		System.out.println("OPH.query(int[],t="+threshold+",k="+k+")");
+		//System.out.println("OPH.query(int[],t="+threshold+",k="+k+")");
 		this.marked_src.clear();
 				
 		double start = System.currentTimeMillis();
@@ -111,7 +111,7 @@ public class OPH {
 		
 		double stop = System.currentTimeMillis();
 		this.run_time = (stop-start);
-		System.out.println("query(int[] query_sequence, double threshold, int k) done in "+(stop-start)+" ms");
+		System.out.println("query(int[] query_sequence, double threshold="+threshold+", int k="+k+") done in "+(stop-start)+" ms");
 	}
 	
 	/**

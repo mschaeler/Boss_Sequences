@@ -310,10 +310,10 @@ public class Experiment {
 		
 		ArrayList<Double> run_times = new ArrayList<Double>();
 		start = System.currentTimeMillis();
-		for(int q=0;q<index.length;q++) {
+		for(int q=0;q<Corpus.num_articles;q++) {
 			final int[] query = my_articles[q].my_tokens;
 			//for(int article=0;article<index.length;article++) {
-			for(int article=0;article<3;article++) {
+			for(int article=0;article<index.length;article++) {
 				if(article==q) {
 					continue;//not myself
 				}
@@ -328,7 +328,7 @@ public class Experiment {
 			sum+=d;
 		}
 		double avg = sum / (double)run_times.size();
-		System.out.println("OPH average run time =\t"+avg);
+		System.out.println("OPH average run time =\t"+avg+" total time "+(stop-start)+" ms");
 	}
 	
 	public static void main(String[] args) {

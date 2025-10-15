@@ -11,6 +11,8 @@ import boss.util.MyArrayList;
 import wikipedia.Corpus.CorpusArticle;
 
 public class WikiCorpusSolution {
+	double[] my_run_times = new double[2];
+	
 	public WikiCorpusSolution(HashMap<Integer, double[]> similarities, CorpusArticle query, CorpusArticle article, MyArrayList[] all_runs, HashMap<Integer, double[]> embedding_vector_index, int k, double threshold, int solution_enum) {
 		//System.out.println("WikiCorpusSolution(query="+query.article_number+", article="+article.article_number+")");
 		//double start = System.currentTimeMillis();
@@ -106,7 +108,10 @@ public class WikiCorpusSolution {
 		}else{
 			run_times = s.run_naive();
 		}
-		System.out.println("WikiCorpusSolution(query="+query.article_number+", article="+article.article_number+") Create Solution in "+(System.currentTimeMillis()-start)+ "ms runtime="+run_times[0]);	
+		stop = System.currentTimeMillis();
+		System.out.println("WikiCorpusSolution(query="+query.article_number+", article="+article.article_number+") Create Solution in "+(stop-start)+ "ms runtime="+run_times[0]);
+		my_run_times[0] = stop-start;
+		my_run_times[1] = run_times[0];
 		//System.out.println();
 	}
 }

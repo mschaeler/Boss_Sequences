@@ -34,9 +34,9 @@ public class Corpus {
 	 */
 	WikiDataLoader wl = new WikiDataLoader();
 	/**
-	 * All the tokens in all documents, i.e., concatenation of all articles
+	 * All the tokens in all documents, i.e., articles after pre-processing
 	 */
-	ArrayList<String> tokens;
+	ArrayList<ArrayList<String>> raw_articles;
 	/**
 	 * Performs String -> int mapping
 	 */
@@ -79,17 +79,51 @@ public class Corpus {
 	 * Length of the k-width windows
 	 */
 	final int k = 10;//XXX
+	private static String embedding_path = "wikipedia_corpus_tokens.tsv";
+	
+	/**
+	 * Threshold for minimal article length after pre-processing
+	 */
+	final int min_length_article = 20;
 	
 	@SuppressWarnings("unchecked")
 	public Corpus() {
-		String line = wl.load_file(WikiDataLoader.test_file);//All articles in one line...
-		tokens = wl.tokenize_txt_align(line);//Remove stop words etc.
+		//String line = wl.load_file(WikiDataLoader.test_file);//All articles in one line...
+		ArrayList<String> lines = wl.load_corpus(WikiDataLoader.corpus_file);//All articles in one line...
+		this.raw_articles = new ArrayList<ArrayList<String>>(lines.size());
+		int sum_words = 0;
+		//final String regex_characters_to_keep = "[^a-zA-Z0-9 ]";//Note the not at the beginning
+		final String regex_characters_to_keep = "[a-zA-Z0-9]+";//Note the not at the beginning
+		for(String line : lines){
+			ArrayList<String> tokens = wl.tokenize_txt_align(line);//Remove stop words etc.
+			ArrayList<String> alpha_numerice_tokens = new ArrayList<String>(tokens.size());
+			for(String token : tokens) {
+				if(token.matches(regex_characters_to_keep)) {
+					alpha_numerice_tokens.add(token);
+				}else {
+					System.out.println("Deleting "+token);
+				}
+			}
+			if(alpha_numerice_tokens.size()>=min_length_article) {
+				raw_articles.add(alpha_numerice_tokens);
+				System.out.print("tokens=\t\t\t[");
+				for(String token : tokens) {
+					System.out.print(token+",");
+				}
+				System.out.println("]");
+				sum_words += alpha_numerice_tokens.size();
+			}else {
+				System.out.println("To short articel-> deleting this one");
+			}
+		}
 		
-		System.out.println("Words after pre-processing= "+tokens.size());
-		HashSet<String> unique_tokens = new HashSet<String>(tokens.size());
-		for(String s : tokens) {
-			unique_tokens.add(s);
-			//System.out.println(s);
+		System.out.println("Words after pre-processing= "+sum_words);
+		HashSet<String> unique_tokens = new HashSet<String>(sum_words);
+		for(ArrayList<String> tokens : raw_articles) {
+			for(String s : tokens) {
+				unique_tokens.add(s);
+				//System.out.println(s);
+			}
 		}
 		System.out.println("Unique words after pre-processing= "+unique_tokens.size());
 		ArrayList<String> unique_tokens_sorted = new ArrayList<String>(unique_tokens.size());
@@ -98,9 +132,10 @@ public class Corpus {
 		}
 		System.out.println("unique_tokens_sorted");
 		Collections.sort(unique_tokens_sorted);
+		//WikiDataLoader.materialize_tokens(unique_tokens_sorted);
 		
 		token_ids = SemanticTest.strings_to_int(unique_tokens_sorted);//String -> int
-		this.embedding_vector_index = SemanticTest.create_embedding_vector_index(token_ids, unique_tokens_sorted, WikiDataLoader.folder+WikiDataLoader.embedding_path);
+		this.embedding_vector_index = SemanticTest.create_embedding_vector_index(token_ids, unique_tokens_sorted, WikiDataLoader.folder+embedding_path );
 		
 		int max_id = token_ids.size();
 		candidate_producing_token_pairs = new MyArrayList[max_id+1]; 
@@ -158,7 +193,7 @@ public class Corpus {
 		}
 		
 		System.out.println("Loaded candidate_producing_token_pairs in "+(System.currentTimeMillis()-start)+" ms");
-		int num_articles = tokens.size() / average_length_wikipedia_article;
+		int num_articles = raw_articles.size();
 		my_articles = new CorpusArticle[num_articles];
 		
 		System.out.print("Creating and indexing articles");
@@ -275,6 +310,12 @@ public class Corpus {
 			sum_lines += art.k_width_windows.length;
 			sum_lines_pruned += count_w_pruned;
 			sum_cells_pruned += count_cells_pruned;
+			if(sum_cells<sum_lines_pruned) {
+				System.err.println("sum_cells<sum_lines_pruned");
+			}
+			if(sum_lines<sum_lines_pruned) {
+				System.err.println("sum_lines<sum_lines_pruned");
+			}
 		}
 		
 		System.out.println("Articles.filter "+query.article_number + " [DONE] in\t"+(stop-start)+"\tms "+line_runs.size()+"\t"+sum_cells+"\t"+sum_lines+"\t"+sum_lines_pruned+"\t"+sum_cells_pruned);
@@ -404,7 +445,7 @@ public class Corpus {
 	}
 
 	public class CorpusArticle{
-		public final int[] my_tokens = new int[average_length_wikipedia_article];
+		public final int[] my_tokens;
 		final int article_number;
 		final int[][] k_width_windows;
 		/**
@@ -416,9 +457,11 @@ public class Corpus {
 		
 		public CorpusArticle(int _article_number){
 			article_number = _article_number;
-			int start = article_number*average_length_wikipedia_article; 
-			for(int i=0;i<average_length_wikipedia_article;i++) {
-				String s = tokens.get(start+i);
+			ArrayList<String> string_tokens = raw_articles.get(article_number);
+			this.my_tokens = new int[string_tokens.size()]; 
+			
+			for(int i=0;i<string_tokens.size();i++) {
+				String s = string_tokens.get(i);
 				int token_id = token_ids.get(s).intValue();
 				my_tokens[i] = token_id;
 			}
@@ -459,12 +502,16 @@ public class Corpus {
 		}
 	}
 	
+	public static int num_articles = 5;
+	public static boolean only_filters = false;
+	
 	public static void main(String[] args) {
 		Corpus my_corpus = new Corpus();
 		ArrayList<HashMap<CorpusArticle, MyArrayList>> corpus_filter_results = new ArrayList<HashMap<CorpusArticle, MyArrayList>>(my_corpus.my_articles.length);
 		
-		int num_articles = 3;
-		//int num_articles = my_corpus.my_articles.length;
+		if(only_filters) {
+			num_articles = 50;
+		}
 
 		for(int i=0;i<num_articles;i++) {
 			HashMap<CorpusArticle, MyArrayList> temp = my_corpus.filter(i);
@@ -478,9 +525,13 @@ public class Corpus {
 			candidate_runs.add(my_corpus.get_candidates_bit_vector(my_corpus.my_articles[i], line_filtered_result));
 		}
 		
+		if(only_filters)
+			System.exit(0);//XXX
+		
 		//For each query document
 		//int solution_enum = SemanticTest.SOLUTION; FAST_TEXT CORPUS
-		int solution_enum = SemanticTest.FAST_TEXT;
+		int solution_enum = SemanticTest.SOLUTION;
+		ArrayList<Double> run_times = new ArrayList<Double>();
 		for(int i=0;i<num_articles;i++) {
 			final CorpusArticle query = my_corpus.my_articles[i];
 			
@@ -504,7 +555,14 @@ public class Corpus {
 			HashMap<CorpusArticle, MyArrayList[]> corpus_candidates_all_docs = candidate_runs.get(i);
 			for(Entry<CorpusArticle, MyArrayList[]> e : corpus_candidates_all_docs.entrySet()) {
 				WikiCorpusSolution w = new WikiCorpusSolution(sim, query, e.getKey(), e.getValue(), my_corpus.embedding_vector_index, my_corpus.k, my_corpus.threshold, solution_enum);
+				run_times.add(w.my_run_times[0]);
 			}
 		}
+		double sum = 0.0d;
+		for(double d : run_times) {
+			sum+=d;
+		}
+		double avg = sum / (double)run_times.size();
+		System.out.println("solution_enum="+solution_enum+" average run time =\t"+avg);
 	}
 }
