@@ -319,12 +319,6 @@ private:
         }
     }
 
-    static std::vector<std::string> split(const std::string &s, char delim) {
-        std::vector<std::string> elems;
-        split(s, delim, std::back_inserter(elems));
-        return elems;
-    }
-
     static vector<string> remove_stopwords(const vector<string>& tokens, const vector<string>& stop_words) {
         vector<string> result;
         for(const auto& t : tokens){
@@ -338,15 +332,15 @@ private:
     }
 
 
-    void do_crazy_things_2(vector<string>& text_files, set<int>& text_sets, bool skip_first_line){
+    void do_crazy_things_2(const vector<string>& text_files, set<int>& text_sets, bool skip_first_line){
         for (const auto& f : text_files) {//For each text file containing a single word
             cout << "Loading File " << f << endl;
             //set2int[f] = text_id;
             //int2set[text_id] = f;
             text_sets.insert(text_id);
-            string line;
             ifstream infile(f);
             if (infile.is_open()) {
+                string line;
                 if(skip_first_line) {
                     cout << "Skipping line: ";
                     getline(infile, line);//Name of the Biblical Book
@@ -404,8 +398,8 @@ public:
     int id = 0;
     //int tokens = 0;
     int text_id = 0;
-    const static int EN = 0;
-    const static int DE = 1;
+    static constexpr int EN = 0;
+    static constexpr int DE = 1;
 
     Environment(const vector<string>& all_tokens, int length){//copy the token vector
         //reduce to length than split in half
@@ -439,6 +433,12 @@ public:
 
         do_crazy_things_2(text1_files, text1sets, true);//Always skip the first line for bible corpus
         do_crazy_things_2(text2_files, text2sets, true);
+    }
+
+    static std::vector<std::string> split(const std::string &s, char delim) {
+        std::vector<std::string> elems;
+        split(s, delim, std::back_inserter(elems));
+        return elems;
     }
 
     void out(){
