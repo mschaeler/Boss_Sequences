@@ -2,6 +2,7 @@
 #include <sstream>
 #include <cmath>       /* sqrt */
 #include <chrono>
+#include <cstring>
 
 #include "Environment.h"
 #include "Solutions.h"
@@ -12,6 +13,7 @@ const int test_experiment  = 0;
 const int bible_experiment = 1;
 const int pan_experiment   = 2;
 const int wiki_experiment  = 3;
+const int wiki_corpus_experiment  = 4;
 
 const int run_naive = 0;
 const int run_basem = 1;
@@ -248,7 +250,7 @@ int main(int argc, char* argv[]) {
 
     if(argc != 3){
         cout << "Count of run time args must be equal to three, but got " << argc << " arguments listed above." << endl;
-        cout << "Usage [program] [test,bible,pan,wiki] [0=naive,1=BaSEM,2=SeDA]" << endl;
+        cout << "Usage [program] [test,bible,pan,wiki,wiki_corpus] [0=naive,1=BaSEM,2=SeDA]" << endl;
         cout << "Running test experiment with SeDA instead" << endl;
         experiment = test_experiment;
         approach_to_run = run_seda;
@@ -262,6 +264,8 @@ int main(int argc, char* argv[]) {
             experiment = pan_experiment;
         }else if(strcmp(argv[1],"wiki")==0){
             experiment = wiki_experiment;
+        }else if(strcmp(argv[1],"wiki_corpus")==0){
+            experiment = wiki_corpus_experiment;
         }else{
             printf("Unknown experiment %s. Running test experiment instead.\n", argv[1]);
             experiment = test_experiment;
@@ -466,6 +470,78 @@ int main(int argc, char* argv[]) {
         }else{
             cout << "Could not open " << wiki_dump_file << endl;
         }
+    }else if(experiment == wiki_corpus_experiment) {
+        //(1) load the corpus and tokenize
+        string wiki_dump_file = "..//data/en/wiki-1024000-corpus.txt";
+        string line;
+        //ifstream infile(wiki_dump_file);
+
+        /*if (infile.is_open()) {
+            vector<vector<string>> raw_corpus(1);
+            while (getline(infile, line)) {
+                vector<string> tokens = Environment::tokenize(line, Environment::EN);//XXX Does remove numbers
+                if (tokens.size()>=20) {
+                    //cout << "Parsed wiki dump into " << tokens.size() << " tokens" << endl;
+                    for(int i=0;i<5;i++){
+                        cout << tokens.at(i) << "\t";
+                    }
+                    cout << endl;
+                    raw_corpus.push_back(tokens);
+                }else {
+                    cout << "Deleted short sentence with " << tokens.size()<< " tokens" <<endl;
+                }
+            }
+            cout << "Done reading corpus file. Now having " << raw_corpus.size() << " articles" << endl;
+        }*/
+
+        vector<vector<int>> raw_corpus_int(0);
+        string corpus_file("..//data/en/corpus_int.tsv");
+        Corpus::get_articles_tokenized(corpus_file, raw_corpus_int);
+        vector<vector<int>> candidate_producing_token_pairs;
+        Corpus::get_N(candidate_producing_token_pairs, "..//data/en/candidate_producing_token_pairs.txt");
+        vector<unordered_set<int>> candidate_producing_token_pairs_hashed;
+        for(const vector<int>& line_N : candidate_producing_token_pairs) {
+            candidate_producing_token_pairs_hashed.emplace_back(line_N.begin(), line_N.end());
+        }
+
+
+
+        vector<vector<double>> embeddings(0);
+        string embeddings_file("..//data/en/corpus_embeddings.tsv");
+        Corpus::get_embeddings(embeddings_file, embeddings);
+        int k = 10;
+        verbose = false;//prevent outputs of Solution class
+        Corpus my_corpus(k, raw_corpus_int, embeddings, candidate_producing_token_pairs, candidate_producing_token_pairs_hashed);
+        for (int query_id = 0;query_id < 20;query_id++) {
+            double runtime = my_corpus.query(query_id);
+            cout <<"Runtime\t"<< runtime << endl;
+        }
+
+
+
+        //Corpus::get_N(embeddings,0.7);
+        //vector<Solutions> my_solutions;
+        /*vector<double> runtimes;
+        int query_id = 0;
+        const auto sim = Corpus::get_sim(raw_corpus_int.at(query_id), embeddings);
+        const vector<int>& unique_tokens_q = Solutions::get_tokens(raw_corpus_int.at(query_id));
+
+        for (int article_id=2;article_id<raw_corpus_int.size();article_id++) {
+            if (query_id == article_id) {
+                continue; // do not query myself
+            }
+            const vector<int>& unique_tokens_a = Solutions::get_tokens(raw_corpus_int.at(article_id));
+            double runtime = Corpus::map_to_new_alphabet(sim, raw_corpus_int.at(query_id), raw_corpus_int.at(article_id), embeddings, unique_tokens_q, unique_tokens_a);
+            runtimes.push_back(runtime);
+            cout << article_id << "\t" << endl;
+        }
+        for (double runtime : runtimes) {
+            cout << runtime << endl;
+        }*/
+
+        /*for(Solutions& s : my_solutions) {
+            s.run_baseline();
+        }*/
     }else{
         cout << "Unknown experiment " << experiment << endl;
     }
