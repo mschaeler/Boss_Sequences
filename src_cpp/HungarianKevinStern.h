@@ -157,9 +157,9 @@ private:
 
     /**
 	 *
-	 * @return the first unmatched worker or {@link #dim} if none.
+	 * @return the first unmatched worker or #dim if none.
 	 */
-    int fetchUnmatchedWorker() {
+    int fetchUnmatchedWorker() const {
         for (int w = 0; w < dim; w++) {
             if (matchJobByWorker[w] == -1) {
                 return w;
@@ -273,7 +273,7 @@ public:
     /**
 	 * Construct an instance of the algorithm.
 	 *
-	 * @param costMatrix the cost matrix, where matrix[i][j] holds the cost of
+	 * @param k the cost matrix, where matrix[i][j] holds the cost of
 	 *                   assigning worker i to job j, for all i, j. The cost matrix
 	 *                   must not be irregular in the sense that all rows must be
 	 *                   the same length; in addition, all entries must be
@@ -435,9 +435,9 @@ private:
 
     /**
 	 *
-	 * @return the first unmatched worker or {@link #dim} if none.
+	 * @return the first unmatched worker or #dim if none.
 	 */
-    int fetchUnmatchedWorker() {
+    int fetchUnmatchedWorker() const {
         for (int w = 0; w < dim; w++) {
             if (matchJobByWorker[w] == -1) {
                 return w;
@@ -453,6 +453,7 @@ private:
 	 * corresponding to the specified root worker.
 	 *
 	 * @param w the worker at which to root the next phase.
+	 * @param cost_matrix kxk matrix
 	 */
     inline void initializePhase(const int w, const vector<const double*>& cost_matrix) {
         committedWorkers.assign(dim, false);
@@ -502,7 +503,7 @@ public:
     /**
 	 * Construct an instance of the algorithm.
 	 *
-	 * @param costMatrix the cost matrix, where matrix[i][j] holds the cost of
+	 * @param k the cost matrix, where matrix[i][j] holds the cost of
 	 *                   assigning worker i to job j, for all i, j. The cost matrix
 	 *                   must not be irregular in the sense that all rows must be
 	 *                   the same length; in addition, all entries must be
@@ -662,9 +663,9 @@ private:
 
     /**
 	 *
-	 * @return the first unmatched worker or {@link #dim} if none.
+	 * @return the first unmatched worker or #dim if none.
 	 */
-    int fetchUnmatchedWorker() {
+    int fetchUnmatchedWorker() const {
         for (int w = 0; w < dim; w++) {
             if (matchJobByWorker[w] == -1) {
                 return w;
@@ -680,6 +681,7 @@ private:
 	 * corresponding to the specified root worker.
 	 *
 	 * @param w the worker at which to root the next phase.
+	 * @param cost_matrix kxk matrix
 	 */
     inline void initializePhase(const int w, const vector<vector<double>>& cost_matrix) {
         committedWorkers.assign(dim, false);
@@ -729,7 +731,7 @@ public:
     /**
 	 * Construct an instance of the algorithm.
 	 *
-	 * @param costMatrix the cost matrix, where matrix[i][j] holds the cost of
+	 * @param k the cost matrix, where matrix[i][j] holds the cost of
 	 *                   assigning worker i to job j, for all i, j. The cost matrix
 	 *                   must not be irregular in the sense that all rows must be
 	 *                   the same length; in addition, all entries must be
