@@ -9,20 +9,11 @@
 
 using namespace std;
 
-const int test_experiment  = 0;
-const int bible_experiment = 1;
-const int pan_experiment   = 2;
-const int wiki_experiment  = 3;
-const int wiki_corpus_experiment  = 4;
-
-const int run_naive = 0;
-const int run_basem = 1;
-const int run_seda  = 2;
-
-const int run_naive_rb = 3;
-const int run_basem_rb = 4;
-const int run_seda_rb  = 5;
-const int run_fast_text = 6;
+constexpr int test_experiment  = 0;
+constexpr int bible_experiment = 1;
+constexpr int pan_experiment   = 2;
+constexpr int wiki_experiment  = 3;
+constexpr int wiki_corpus_experiment  = 4;
 
 
 /**
@@ -80,14 +71,14 @@ public:
 
     vector<vector<double>> get_word_vectors(){
         int max_id = 0;
-        int vec_length;
+        int vec_length = 0;
         for (auto& it: vectors) {
             // Do stuff
             int my_id =  it.first;
             if(my_id>max_id){
                 max_id = my_id;
             }
-            vec_length = it.second.size();
+            vec_length = static_cast<int>(it.second.size());
         }
         vector<vector<double>> ret(max_id+1,vector<double>(vec_length));//Should all be inited with zero vectors
         for (auto& it: vectors) {
@@ -128,7 +119,7 @@ public:
             denom_b += B[i] * B[i];
         }
 
-        auto sim = double(dot / (sqrt(denom_a) * sqrt(denom_b)));
+        auto sim = static_cast<double>(dot / (sqrt(denom_a) * sqrt(denom_b)));
         if(sim<0) {
             sim=0;
         }
@@ -139,7 +130,7 @@ public:
     }
 };
 
-vector<vector<double>> get_sim_matrix(vector<int>& raw_book_1, vector<int>& raw_book_2, DataLoader& loader, Environment& env){
+vector<vector<double>> get_sim_matrix(const vector<int>& raw_book_1, const vector<int>& raw_book_2, DataLoader& loader, Environment& env){
     //get size of matrix
     int max_id = 0;
     for(int id : raw_book_1){
@@ -188,6 +179,9 @@ vector<vector<double>> get_sim_matrix(vector<int>& raw_book_1, vector<int>& raw_
  * @param env
  * @param loader
  * @param theta
+ * @param k_s
+ * @param approach
+ * @param num_repitition
  */
 vector<double> run_experiments(Environment& env, DataLoader& loader, const double theta, const vector<int>& k_s, const int approach, const int num_repitition){
     set<int> text1Sets = env.getText1SetIds();
@@ -222,7 +216,7 @@ vector<double> run_experiments(Environment& env, DataLoader& loader, const doubl
                 cout << "run_experiments() Now such approach " << approach << endl;
             }
         }
-        run_times.push_back(run_time/double(num_repitition));
+        run_times.push_back(run_time/static_cast<double>(num_repitition));
     }
     for(int k : k_s){
         cout << "k="<<k<<"\t";
@@ -239,16 +233,21 @@ vector<double> run_experiments(Environment& env, DataLoader& loader, const doubl
 int main(int argc, char* argv[]) {
     int experiment, approach_to_run;
 
+    //For corpus experiment with default values
+    int num_queries_to_run  = 20;
+    int k_value_to_run      = 10;
+    double threshold_to_run = 0.7;
+
     cout << "***SeDA experiment framework" << endl;
     double theta = 0.7;
 
-    printf("You have entered %d arguments:\n", argc);
+    cout << "Number of  arguments:" <<  argc << endl;
 
     for (int i = 0; i < argc; i++) {
-        printf("%s\n", argv[i]);
+        cout << argv[i] << endl;
     }
 
-    if(argc != 3){
+    if(argc < 3){
         cout << "Count of run time args must be equal to three, but got " << argc << " arguments listed above." << endl;
         cout << "Usage [program] [test,bible,pan,wiki,wiki_corpus] [0=naive,1=BaSEM,2=SeDA]" << endl;
         cout << "Running test experiment with SeDA instead" << endl;
@@ -267,7 +266,7 @@ int main(int argc, char* argv[]) {
         }else if(strcmp(argv[1],"wiki_corpus")==0){
             experiment = wiki_corpus_experiment;
         }else{
-            printf("Unknown experiment %s. Running test experiment instead.\n", argv[1]);
+            cout << "Unknown experiment" << argv[1] << "Running test experiment instead." << endl;
             experiment = test_experiment;
         }
 
@@ -287,9 +286,23 @@ int main(int argc, char* argv[]) {
         }else if(strcmp(argv[2],"6")==0){//FastText
             theta = 0.1;
             approach_to_run = run_fast_text;
+        }else if(strcmp(argv[2],"7")==0){//SeDA with ring buffer
+            approach_to_run = run_c_seda;
+        }else if(strcmp(argv[2],"8")==0){//SeDA with ring buffer
+            approach_to_run = run_c_seda_2;
         }else{
-            printf("Unknown approach %s. Running SeDA approach instead.\n", argv[2]);
+            cout << "Unknown approach "<<argv[2]<<". Running SeDA approach instead." << endl;
             approach_to_run = run_seda;
+        }
+        //Parameters below: only for corpus experiment
+        if(argc >= 4) {//num queries
+           num_queries_to_run = stoi(argv[3]);
+        }
+        if(argc >= 5) {//value of k
+            k_value_to_run = stoi(argv[4]);
+        }
+        if(argc >= 6) {//threshold
+            threshold_to_run = stod(argv[5]);
         }
     }
     cout << "***SeDA experiment framework running experiment=" << experiment << " with approach = " << approach_to_run << endl;
@@ -306,14 +319,14 @@ int main(int argc, char* argv[]) {
         data_file = "..//data/en/matches_stopwords.en.min.tsv";
 
         DataLoader loader(data_file, &env);
-        int num_repition = 3;
-        run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+        int num_repitition = 3;
+        run_experiments(env, loader, theta, k_s, approach_to_run, num_repitition);
     }else if(experiment == bible_experiment) {
         vector<vector<double>> all_runtimes;
 
         //First the two English texts
         vector<int> k_s = {3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-        int num_repition = 10;
+        int num_repitition = 10;
         string data_file;
         {
             string text1location = "..//data/en/esv.txt";
@@ -322,7 +335,7 @@ int main(int argc, char* argv[]) {
             Environment env(text1location, text2location, skip_first_line);
             data_file = "..//data/en/matches_stopwords.en.min.tsv";
             DataLoader loader(data_file, &env);
-            auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+            auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repitition);
             all_runtimes.push_back(temp);
         }
         vector<string> german_bible_versions = {"elberfelder.txt","luther.txt","ne.txt","schlachter.txt","volxbibel.txt",};
@@ -336,7 +349,7 @@ int main(int argc, char* argv[]) {
                 Environment env(text1location, text2location, Environment::DE);
                 env.out();
                 DataLoader loader(data_file, &env);
-                auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+                auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repitition);
                 all_runtimes.push_back(temp);
             }
         }
@@ -359,8 +372,8 @@ int main(int argc, char* argv[]) {
             cout << "k="<<k<<"\t";
         }
         cout << endl;
-        for (auto i=0;i<avg_runtimes.size();i++) {
-            double t = avg_runtimes[i]/(double) all_runtimes.size();
+        for (double avg_runtime : avg_runtimes) {
+            double t = avg_runtime/static_cast<double>(all_runtimes.size());
             cout << t << "\t";
         }
         cout << endl;
@@ -389,16 +402,16 @@ int main(int argc, char* argv[]) {
 
         //First the two English texts
         vector<int> k_s = {3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-        int num_repition = 1;
         string data_file;
 
         data_file = "..//data/pan11/all_matches_pan_new.tsv";
         string PAN11_PREFIX_SUSP = "..//data/pan11/01-manual-obfuscation-highjac/susp/suspicious-document";
         string PAN11_PREFIX_SRC = "..//data/pan11/01-manual-obfuscation-highjac/src/source-document";
-        bool skip_first_line = false;
         //For each pair
         for (const auto& pair : plagiarism_pairs)
         {
+            int num_repitition = 1;
+            bool skip_first_line = false;
             string text1location = PAN11_PREFIX_SUSP+pair.first+".txt";
             string text2location = PAN11_PREFIX_SRC+pair.second+".txt";
 
@@ -407,7 +420,7 @@ int main(int argc, char* argv[]) {
             Environment env(text1location, text2location, skip_first_line);
             env.out();
             DataLoader loader(data_file, &env);
-            auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repition);
+            auto temp = run_experiments(env, loader, theta, k_s, approach_to_run, num_repitition);
             all_runtimes.push_back(temp);
         }
 
@@ -430,8 +443,8 @@ int main(int argc, char* argv[]) {
             cout << "k="<<k<<"\t";
         }
         cout << endl;
-        for (auto i=0;i<avg_runtimes.size();i++) {
-            double t = avg_runtimes[i]/(double) all_runtimes.size();
+        for (double avg_runtime : avg_runtimes) {
+            double t = avg_runtime/static_cast<double>(all_runtimes.size());
             cout << t << "\t";
         }
         cout << endl;
@@ -440,11 +453,11 @@ int main(int argc, char* argv[]) {
         vector<int> k_s = {10};
         //Parse dump into vector
         string wiki_dump_file = "..//data/en/wiki-1024000.txt";
-        string line;
         ifstream infile(wiki_dump_file);
-        vector<double> run_times;
 
         if (infile.is_open()) {
+            string line;
+            vector<double> run_times;
             getline(infile, line);
             vector<string> tokens = Environment::tokenize(line, Environment::EN);
             cout << "Parsed wiki dump into " << tokens.size() << " tokens" << endl;
@@ -460,8 +473,8 @@ int main(int argc, char* argv[]) {
                 string embedding_file = "..//data/en/all_words_wiki.tsv";
                 DataLoader loader(embedding_file, &env);
 
-                int num_repition = 2;
-                run_times.push_back(run_experiments(env, loader, theta, k_s, approach_to_run, num_repition).at(0));
+                int num_repitition = 2;
+                run_times.push_back(run_experiments(env, loader, theta, k_s, approach_to_run, num_repitition).at(0));
             }
             cout << "Wikipedia run times for k=" << k_s.at(0) << endl;
             for(int i=0;i<intput_sequence_length.size();i++){
@@ -471,77 +484,64 @@ int main(int argc, char* argv[]) {
             cout << "Could not open " << wiki_dump_file << endl;
         }
     }else if(experiment == wiki_corpus_experiment) {
-        //(1) load the corpus and tokenize
-        string wiki_dump_file = "..//data/en/wiki-1024000-corpus.txt";
         string line;
-        //ifstream infile(wiki_dump_file);
+        int k = k_value_to_run;
+        verbose = false;//prevent outputs of Solution class
+        int num_queries = num_queries_to_run;
+        cout << "Wiki Corpus Experiment Params: num_queries=" << num_queries << " k=" << k << " threshold=" << threshold_to_run << endl;
 
-        /*if (infile.is_open()) {
-            vector<vector<string>> raw_corpus(1);
-            while (getline(infile, line)) {
-                vector<string> tokens = Environment::tokenize(line, Environment::EN);//XXX Does remove numbers
-                if (tokens.size()>=20) {
-                    //cout << "Parsed wiki dump into " << tokens.size() << " tokens" << endl;
-                    for(int i=0;i<5;i++){
-                        cout << tokens.at(i) << "\t";
-                    }
-                    cout << endl;
-                    raw_corpus.push_back(tokens);
-                }else {
-                    cout << "Deleted short sentence with " << tokens.size()<< " tokens" <<endl;
-                }
-            }
-            cout << "Done reading corpus file. Now having " << raw_corpus.size() << " articles" << endl;
-        }*/
+        //(1) load the corpus and tokenize
+        string wiki_dump_file = "";
+        if(threshold_to_run==0.7){
+            wiki_dump_file = "..//data/en/wiki-1024000-corpus.txt";
+        }else if(threshold_to_run == 0.6){
+            wiki_dump_file = "..//data/en/N_06.txt";
+        }else if(threshold_to_run == 0.8){
+            wiki_dump_file = "..//data/en/N_08.txt";
+        }else{
+            cout << "Currently unsupported threshold=" << threshold_to_run << endl;
+            threshold_to_run = 0.7;
+        }
 
-        vector<vector<int>> raw_corpus_int(0);
+        vector<vector<int>> raw_corpus_int;
         string corpus_file("..//data/en/corpus_int.tsv");
         Corpus::get_articles_tokenized(corpus_file, raw_corpus_int);
+        if(raw_corpus_int.size()<num_queries) {
+            cout << "Reducing num queries to run from " << num_queries << " to " << raw_corpus_int.size() <<endl;
+            num_queries = static_cast<int>(raw_corpus_int.size());
+        }
+
+        //(2) Load candidate_producing_token_pairs: Depends on threshold //TODO
         vector<vector<int>> candidate_producing_token_pairs;
         Corpus::get_N(candidate_producing_token_pairs, "..//data/en/candidate_producing_token_pairs.txt");
+        //redundantly store them for O(1) access
         vector<unordered_set<int>> candidate_producing_token_pairs_hashed;
+        candidate_producing_token_pairs_hashed.reserve(candidate_producing_token_pairs.size());//pre-allocate space
         for(const vector<int>& line_N : candidate_producing_token_pairs) {
             candidate_producing_token_pairs_hashed.emplace_back(line_N.begin(), line_N.end());
         }
 
-
-
+        //(3) Load embeddings
         vector<vector<double>> embeddings(0);
         string embeddings_file("..//data/en/corpus_embeddings.tsv");
         Corpus::get_embeddings(embeddings_file, embeddings);
-        int k = 10;
-        verbose = false;//prevent outputs of Solution class
-        Corpus my_corpus(k, raw_corpus_int, embeddings, candidate_producing_token_pairs, candidate_producing_token_pairs_hashed);
-        for (int query_id = 0;query_id < 20;query_id++) {
-            double runtime = my_corpus.query(query_id);
+
+        Corpus my_corpus(k, threshold_to_run, raw_corpus_int, embeddings, candidate_producing_token_pairs, candidate_producing_token_pairs_hashed);
+        vector<vector<double>> all_aggregated_runtimes;
+        for (int query_id = 0;query_id < num_queries; query_id++) {
+            vector<double> aggregated_runtime;
+            double runtime = my_corpus.query(query_id, aggregated_runtime, approach_to_run);
             cout <<"Runtime\t"<< runtime << endl;
+            all_aggregated_runtimes.emplace_back(aggregated_runtime);
         }
-
-
-
-        //Corpus::get_N(embeddings,0.7);
-        //vector<Solutions> my_solutions;
-        /*vector<double> runtimes;
-        int query_id = 0;
-        const auto sim = Corpus::get_sim(raw_corpus_int.at(query_id), embeddings);
-        const vector<int>& unique_tokens_q = Solutions::get_tokens(raw_corpus_int.at(query_id));
-
-        for (int article_id=2;article_id<raw_corpus_int.size();article_id++) {
-            if (query_id == article_id) {
-                continue; // do not query myself
+        cout << "All aggregated runtimes of approach " << approach_to_run << " k=" << k << " threshold=" << threshold_to_run << endl;
+        cout << "Sim()\tCorpus_Filter\tCandidate_Filter\tRuntime" << endl;
+        for(const auto& vector : all_aggregated_runtimes) {
+            for(double d : vector) {
+                cout << d << "\t";
             }
-            const vector<int>& unique_tokens_a = Solutions::get_tokens(raw_corpus_int.at(article_id));
-            double runtime = Corpus::map_to_new_alphabet(sim, raw_corpus_int.at(query_id), raw_corpus_int.at(article_id), embeddings, unique_tokens_q, unique_tokens_a);
-            runtimes.push_back(runtime);
-            cout << article_id << "\t" << endl;
+            cout << endl;
         }
-        for (double runtime : runtimes) {
-            cout << runtime << endl;
-        }*/
-
-        /*for(Solutions& s : my_solutions) {
-            s.run_baseline();
-        }*/
     }else{
         cout << "Unknown experiment " << experiment << endl;
     }
