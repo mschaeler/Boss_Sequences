@@ -1244,7 +1244,7 @@ public:
      * @param my_candidates <line, L<run_start,run_stop>>
      * @return
      */
-    double run_solution_corpus(const unordered_map<int,vector<pair<int,int>>>& my_candidates){
+    double run_solution_corpus(const vector<pair<int,vector<pair<int, int>>>>& my_candidates){
         if (verbose) out_config("run_solution_corpus()");
         HungarianDeep solver(k);
 
@@ -1810,6 +1810,7 @@ public:
 
         const vector<int>& query = raw_corpus.at(query_id);
         const auto& query_windows = k_width_windows.at(query_id);
+        const int num_doubles_for_bit_vector = static_cast<int>((query_windows.size()/8)+1);
 
         vector<BitSet> candidate_documents;//TODO move to constructor
         candidate_documents.reserve(raw_corpus.size());
@@ -1920,13 +1921,13 @@ public:
         //(1) We compute for each token in the neighborhood index index_N the column vector once
         for(int other_token_id : index_N) {
             //cout << "Creating Vector for token_id= " << other_token_id << endl;
-            BitSet bs(static_cast<int>(query_windows.size()));//one bit per window, if true this is a candidate column
+            BitSet bs(num_doubles_for_bit_vector);//one bit per window, if true this is a candidate column
             {
                 //inlined create_bit_vector()
                 // That's the index of other_token_id -> looking for pairs sim(other_token_id, query_token_at_pos)>=threshold
-                const unordered_set<int>& my_neighborhood_index = candidate_producing_token_pairs_hashed.at(other_token_id);//FIX was copied
+                const unordered_set<int>& my_neighborhood_index = candidate_producing_token_pairs_hashed[other_token_id];//FIX was copied
                 for(int position=0; position<query.size();position++) {//Loop over each token of the query
-                    int query_token_at_pos = query.at(position);
+                    int query_token_at_pos = query[position];
                     if(my_neighborhood_index.count(query_token_at_pos)) {//contains()
                         const int from = max(0, position-k+1);
                         const int to = min(static_cast<int>(query_windows.size())-1, position);
@@ -1938,8 +1939,8 @@ public:
         }
         //(2) Now lets get the candidate runs for Line of the alignment matrix
         for(int article_id=0;article_id<raw_corpus.size();article_id++) {
-            const vector<pair<int,int>>& article_line_runs = line_runs.at(article_id);
-            const vector<vector<int>>& article_windows = k_width_windows.at(article_id);
+            const vector<pair<int,int>>& article_line_runs = line_runs[article_id];
+            const vector<vector<int>>& article_windows = k_width_windows[article_id];
             unordered_map<int,vector<pair<int,int>>> all_candidates_article;
 
             for(const pair<int,int>& run : article_line_runs) {
@@ -1947,13 +1948,14 @@ public:
                 const int run_stop  = run.second;
 
                 for(int line=run_start; line<=run_stop;line++) {//refers to a line in the Alignment Matrix
-                    const auto& article_window = article_windows.at(line);
-                    BitSet window_bit_vectors(static_cast<int>(query_windows.size()));//TODO pre-allocate and nullify
+                    const auto& article_window = article_windows[line];
+                    BitSet window_bit_vectors(num_doubles_for_bit_vector);//TODO pre-allocate and nullify
 
                     for(int token_id : article_window) {//Not all tokens in the window have a vector. They only have one if they create at least one candidate pair
-                        if(candidate_vectors.count(token_id)) {//contains()
-                            const BitSet& my_bit_vector=candidate_vectors.at(token_id);
-                            window_bit_vectors.logic_or(my_bit_vector);
+                        const auto& temp = candidate_vectors.find(token_id);
+                        if(temp!=candidate_vectors.end()) {//contains()
+                            //const BitSet& my_bit_vector=candidate_vectors.at(token_id);
+                            window_bit_vectors.logic_or(temp->second);
                         }
                     }
                     /*{
@@ -2005,17 +2007,17 @@ public:
 
 
     static void to_vector(const unordered_map<int, vector<pair<int, int>>>& hash_map
-        , vector<vector<pair<int, int>>>& vector_to_create, const int num_article_windows) {
+        , vector<pair<int,vector<pair<int, int>>>>& vector_to_create, const int num_article_windows) {
 
         vector_to_create.reserve(num_article_windows);
 
         for(int window=0;window<num_article_windows;window++) {
             if(hash_map.count(window)) {//This window has candidates
-                vector_to_create.emplace_back(hash_map.at(window));
-            }else {
+                vector_to_create.emplace_back(window,hash_map.at(window));
+            }/*else {
                 vector<pair<int,int>> dummy;
                 vector_to_create.emplace_back(dummy);
-            }
+            }*/
         }
     }
 
@@ -2060,13 +2062,14 @@ public:
             double runtime;
             if (approach_to_run == run_seda){
                 runtime = s.run_solution();
-            }else if(approach_to_run == run_c_seda_2) {
-                vector<vector<pair<int, int>>> all_candidates_as_vector;//For better debugging
+            }else if(approach_to_run == run_c_seda) {
+                vector<pair<int,vector<pair<int, int>>>> all_candidates_as_vector;//For better debugging
                 const int num_article_windows = static_cast<int>(k_width_windows.at(article_id).size());
                 to_vector(all_candidates_corpus.at(article_id), all_candidates_as_vector, num_article_windows);
+                runtime = s.run_solution_corpus(all_candidates_as_vector);
+                //runtime = s.run_solution_corpus_2(all_candidates_corpus.at(article_id));
+            }else if(approach_to_run == run_c_seda_2) {
                 runtime = s.run_solution_corpus_2(all_candidates_corpus.at(article_id));
-            }else if(approach_to_run == run_c_seda) {
-                runtime = s.run_solution_corpus(all_candidates_corpus.at(article_id));
             }else if(approach_to_run == run_basem) {
                 runtime = s.run_baseline();
             }else if(approach_to_run == run_naive) {
