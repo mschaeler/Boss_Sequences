@@ -8,7 +8,22 @@
 #include <utility>
 #include "HungarianKevinStern.h"
 
+constexpr int run_naive = 0;
+constexpr int run_basem = 1;
+constexpr int run_seda  = 2;
+
+constexpr int run_naive_rb = 3;
+constexpr int run_basem_rb = 4;
+constexpr int run_seda_rb  = 5;
+constexpr int run_fast_text = 6;
+
+constexpr int run_c_seda = 7;
+constexpr int run_c_seda_2 = 8;
+
 bool verbose = true;
+
+int global_query_id;
+int global_article_id;
 
 class MatrixRingBuffer {
 public:
@@ -451,7 +466,7 @@ class Solutions{
             }
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-        cout << "GCM materialized in " << time_elapsed.count() << endl;
+        if(verbose) cout << "GCM materialized in " << time_elapsed.count() << endl;
     }
 
     /**
@@ -556,9 +571,26 @@ class Solutions{
                 const int token_id_in_b2 = book_2.at(pos);
 
                 if(isIn(neighborhood_index,token_id_in_b2)) {//TODO set, not vector to avoid is in
-                    int start = max(0, pos-k+1);
-                    auto stop =  (k_with_windows_b2.size()-1 < pos) ? k_with_windows_b2.size()-1 : pos;
-                    my_set.set(start,stop+1);
+                    const uint32_t start = static_cast<uint32_t>(max(0, pos - k + 1));
+                    const auto stop =   static_cast<uint32_t>((k_with_windows_b2.size()-1 < pos) ? k_with_windows_b2.size()-1 : pos);
+                    //FIXME my_set.set(start,stop+1);
+                    //FIXME so gehts my_set.set(start);
+                    for (uint32_t bit=start;bit<stop+1;bit++) {
+                        my_set.set(bit);
+                    }
+
+                    /*if (global_article_id==1 && global_query_id == 0 && token_id==62 && token_id_in_b2==47) {
+                        cout << "****************** create_indexes_bit_vectors()" << endl;
+                        cout << neighborhood_index.size() << endl;
+                        if (!neighborhood_index.empty()) {
+                            cout << neighborhood_index.at(0) << endl;
+                        }
+                        cout << my_set.words.at(0) << endl;
+                        cout << "******************" << endl;
+                        cout << start << endl;
+                        cout << stop << endl;
+                        //exit(0);
+                    }*/
                 }
             }
         }
@@ -823,7 +855,7 @@ public:
         out_config("run_fast_text()");
         long count_computed_cells = 0;
 
-        int vector_size = word_vectors.at(0).size();
+        const int vector_size = static_cast<int>(word_vectors.at(0).size());
         vector<double> avg_vec_window_line(vector_size);
         vector<vector<double>> averaged_colum_vectors(k_with_windows_b2.size(), vector<double>(vector_size));
         //USE_GLOBAL_MATRIX = false;
@@ -898,8 +930,8 @@ public:
 
 
     //XXX this one does not compute the distances on the fly. Add time?
-    double run_naive(){
-        out_config("run_naive()");
+    double run_naive() {
+        if(verbose) out_config("run_naive()");
         long count_computed_cells = 0;
         HungarianKevinStern solver(k);
 
@@ -924,16 +956,20 @@ public:
             }
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-
-        double check_sum = sum(alignment_matrix);
-        auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
-        cout << "run_naive() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
-
+        if(verbose){
+            const double check_sum = sum(alignment_matrix);
+            const auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
+            cout << "run_naive() time: " << time_elapsed.count() << "\t" << check_sum << "\t" <<  size << "\t" << count_computed_cells << endl;
+        }
         return time_elapsed.count();
     }
 
+    /**
+     * Variant without zero Copy Hungarian using only O(k*k) filter. A.k.a. BaSem.
+     * @return
+     */
     double run_baseline() {
-        out_config("run_baseline()");
+        if(verbose) out_config("run_baseline()");
         long count_computed_cells = 0;
         long count_survived_pruning = 0;
         HungarianKevinStern solver(k);
@@ -963,13 +999,125 @@ public:
             }
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-
-        double check_sum = sum(alignment_matrix);
-        auto size = alignment_matrix.size() * alignment_matrix.at(0).size();
-        cout << "run_baseline() time: " << time_elapsed.count() << "\t" << check_sum << "\t" << size << "\t"
+        if(verbose){
+            double check_sum = sum(alignment_matrix);
+            auto size = alignment_matrix.size() * alignment_matrix.at(0).size();
+            cout << "run_baseline() time: " << time_elapsed.count() << "\t" << check_sum << "\t" << size << "\t"
              << count_survived_pruning << "\t" << count_computed_cells << endl;
-
+        }
         return time_elapsed.count();
+    }
+
+    static void out_vector_of_pairs(const vector<pair<int, int>>& my_vector) {
+        for (const auto& runs : my_vector) {
+            cout << "("<<runs.first<<","<<runs.second<<") ";
+        }
+        cout << endl;
+    }
+
+    void check_windows_for_candidates(const vector<int>& article_window, const vector<int>& query_window) {
+        for(int a_token : article_window) {
+            for (int q_token : query_window) {
+                if (global_similarity_matrix.at(a_token).at(q_token) >= threshold) {
+                    cout << "Has candidate" << endl;
+                    return;
+                }
+            }
+        }
+        cout <<"Has no cani"<< endl;
+        return;
+    }
+
+    void check_candidates(
+        const vector<vector<pair<int, int>>>& all_candidates
+        , const unordered_map<int, vector<pair<int, int>>> & my_candidates) {
+        for(int article_window=0; article_window<all_candidates.size(); article_window++) {
+            const auto& article_window_tokens = k_with_windows_b1.at(article_window);
+            if(my_candidates.count(article_window) == 0) {//Does not exist -> should be all zero bits
+                if (!all_candidates.at(article_window).empty()) {
+                    cout << "SeDA candidate vector for window should be empty, but is not." << endl;
+                    cout << "Window=" << article_window << endl;
+                    //Check whether
+                    out_vector_of_pairs(all_candidates.at(article_window));
+
+                    for (const auto& runs : all_candidates.at(article_window)) {
+                        for(int i=runs.first; i<=runs.second; i++) {
+                            const auto& query_window_tokens = k_with_windows_b2.at(i);
+                            check_windows_for_candidates(article_window_tokens, query_window_tokens);
+                        }
+                    }
+                    cout << endl;
+                }
+            }else {//There are candidates
+                const auto& window_runs_seda = all_candidates.at(article_window);
+                const auto& window_runs_c_seda = my_candidates.at(article_window);
+                if (window_runs_c_seda.size()!=window_runs_seda.size()) {
+                    cout << "window_runs_c_seda.size()!=window_runs_seda.size()" << endl;
+                    cout << "|SeDA|" << window_runs_seda.size() << endl;
+                    cout << "|c-SeDA|" << window_runs_c_seda.size() << endl;
+                    cout << "Article window=" << article_window << endl;
+                    cout << "C-SeDA";
+                    for (const auto& runs : window_runs_c_seda) {
+                        cout << "("<<runs.first<<","<<runs.second<<") ";
+                    }
+                    cout << endl;
+                    cout << "SeDA";
+                    for (const auto& runs : window_runs_seda) {
+                        cout << "("<<runs.first<<","<<runs.second<<") ";
+                    }
+                    cout << endl;
+                    int a_id = 1;
+                    int query_id = 0;
+                    cout << "Window of article";
+                    for (const int token : k_with_windows_b1.at(article_window) ) {
+                        cout << token << " ";
+                    }
+                    cout << endl;
+
+                    cout << "Window of query where run starts";
+                    for (const int token : k_with_windows_b2.at(window_runs_c_seda.at(0).first) ) {
+                        cout << token << " ";
+                    }
+                    cout << endl;
+
+                    cout << "Window of query where run ends";
+                    for (const int token : k_with_windows_b2.at(window_runs_c_seda.at(0).second) ) {
+                        cout << token << " ";
+                    }
+                    cout << endl;
+                    cout << "********" << endl;
+
+                    for (const auto& runs : window_runs_seda) {
+                        for(int i=runs.first; i<=runs.second; i++) {
+                            const auto& query_window_tokens = k_with_windows_b2.at(i);
+                            check_windows_for_candidates(article_window_tokens, query_window_tokens);
+                        }
+                    }
+                    for (const auto& runs : window_runs_c_seda) {
+                        for(int i=runs.first; i<=runs.second; i++) {
+                            const auto& query_window_tokens = k_with_windows_b2.at(i);
+                            check_windows_for_candidates(article_window_tokens, query_window_tokens);
+                        }
+                    }
+                    cout << endl;
+                    cout << "********" << endl;
+                }else {
+                    //Check until first error
+                    for (int i=0;i<window_runs_c_seda.size();i++) {
+                        const pair<int,int> c_seda_pair = window_runs_c_seda.at(i);
+                        const pair<int,int> seda_pair = window_runs_seda.at(i);
+                        if (c_seda_pair.first!=seda_pair.first) {
+                            cout << "First error at i=" << i << endl;
+                            break;
+                        }
+                        if (c_seda_pair.second!=seda_pair.second) {
+                            cout << "First error at i=" << i << endl;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -977,11 +1125,13 @@ public:
      * @param my_candidates <line, L<run_start,run_stop>>
      * @return
      */
-    double run_solution_corpus_2(){
+    double run_solution_corpus_2(const unordered_map<int,vector<pair<int,int>>>& my_candidates){
         if (verbose) out_config("run_solution_corpus()");
         HungarianDeep solver(k);
-        vector<vector<pair<int,int>>> all_candidates(k_with_windows_b1.size());
+        vector<vector<pair<int,int>>> all_candidates;
+        all_candidates.reserve(k_with_windows_b1.size());
         get_candidates(all_candidates);
+        //check_candidates(all_candidates, my_candidates);
 
         //Not needed later
         vector<const double*> window(k);//Can't use a vector to point into an existing buffer.
@@ -1032,21 +1182,21 @@ public:
                     }
 
                     double upper_bound_sim = prior_cell_similarity + MAX_SIM_ADDITION_NEW_NODE;// O(1) bound
-                    if(prior_cell_updated_matrix) {
+                    if(prior_cell_updated_matrix) {//We know what similarity we loose at least
                         upper_bound_sim-= (prev_min_value / k_double);// (1) O(k) bound : part of the O(k) bound in case the prior cell updated the matrix, i.e., we know the minimum similarity of the leaving node
                     }
 
                     if(upper_bound_sim+DOUBLE_PRECISION_BOUND>=threshold) {
-                        const double max_sim_new_node = min(window);//(2) O(k) bound
-                        upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;
-                        upper_bound_sim+=(max_sim_new_node/k_double);
+                        const double max_sim_new_node = min(window);    //(2) O(k) bound
+                        upper_bound_sim-=MAX_SIM_ADDITION_NEW_NODE;     //Instead of assuming the incoming node adds max_sim=1.0...
+                        upper_bound_sim+=(max_sim_new_node/k_double);   // ... we use the maximum of all sim() values
 
                         if(column_sum_correct) {
                             sum_cols -= col_maxima[0];
                             sum_cols -= max_sim_new_node;//is not negated
                             double temp = -sum_cols / k_double;
 
-                            if(temp<upper_bound_sim) {
+                            if(temp<upper_bound_sim) {//This bound is not always tighter
                                 upper_bound_sim = temp;
                             }
                         }
@@ -1206,13 +1356,23 @@ public:
     }
 
     void get_candidates(vector<vector<pair<int,int>>>& all_candidates) const {
-        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(k_with_windows_b2.size()));
+        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(static_cast<int>(k_with_windows_b2.size())));
         create_indexes_bit_vectors(inverted_window_index_bit_set);
-        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(k_with_windows_b2.size()));
+        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(static_cast<int>(k_with_windows_b2.size())));
+
+        /*if (global_article_id==1 && global_query_id == 0) {
+            cout << "****************** get_candidates()" << endl;
+            cout << inverted_window_index_bit_set.at(62).words.at(0) << endl;
+            cout << "******************" << endl;
+//            exit(0);
+        }*/
 
         for(int line=0;line<alignment_matrix.size();line++) {
             const vector<int>& window_b1 = k_with_windows_b1[line];
             BitSet& my_candidates = all_bit_candidates.at(line);
+            /*if (line==79) {
+                cout << line << endl;//TODO remove me
+            }*/
             my_candidates.logic_or(inverted_window_index_bit_set, window_b1);
 
             //Manually inlined condense transforms the bit vector into runs of candidates
@@ -1229,11 +1389,11 @@ public:
          * Indicates for token i whether the corresponding windows of the other sequence is a candidate.
          */
         //vector<vector<bool>> inverted_window_index(global_similarity_matrix.size(), vector<bool>(k_with_windows_b2.size()));
-        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(k_with_windows_b2.size()));
+        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(static_cast<int>(k_with_windows_b2.size())));
         //Not needed later
         vector<const double*> window(k);//Can't use a vector to point into an existing buffer.
         fill_similarity_matrix_deep();
-        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(k_with_windows_b2.size()));
+        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(static_cast<int>(k_with_windows_b2.size())));
 
         long count_candidates = 0;
         long count_survived_o_1 = 0;
@@ -1259,14 +1419,14 @@ public:
 
             while((start_alt = my_candidates.nextSetBit(start_alt))!=-1) {
                 stop_alt = my_candidates.nextClearBit(start_alt);
-                candidates_condensed_bit_set.push_back(start_alt);
-                candidates_condensed_bit_set.push_back(stop_alt-1);
+                candidates_condensed_bit_set.push_back(static_cast<int>(start_alt));//XXX The casting should be removed
+                candidates_condensed_bit_set.push_back(static_cast<int>(stop_alt)-1);
                 start_alt = stop_alt;
             }
 
             const vector<int>& candidates_condensed = candidates_condensed_bit_set;
 
-            const int size = candidates_condensed.size();
+            const int size = static_cast<int>(candidates_condensed.size());
             for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
                 const int run_start = candidates_condensed[c];
                 const int run_stop  = candidates_condensed[c+1];
@@ -1373,7 +1533,7 @@ public:
         if (verbose) {
             double check_sum = sum(alignment_matrix);
             auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
-            cout << "run_solution(k=" << k << ") time: " << time_elapsed.count() << " idx_gen= " << index_generation.count() << " time= " << time_elapsed.count() << "\tsum=" << check_sum << "\tsize=" << size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_square << "\t" << count_cells_exceeding_threshold << endl;
+            cout << "run_solution(k=" << k << ") time: " << time_elapsed.count() << " idx_gen= " << index_generation.count() << " time= " << time_elapsed.count() << "\t sum=" << check_sum << "\t size=" << size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_square << "\t" << count_cells_exceeding_threshold << endl;
         }
         return time_elapsed.count();
     }
@@ -1386,11 +1546,11 @@ public:
          * Indicates for token i whether the corresponding windows of the other sequence is a candidate.
          */
         //vector<vector<bool>> inverted_window_index(global_similarity_matrix.size(), vector<bool>(k_with_windows_b2.size()));
-        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(k_with_windows_b2.size()));
+        vector<BitSet> inverted_window_index_bit_set(global_similarity_matrix.size(), BitSet(static_cast<int>(k_with_windows_b2.size())));
         //Not needed later
         //vector<const double*> window(k);//Can't use a vector to point into an existing buffer.
         //fill_similarity_matrix_deep();
-        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(k_with_windows_b2.size()));
+        vector<BitSet> all_bit_candidates(k_with_windows_b1.size(), BitSet(static_cast<int>(k_with_windows_b2.size())));
 
         long count_candidates = 0;
         long count_survived_o_1 = 0;
@@ -1416,14 +1576,14 @@ public:
 
             while((start_alt = my_candidates.nextSetBit(start_alt))!=-1) {
                 stop_alt = my_candidates.nextClearBit(start_alt);
-                candidates_condensed_bit_set.push_back(start_alt);
-                candidates_condensed_bit_set.push_back(stop_alt-1);
+                candidates_condensed_bit_set.push_back(static_cast<int>(start_alt));
+                candidates_condensed_bit_set.push_back(static_cast<int>(stop_alt)-1);
                 start_alt = stop_alt;
             }
 
             const vector<int>& candidates_condensed = candidates_condensed_bit_set;
 
-            const int size = candidates_condensed.size();
+            const int size = static_cast<int>(candidates_condensed.size());
             for(int c=0;c<size;c+=2) {//Contains start and stop index. Thus, c+=2.
                 const int run_start = candidates_condensed[c];
                 const int run_stop  = candidates_condensed[c+1];
@@ -1502,7 +1662,7 @@ public:
 
         double check_sum = sum(alignment_matrix);
         auto size = alignment_matrix.size()*alignment_matrix.at(0).size();
-        cout << "run_solution(k=" << k << ") time: " << time_elapsed.count() << " idx_gen= " << index_generation.count() << " time= " << time_elapsed.count() << "\tsum=" << check_sum << "\tsize=" << size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_square << "\t" << count_cells_exceeding_threshold << endl;
+        cout << "run_solution(k=" << k << ") time: " << time_elapsed.count() << " idx_gen= " << index_generation.count() << " time= " << time_elapsed.count() << "\tsum=" << check_sum << "\t size=" << size << "\t |C|=" << count_candidates << "\t |O(1)|" << count_survived_o_1 << "\t |O(k)|" << count_survived_o_k << "\tO(k*k)" << count_survived_o_k_square << "\t" << count_cells_exceeding_threshold << endl;
         return time_elapsed.count();
     }
 };
@@ -1514,6 +1674,8 @@ class Corpus {
     vector<vector<vector<int>>> k_width_windows;
     const vector<vector<int>> candidate_producing_token_pairs;
     const vector<unordered_set<int>> candidate_producing_token_pairs_hashed;
+    const int k;
+    const double threshold;
 
     /**
      * at(article_id).at(token_id)->positions in raw_corpus.at(article_id)
@@ -1533,7 +1695,7 @@ class Corpus {
             cout << "..." <<endl;
         }
         cout << "..." << endl;
-        for (int article = to_display.size()-num_articles_to_display;article<to_display.size();article++) {
+        for (int article = static_cast<int>(to_display.size())-num_articles_to_display;article<to_display.size();article++) {
             auto& vec = to_display.at(article);
             cout << "id="<< article++ << " ";
             cout << "size=" << vec.size() << "\t[";
@@ -1544,10 +1706,10 @@ class Corpus {
         }
     }
 
-    static void out_short(const vector<vector<int>>& to_diplay) {
-        int num_articles_to_display = 3;
+    static void out_short(const vector<vector<int>>& to_display) {
+        constexpr int num_articles_to_display = 3;
         for (int article = 0;article<num_articles_to_display;article++) {
-            auto& vec = to_diplay.at(article);
+            auto& vec = to_display.at(article);
             cout << "id="<< article++ << " ";
             cout << "size=" << vec.size() << "\t[";
             for (int j=0;j<min(static_cast<int>(vec.size()),5);j++) {
@@ -1556,8 +1718,8 @@ class Corpus {
             cout << "..." <<endl;
         }
         cout << "..." << endl;
-        for (int article = to_diplay.size()-num_articles_to_display;article<to_diplay.size();article++) {
-            auto& vec = to_diplay.at(article);
+        for (int article = static_cast<int>(to_display.size())-num_articles_to_display;article<to_display.size();article++) {
+            auto& vec = to_display.at(article);
             cout << "id="<< article++ << " ";
             cout << "size=" << vec.size() << "\t[";
             for (int j=0;j<min(static_cast<int>(vec.size()),5);j++) {
@@ -1581,29 +1743,29 @@ class Corpus {
         return dotProduct;
     }
 public:
-    explicit Corpus(int k, vector<vector<int>> _raw_corpus_int
+    explicit Corpus(const int _k, const double _threshold, vector<vector<int>> _raw_corpus_int
         , vector<vector<double>> _embeddings
         , vector<vector<int>> _candidate_producing_token_pairs
         , vector<unordered_set<int>> _candidate_producing_token_pairs_hashed
-    ) :
-        raw_corpus(std::move(_raw_corpus_int)),
+    ) : raw_corpus(std::move(_raw_corpus_int)),
         embedding_vector_index(std::move(_embeddings)),
         candidate_producing_token_pairs(std::move(_candidate_producing_token_pairs)),
         candidate_producing_token_pairs_hashed(std::move(_candidate_producing_token_pairs_hashed)),
-        inverted_token_index(embedding_vector_index.size())
-    {
+        k(_k),
+        threshold(_threshold),
+        inverted_token_index(embedding_vector_index.size()) {
         cout << "Indexing Corpus" << endl;
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
-        for (int article_id=0;article_id<raw_corpus.size();article_id++) {
+        for (int article_id = 0; article_id < raw_corpus.size(); article_id++) {
             //cout << "id="<< article_id << endl;
-            auto& article = raw_corpus.at(article_id);
+            auto &article = raw_corpus.at(article_id);
             vector<int> my_unique_tokens = Solutions::get_tokens(article);
-            unordered_map<int, vector<int>> token_positions;
+            unordered_map<int, vector<int> > token_positions;
 
-            for(int token_id : my_unique_tokens) {
+            for (int token_id: my_unique_tokens) {
                 vector<int> token_id_index;
-                for (int position=0;position<article.size();position++) {
-                    if(article.at(position)==token_id) {
+                for (int position = 0; position < article.size(); position++) {
+                    if (article.at(position) == token_id) {
                         token_id_index.push_back(position);
                     }
                 }
@@ -1617,55 +1779,58 @@ public:
             k_width_windows.push_back(my_windows);
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
-        cout << "Indexing Corpus [Done] " << time_elapsed.count() <<endl;
+        cout << "Indexing Corpus [Done] " << time_elapsed.count() << endl;
+    }
+
+    pair<int,int> has_candidate(const vector<int>& article_window, const vector<int>& query_sequence) const {
+        for (int article_token : article_window) {
+            for (int query_token: query_sequence) {
+                if (candidate_producing_token_pairs_hashed.at(article_token).count(query_token) == 1) {
+                    pair<int,int> result = make_pair(article_token, query_token);
+                    return result;
+                }
+            }
+        }
+
+        return make_pair(-1,-1);
     }
 
     /**
      *
      * @param query_id
      * @param all_candidates_corpus
-     * @param sim mapping of all unique tokens of the query to their similarity values of all tokens
-     * @param threshold
-     * @param k
+     * @param aggregated_runtime
      */
     void filter(const int query_id
                 //, vector<vector<pair<int,int>>>& line_runs
                 , vector<unordered_map<int,vector<pair<int,int>>>>& all_candidates_corpus
-                , const unordered_map<int, vector<double>>& sim
-                , const double threshold
-                , const int k) const {
+                , vector<double>& aggregated_runtime) const {
         cout << "Computing corpus filter for query " << query_id;
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
 
         const vector<int>& query = raw_corpus.at(query_id);
         const auto& query_windows = k_width_windows.at(query_id);
 
-        vector<BitSet> candidate_documents;
+        vector<BitSet> candidate_documents;//TODO move to constructor
         candidate_documents.reserve(raw_corpus.size());
         for (int article_id=0;article_id<raw_corpus.size();article_id++) {
             candidate_documents.emplace_back(k_width_windows.at(article_id).size());//Must have as many bits as windows
         }
 
-       unordered_set<int> index_N;//All the token that produce candidates
-       for (int query_token : query) {
-           for(int neighbor : candidate_producing_token_pairs.at(query_token)) {
-               index_N.insert(neighbor);
-           }
-       }
-
         for(int token_id : unique_tokens_per_article.at(query_id)) {//For each unique token of the query
             const auto& N_token_id = candidate_producing_token_pairs.at(token_id);
             for(int other_token : N_token_id) {//Iterate over all pairs (token_id, other_token) having sim() > threshold
-                for(int article_id : inverted_token_index.at(other_token)) { // These are the articles that contain other_token
+                const auto& my_index = inverted_token_index.at(other_token);
+                for(int article_id : my_index) { // These are the articles that contain other_token
                     if(article_id==query_id) {
                         continue; // Ignore myself
                     }
                     BitSet& candidate_lines = candidate_documents.at(article_id);
                     const vector<int>& positions = token_positions_articles.at(article_id).at(other_token);
-                    int index_last_k_width_windows = k_width_windows.at(article_id).size()-1;
+                    int index_last_k_width_windows = static_cast<int>(k_width_windows.at(article_id).size());
                     for(int position : positions) {//These are the token positions, not the windows
                         int from = max(0,position-k+1);
-                        int to = min(position, index_last_k_width_windows);
+                        int to = min(position+1, index_last_k_width_windows);
                         /*if (article_id==1) {
                             cout << "(" <<token_id <<", "<< other_token << "): -> from,to= " << from <<" "<< to << endl;
                         }*/
@@ -1678,13 +1843,38 @@ public:
         //Condense the BitSets to line runs
         vector<vector<pair<int,int>>> line_runs;
         for(int article_id=0;article_id<raw_corpus.size();article_id++) {
-            BitSet& candidate_lines = candidate_documents.at(article_id);
+            const BitSet& candidate_lines = candidate_documents.at(article_id);
+
+            /*{
+                //checked all lines
+                if (article_id!=query_id) {
+                    const auto& my_windows = k_width_windows.at(article_id);
+                    for (int window=0;window<my_windows.size();window++) {
+                        bool line_contains_candidate = candidate_lines.get(window);
+                        auto my_pair = has_candidate(my_windows.at(window), query);
+                        bool line_contains_candidate_2;
+                        if (my_pair.first==-1) {
+                            line_contains_candidate_2 = false;
+                        }else{
+                            line_contains_candidate_2 = true;
+                        }
+                        if(line_contains_candidate!=line_contains_candidate_2) {
+                            cout << endl;
+                            cout <<" aid="<< article_id << " w=" << window << endl;
+                            cout << "Index=" << line_contains_candidate << " N=" << line_contains_candidate_2 << endl;
+                            cout << my_pair.first << " " << my_pair.second << endl;
+                            cout << endl;
+                        }
+                    }
+                }
+            }*/
             //Manually inlined condense transforms the bit vector into runs of candidates
             vector<pair<int,int>> candidates_condensed_bit_set;
             Solutions::condense(candidate_lines, candidates_condensed_bit_set);
             line_runs.push_back(candidates_condensed_bit_set);
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
+        aggregated_runtime.push_back(time_elapsed.count());
         cout << " [Done]\t" << time_elapsed.count() <<endl;
 
         //Some statistics
@@ -1695,16 +1885,16 @@ public:
         for(int article_id=0;article_id<raw_corpus.size();article_id++) {
             const BitSet& bs = candidate_documents.at(article_id);
 
-            int size_m = k_width_windows.at(article_id).size() * query_windows.size();
+            int size_m = static_cast<int>(k_width_windows.at(article_id).size() * query_windows.size());
             int count_w_pruned = 0;
             for(int w=0;w<k_width_windows.at(article_id).size();w++) {
                 if(bs.get(w)==false) {
                     count_w_pruned++;
                 }
             }
-            int count_cells_pruned = count_w_pruned * query_windows.size();
+            int count_cells_pruned = static_cast<int>(count_w_pruned * query_windows.size());
             sum_cells += size_m;
-            sum_lines += k_width_windows.at(article_id).size();
+            sum_lines += static_cast<int>(k_width_windows.at(article_id).size());
             sum_lines_pruned += count_w_pruned;
             sum_cells_pruned += count_cells_pruned;
             if(sum_cells<sum_lines_pruned) {
@@ -1719,17 +1909,25 @@ public:
         start = std::chrono::high_resolution_clock::now();
         //Now start inlined column filter
         unordered_map<int,BitSet> candidate_vectors;
+
+        unordered_set<int> index_N;//All the token that produce candidates //TODO make bit set
+        for (int query_token : query) {
+            for(int neighbor : candidate_producing_token_pairs.at(query_token)) {
+                index_N.insert(neighbor);
+            }
+        }
+
         //(1) We compute for each token in the neighborhood index index_N the column vector once
         for(int other_token_id : index_N) {
             //cout << "Creating Vector for token_id= " << other_token_id << endl;
-            BitSet bs(query_windows.size());//one bit per window, if true this is a candidate column
+            BitSet bs(static_cast<int>(query_windows.size()));//one bit per window, if true this is a candidate column
             {
                 //inlined create_bit_vector()
                 // That's the index of other_token_id -> looking for pairs sim(other_token_id, query_token_at_pos)>=threshold
-                unordered_set<int> my_neighborhood_index = candidate_producing_token_pairs_hashed.at(other_token_id);
+                const unordered_set<int>& my_neighborhood_index = candidate_producing_token_pairs_hashed.at(other_token_id);//FIX was copied
                 for(int position=0; position<query.size();position++) {//Loop over each token of the query
                     int query_token_at_pos = query.at(position);
-                    if(my_neighborhood_index.count(query_token_at_pos)) {//XXX is count() a good idea?
+                    if(my_neighborhood_index.count(query_token_at_pos)) {//contains()
                         const int from = max(0, position-k+1);
                         const int to = min(static_cast<int>(query_windows.size())-1, position);
                         bs.set(from,to+1);
@@ -1738,9 +1936,10 @@ public:
             }
             candidate_vectors.insert({other_token_id, bs});
         }
-        //(2)
+        //(2) Now lets get the candidate runs for Line of the alignment matrix
         for(int article_id=0;article_id<raw_corpus.size();article_id++) {
             const vector<pair<int,int>>& article_line_runs = line_runs.at(article_id);
+            const vector<vector<int>>& article_windows = k_width_windows.at(article_id);
             unordered_map<int,vector<pair<int,int>>> all_candidates_article;
 
             for(const pair<int,int>& run : article_line_runs) {
@@ -1748,17 +1947,36 @@ public:
                 const int run_stop  = run.second;
 
                 for(int line=run_start; line<=run_stop;line++) {//refers to a line in the Alignment Matrix
-                    const auto& article_window = k_width_windows.at(article_id).at(line);
-                    BitSet window_bit_vectors(query_windows.size());
+                    const auto& article_window = article_windows.at(line);
+                    BitSet window_bit_vectors(static_cast<int>(query_windows.size()));//TODO pre-allocate and nullify
 
-                    for(int token_id : article_window) {
-                        if(candidate_vectors.find(token_id)!=candidate_vectors.end()) {
+                    for(int token_id : article_window) {//Not all tokens in the window have a vector. They only have one if they create at least one candidate pair
+                        if(candidate_vectors.count(token_id)) {//contains()
                             const BitSet& my_bit_vector=candidate_vectors.at(token_id);
                             window_bit_vectors.logic_or(my_bit_vector);
                         }
                     }
+                    /*{
+                        // checked candidate runs
+                        for(int q_window=0;q_window<query_windows.size();q_window++) {
+                            bool index_candidate = window_bit_vectors.get(q_window);
+                            auto my_pair = has_candidate(article_window, query_windows.at(q_window));
+                            bool line_contains_candidate_2;
+                            if (my_pair.first==-1) {
+                                line_contains_candidate_2 = false;
+                            }else{
+                                line_contains_candidate_2 = true;
+                            }
+                            if(index_candidate!=line_contains_candidate_2) {
+                                cout << endl;
+                                cout <<" aid="<< article_id << " line=" << line << " w=" << q_window << endl;
+                                cout << "Index=" << index_candidate << " N=" << line_contains_candidate_2 << endl;
+                                cout << my_pair.first << " " << my_pair.second << endl;
+                                cout << endl;
+                            }
+                        }
+                    }*/
                     //condense
-                    //Manually inlined condense transforms the bit vector into runs of candidates
                     vector<pair<int,int>> candidates_condensed;
                     Solutions::condense(window_bit_vectors, candidates_condensed);
                     all_candidates_article.insert({line, candidates_condensed});
@@ -1772,7 +1990,7 @@ public:
 
         for(int article_id=0;article_id<raw_corpus.size();article_id++) {
             const auto& article_candidates = all_candidates_corpus.at(article_id);
-            sum_num_cells+= k_width_windows.at(article_id).size() * query_windows.size();
+            sum_num_cells+= static_cast<int>(k_width_windows.at(article_id).size() * query_windows.size());
             for (const auto& line_candidates : article_candidates) {
                 for(const auto& run : line_candidates.second) {
                     int run_start = run.first;
@@ -1781,36 +1999,82 @@ public:
                 }
             }
         }
+        aggregated_runtime.push_back(time_elapsed.count());
         cout << "Candidate filter \t"<<sum_num_cells << "\t" << cells_remaining << "\tin\t" << time_elapsed.count()<< endl;
     }
 
 
+    static void to_vector(const unordered_map<int, vector<pair<int, int>>>& hash_map
+        , vector<vector<pair<int, int>>>& vector_to_create, const int num_article_windows) {
 
-    double query(const int query_id) const {
-        int k = 10;
-        double threshold = 0.7;
+        vector_to_create.reserve(num_article_windows);
+
+        for(int window=0;window<num_article_windows;window++) {
+            if(hash_map.count(window)) {//This window has candidates
+                vector_to_create.emplace_back(hash_map.at(window));
+            }else {
+                vector<pair<int,int>> dummy;
+                vector_to_create.emplace_back(dummy);
+            }
+        }
+    }
+
+    double query(const int query_id, vector<double>& aggregated_runtime, const int approach_to_run) const {
+        //int k = 10;
+        //double threshold = 0.7;
+        global_query_id = query_id;//for debug
 
         vector<double> runtimes;
         runtimes.reserve(raw_corpus.size());
-        const unordered_map<int, vector<double>> sim = get_sim(raw_corpus.at(query_id), embedding_vector_index);
+        const unordered_map<int, vector<double>> sim = get_sim(raw_corpus.at(query_id), embedding_vector_index, aggregated_runtime);
         const auto& my_unique_tokens = unique_tokens_per_article.at(query_id);
         const vector<int>& query = raw_corpus.at(query_id);
 
         //Compute the corpus filter
         //vector<vector<pair<int,int>>> line_runs;
         vector<unordered_map<int,vector<pair<int,int>>>> all_candidates_corpus;
-        filter(query_id, all_candidates_corpus, sim, threshold, k);
+        filter(query_id, all_candidates_corpus, aggregated_runtime);
+
+        if (approach_to_run == run_seda){
+            cout << "Running SeDA" << endl;
+        }else if(approach_to_run == run_c_seda_2) {
+            cout << "Running run_solution_corpus_2()" << endl;
+        }else if(approach_to_run == run_c_seda) {
+            cout << "Running run_solution_corpus()" << endl;
+        }else if(approach_to_run == run_naive) {
+            cout << "Running run_naive()" << endl;
+        }else if(approach_to_run == run_basem) {
+            cout << "Running run_baseline()" << endl;
+        }else{
+            cout << "Running Nothing in else branch" << endl;
+        }
 
         for (int article_id=0;article_id<raw_corpus.size();article_id++) {
+            global_article_id = article_id;//for debug
             if (query_id == article_id) {
                 continue; // do not query myself
             }
             const auto& article_unique_tokens = unique_tokens_per_article.at(article_id);
             //XXX This copies the object s
-            Solutions s = map_to_new_alphabet(sim, query, raw_corpus.at(article_id), embedding_vector_index, my_unique_tokens, article_unique_tokens);
-            //double runtime = s.run_solution();
-            double runtime = s.run_solution_corpus_2();
-            //double runtime = s.run_solution_corpus(all_candidates_corpus.at(article_id));
+            Solutions s = map_to_new_alphabet(k, threshold, sim, query, raw_corpus.at(article_id), embedding_vector_index, my_unique_tokens, article_unique_tokens);
+            double runtime;
+            if (approach_to_run == run_seda){
+                runtime = s.run_solution();
+            }else if(approach_to_run == run_c_seda_2) {
+                vector<vector<pair<int, int>>> all_candidates_as_vector;//For better debugging
+                const int num_article_windows = static_cast<int>(k_width_windows.at(article_id).size());
+                to_vector(all_candidates_corpus.at(article_id), all_candidates_as_vector, num_article_windows);
+                runtime = s.run_solution_corpus_2(all_candidates_corpus.at(article_id));
+            }else if(approach_to_run == run_c_seda) {
+                runtime = s.run_solution_corpus(all_candidates_corpus.at(article_id));
+            }else if(approach_to_run == run_basem) {
+                runtime = s.run_baseline();
+            }else if(approach_to_run == run_naive) {
+                runtime = s.run_naive();
+            }else{
+                runtime = 0;//Do nothing
+            }
+
             runtimes.push_back(runtime);
             if (article_id % 100 == 0) {
                 cout << article_id << " ";
@@ -1818,10 +2082,11 @@ public:
         }
         cout << endl;
         double sum_runtime = Solutions::sum(runtimes);
+        aggregated_runtime.push_back(sum_runtime);
         return  sum_runtime;
     }
 
-    static unordered_map<int, vector<double>> get_sim(const vector<int>& query, const vector<vector<double>>& embeddings) {
+    static unordered_map<int, vector<double>> get_sim(const vector<int>& query, const vector<vector<double>>& embeddings, vector<double>& aggregated_runtime) {
         chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
         unordered_map<int, vector<double>> sim;
         for (int token : query) {
@@ -1838,6 +2103,7 @@ public:
         }
         chrono::duration<double> time_elapsed = std::chrono::high_resolution_clock::now() - start;
         cout << "Creating sim() for query [Done]\t" << time_elapsed.count() <<endl;
+        aggregated_runtime.push_back(time_elapsed.count());
         return sim;
     }
 
@@ -1928,7 +2194,7 @@ public:
         out_short(embeddings);
     }
 
-    static Solutions map_to_new_alphabet(const unordered_map<int, vector<double>>& sim_query
+    static Solutions map_to_new_alphabet(const int k, const double threshold, const unordered_map<int, vector<double>>& sim_query
         , const vector<int>& query, const vector<int>& article, const vector<vector<double>>& embeddings
         , const vector<int>& unique_tokens_query, const vector<int>& unique_tokens_article
         ) {
@@ -1949,11 +2215,11 @@ public:
         }
         sort(all_tokens_ordered.begin(), all_tokens_ordered.end());//optional? nope!
         //const int max_id = all_tokens_ordered.size();//Last element has max id
-        unordered_map<int, int> new_tokenids;
+        unordered_map<int, int> new_token_ids;
         //unordered_map<int, vector<double>> new_embedding_vector_index;
         for(int new_id=0;new_id<all_tokens_ordered.size();new_id++){
-            int old_id = all_tokens_ordered.at(new_id);
-            new_tokenids.insert({old_id, new_id});
+            const int old_id = all_tokens_ordered.at(new_id);
+            new_token_ids.insert({old_id, new_id});
             //const vector<double>& my_vector = embeddings.at(old_id);
             //new_embedding_vector_index.insert({new_id, my_vector});//TODO add to run_fast_text()
         }
@@ -1961,37 +2227,38 @@ public:
         //Now create the wrappers for the Solution class.
         vector<int> raw_paragraph_b1(article.size());
         for(int i=0;i<raw_paragraph_b1.size();i++) {
-            int old_id = article.at(i);
-            int new_id = new_tokenids.at(old_id);
+            const int old_id = article.at(i);
+            const int new_id = new_token_ids.at(old_id);
             raw_paragraph_b1.at(i) = new_id;
         }
 
         vector<int> raw_paragraph_b2(query.size());
         for(int i=0;i<raw_paragraph_b2.size();i++) {
-            int old_id = query.at(i);
-            int new_id = new_tokenids.at(old_id);
+            const int old_id = query.at(i);
+            const int new_id = new_token_ids.at(old_id);
             raw_paragraph_b2.at(i) = new_id;
         }
-        int max_id_query   = unique_tokens_query.at(unique_tokens_query.size()-1);
-        int max_id_article = unique_tokens_article.at(unique_tokens_article.size()-1);
-        const int array_length = new_tokenids.at(max_id_query)+1;
-        vector<vector<double>> sim(new_tokenids.at(max_id_article)+1,vector<double>(array_length));//TODO to large!? Seems to work
+        const int max_id_query   = unique_tokens_query.at(unique_tokens_query.size()-1);
+        const int max_id_article = unique_tokens_article.at(unique_tokens_article.size()-1);
+        const int array_length = new_token_ids.at(max_id_query)+1;
+        vector<vector<double>> sim(new_token_ids.at(max_id_article)+1,vector<double>(array_length));//TODO to large!? Seems to work
 
         //materialize sim()
         for(int old_id_q : unique_tokens_query){
-            const int new_id_q = new_tokenids.at(old_id_q);
+            const int new_id_q = new_token_ids.at(old_id_q);
             const vector<double>& sim_line = sim_query.at(old_id_q);
 
             for(int old_id_a : unique_tokens_article) {
-                int new_id_a = new_tokenids.at(old_id_a);
+                const int new_id_a = new_token_ids.at(old_id_a);
                 sim.at(new_id_a).at(new_id_q) = sim_line.at(old_id_a);
             }
         }
-        int k = 10;
-        auto k_width_windows_b1 = Solutions::create_windows(raw_paragraph_b1, k);
-        auto k_width_windows_b2 = Solutions::create_windows(raw_paragraph_b2, k);
 
-        Solutions s(k,0.7,raw_paragraph_b1, raw_paragraph_b2, sim, k_width_windows_b1, k_width_windows_b2);
+        const auto k_width_windows_b1 = Solutions::create_windows(raw_paragraph_b1, k);
+        const auto k_width_windows_b2 = Solutions::create_windows(raw_paragraph_b2, k);
+
+        //TODO Remove need for copy objects
+        Solutions s(k,threshold,raw_paragraph_b1, raw_paragraph_b2, sim, k_width_windows_b1, k_width_windows_b2);
         return s;
         //double runtime = s.run_baseline();
         //double runtime = s.run_solution();
