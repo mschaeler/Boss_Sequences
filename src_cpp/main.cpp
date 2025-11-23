@@ -130,6 +130,8 @@ public:
     }
 };
 
+void to_result_string(vector<vector<double>> vector, int k, double run);
+
 vector<vector<double>> get_sim_matrix(const vector<int>& raw_book_1, const vector<int>& raw_book_2, DataLoader& loader, Environment& env){
     //get size of matrix
     int max_id = 0;
@@ -228,6 +230,26 @@ vector<double> run_experiments(Environment& env, DataLoader& loader, const doubl
     cout << endl;
 
     return run_times;
+}
+
+void to_result_string_corpus(const vector<vector<double>>& all_aggregated_runtimes,const int k, const double threshold, const int approach) {
+    double size_as_double = all_aggregated_runtimes.size();
+    vector<double> sum(all_aggregated_runtimes.at(0).size());
+    //sum up
+    for(const auto& line : all_aggregated_runtimes){
+        for(int i=0;i<line.size();i++){
+            sum.at(i) += line.at(i);
+        }
+    }
+    //cout << endl;
+    string s = "(k=";
+    cout <<"a="<<approach<< " (k="<<k<<", threshold="<<threshold<<")\t";
+    //normalize
+    for(int i=0;i<all_aggregated_runtimes.at(0).size();i++){
+        sum.at(i) /= size_as_double;
+        cout << sum.at(i) <<"\t";
+    }
+    cout << endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -485,23 +507,13 @@ int main(int argc, char* argv[]) {
         }
     }else if(experiment == wiki_corpus_experiment) {
         string line;
-        int k = k_value_to_run;
+        //int k2 = k_value_to_run;
         verbose = false;//prevent outputs of Solution class
         int num_queries = num_queries_to_run;
-        cout << "Wiki Corpus Experiment Params: num_queries=" << num_queries << " k=" << k << " threshold=" << threshold_to_run << endl;
+        cout << "Wiki Corpus Experiment Params: num_queries=" << num_queries << " k=" << k_value_to_run << " threshold=" << threshold_to_run << endl;
 
         //(1) load the corpus and tokenize
         string wiki_dump_file = "";
-        if(threshold_to_run==0.7){
-            wiki_dump_file = "..//data/en/wiki-1024000-corpus.txt";
-        }else if(threshold_to_run == 0.6){
-            wiki_dump_file = "..//data/en/N_06.txt";
-        }else if(threshold_to_run == 0.8){
-            wiki_dump_file = "..//data/en/N_08.txt";
-        }else{
-            cout << "Currently unsupported threshold=" << threshold_to_run << endl;
-            threshold_to_run = 0.7;
-        }
 
         vector<vector<int>> raw_corpus_int;
         string corpus_file("..//data/en/corpus_int.tsv");
@@ -511,37 +523,77 @@ int main(int argc, char* argv[]) {
             num_queries = static_cast<int>(raw_corpus_int.size());
         }
 
-        //(2) Load candidate_producing_token_pairs: Depends on threshold //TODO
-        vector<vector<int>> candidate_producing_token_pairs;
-        Corpus::get_N(candidate_producing_token_pairs, "..//data/en/candidate_producing_token_pairs.txt");
-        //redundantly store them for O(1) access
-        vector<unordered_set<int>> candidate_producing_token_pairs_hashed;
-        candidate_producing_token_pairs_hashed.reserve(candidate_producing_token_pairs.size());//pre-allocate space
-        for(const vector<int>& line_N : candidate_producing_token_pairs) {
-            candidate_producing_token_pairs_hashed.emplace_back(line_N.begin(), line_N.end());
-        }
-
-        //(3) Load embeddings
+        //(2) Load embeddings
         vector<vector<double>> embeddings(0);
         string embeddings_file("..//data/en/corpus_embeddings.tsv");
         Corpus::get_embeddings(embeddings_file, embeddings);
 
-        Corpus my_corpus(k, threshold_to_run, raw_corpus_int, embeddings, candidate_producing_token_pairs, candidate_producing_token_pairs_hashed);
-        vector<vector<double>> all_aggregated_runtimes;
-        for (int query_id = 0;query_id < num_queries; query_id++) {
-            vector<double> aggregated_runtime;
-            double runtime = my_corpus.query(query_id, aggregated_runtime, approach_to_run);
-            cout <<"Runtime\t"<< runtime << endl;
-            all_aggregated_runtimes.emplace_back(aggregated_runtime);
+        vector<int> my_ks; //= {k_value_to_run};
+        vector<double> my_thresholds; //= {threshold_to_run};
+        if(threshold_to_run==-1 || k_value_to_run == -1){
+            my_ks.push_back(05);
+            my_ks.push_back(10);
+            my_ks.push_back(15);
+
+            my_thresholds.push_back(0.6);
+            my_thresholds.push_back(0.7);
+            my_thresholds.push_back(0.8);
+        }else{
+            my_ks.push_back(k_value_to_run);
+            my_thresholds.push_back(threshold_to_run);
         }
-        cout << "All aggregated runtimes of approach " << approach_to_run << " k=" << k << " threshold=" << threshold_to_run << endl;
-        cout << "Sim()\tCorpus_Filter\tCandidate_Filter\tRuntime" << endl;
-        for(const auto& vector : all_aggregated_runtimes) {
-            for(double d : vector) {
-                cout << d << "\t";
+
+        vector<vector<vector<double>>> result_summary;
+
+        for(int k : my_ks){
+            for(double my_threshold : my_thresholds){
+                cout << "Wiki Corpus Experiment Params: num_queries=" << num_queries << " k=" << k << " threshold=" << my_threshold << endl;
+
+                //(3) Load candidate_producing_token_pairs: Depends on threshold
+                if(my_threshold==0.7){
+                    wiki_dump_file = "..//data/en/wiki-1024000-corpus.txt";
+                }else if(my_threshold == 0.6){
+                    wiki_dump_file = "..//data/en/N_06.txt";
+                }else if(my_threshold == 0.8){
+                    wiki_dump_file = "..//data/en/N_08.txt";
+                }else{
+                    cout << "Currently unsupported threshold=" << my_threshold << endl;
+                    my_threshold = 0.7;
+                }
+                vector<vector<int>> candidate_producing_token_pairs;
+                Corpus::get_N(candidate_producing_token_pairs, "..//data/en/candidate_producing_token_pairs.txt");
+                //redundantly store them for O(1) access
+                vector<unordered_set<int>> candidate_producing_token_pairs_hashed;
+                candidate_producing_token_pairs_hashed.reserve(candidate_producing_token_pairs.size());//pre-allocate space
+                for(const vector<int>& line_N : candidate_producing_token_pairs) {
+                    candidate_producing_token_pairs_hashed.emplace_back(line_N.begin(), line_N.end());
+                }
+
+                Corpus my_corpus(k, my_threshold, raw_corpus_int, embeddings, candidate_producing_token_pairs, candidate_producing_token_pairs_hashed);
+                vector<vector<double>> all_aggregated_runtimes;
+                for (int query_id = 0;query_id < num_queries; query_id++) {
+                    vector<double> aggregated_runtime;
+                    double runtime = my_corpus.query(query_id, aggregated_runtime, approach_to_run);
+                    cout <<"Runtime\t"<< runtime << endl;
+                    all_aggregated_runtimes.emplace_back(aggregated_runtime);
+                }
+                cout << "All aggregated runtimes of approach " << approach_to_run << " k=" << k << " threshold=" << my_threshold << endl;
+                cout << "Sim()\tCorpus_Filter\tCandidate_Filter\tRuntime" << endl;
+                for(const auto& vector : all_aggregated_runtimes) {
+                    for(double d : vector) {
+                        cout << d << "\t";
+                    }
+                    cout << endl;
+                }
+                result_summary.push_back(all_aggregated_runtimes);
             }
-            cout << endl;
         }
+        cout << "Result sumamry" << endl;
+        for(int i =0; i < result_summary.size(); i++){
+            to_result_string_corpus(result_summary.at(i), my_ks.at(i/my_ks.size()), my_thresholds.at(i%my_thresholds.size()), approach_to_run);
+        }
+
+
     }else{
         cout << "Unknown experiment " << experiment << endl;
     }
